@@ -646,11 +646,9 @@ function getXBubble!(Workspace, T::Real)
     function getKataninPropY!(nw1, nw2)
         BubbleProp = zeros(3, 3, NUnique, NUnique)
         for Rij_1 in 1:NUnique, Rij_2 in 1:NUnique
-            for j in 1:3
-                for i in 1:3
-                    ### Relative minus sign between paper & Nils' thesis
-                    BubbleProp[i, j, Rij_1, Rij_2] = -iSKat[i](Rij_1, nw1) * iG[j](Rij_2, nw2)
-                end
+            for j in 1:3, i in 1:3
+                ### Relative minus sign between paper & Nils' thesis
+                BubbleProp[i, j, Rij_1, Rij_2] = -iSKat[i](Rij_1, nw1) * iG[j](Rij_2, nw2)
             end
         end
         return BubbleProp
@@ -660,11 +658,9 @@ function getXBubble!(Workspace, T::Real)
         BubbleProp = zeros(3, 3, NUnique)
 
         for Rij in 1:Par.System.NUnique
-            for j in 1:3
-                for i in 1:3
-                    ### Relative minus sign between paper & Nils' thesis
-                    BubbleProp[i, j, Rij] = -iSKat[i](Rij, nw1) * iG[j](Rij, nw2)
-                end
+            for j in 1:3, i in 1:3
+                ### Relative minus sign between paper & Nils' thesis
+                BubbleProp[i, j, Rij] = -iSKat[i](Rij, nw1) * iG[j](Rij, nw2)
             end
         end
 

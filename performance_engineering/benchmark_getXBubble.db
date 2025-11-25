@@ -115,14 +115,14 @@
       "type": "square lattice"
     },
     "benchmark_data": {
-      "gctimes_mean": 1.1269412209677419e7,
-      "times_maximum": 1.16942175e8,
-      "times_mean": 8.135166359677419e7,
-      "gctimes_maximum": 4.1292135e7,
-      "times_minimum": 6.2809969e7,
+      "gctimes_mean": 1.1064126950819673e7,
+      "times_maximum": 1.19912685e8,
+      "times_mean": 8.277776270491803e7,
+      "gctimes_maximum": 3.5306425e7,
+      "times_minimum": 6.4331709e7,
       "gctimes_minimum": 0.0
     },
-    "commit": "b55475",
-    "comment": "test comment"
+    "commit": "80f584",
+    "comment": "tidying up sprop computation"
   }
 ]
