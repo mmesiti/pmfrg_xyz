@@ -5,6 +5,8 @@ include("benchmark_getXBubble.jl")
 include("../test/regression/dimer_anisotropy/regression_tests_dimer.jl")
 include("git_utils.jl")
 import .GitUtils
+include("cpu_info.jl")
+import .CPUInfo
 
 function add_data_to_db(data)
     fname = joinpath(@__DIR__, "benchmark_getXBubble.db")
@@ -26,23 +28,24 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
     lattice_size = 5
     bench_result = benchmark_synthetic_square(N=N, lattice_size=lattice_size)
 
+    funcnames = ["mean", "minimum", "maximum"]
+    quantities = ["times", "gctimes"]
+
+
+    data = Dict("commit" => GitUtils.get_git_commit_short(),
+        "comment" => comment,
+        "nthreads" => Threads.nthreads(),
+        "benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
+                                 for q in quantities
+                                 for fn in funcnames),
+        "physics" => Dict(
+            "type" => "square lattice",
+            "N" => N,
+            "lattice_size" => lattice_size,
+        ),
+        "cpu_info" => CPUInfo.get_cpu_info())
     if record
-        funcnames = ["mean", "minimum", "maximum"]
-        quantities = ["times", "gctimes"]
-
-
-        data = Dict("commit" => GitUtils.get_git_commit_short(),
-            "comment" => comment,
-            "nthreads" => Threads.nthreads(),
-            "benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
-                                     for q in quantities
-                                     for fn in funcnames),
-            "physics" => Dict(
-                "type" => "square lattice",
-                "N" => N,
-                "lattice_size" => lattice_size,
-            ))
         add_data_to_db(data)
     end
-    return bench_result
+    return data
 end
