@@ -1312,7 +1312,7 @@ uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.42.0+1"
 
 [[deps.PMFRG_xyz]]
-deps = ["DiffEqCallbacks", "JLD2", "LinearAlgebra", "OrdinaryDiffEq", "RecursiveArrayTools", "SparseArrays", "SpinFRGLattices", "StructArrays"]
+deps = ["DiffEqCallbacks", "JLD2", "LinearAlgebra", "OrdinaryDiffEq", "RecursiveArrayTools", "SparseArrays", "SpinFRGLattices", "StructArrays", "Unroll"]
 path = ".."
 uuid = "785b06fc-d355-4226-8a27-57b35e93bce2"
 version = "0.1.0"
@@ -1811,6 +1811,11 @@ version = "1.0.2"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[deps.Unroll]]
+git-tree-sha1 = "ffb72124bbdab5f11b66e56b119224c151b3b3eb"
+uuid = "36e64239-2ab9-4580-84fb-56737a503d36"
+version = "0.1.0"
 
 [[deps.Xorg_libX11_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libxcb_jll", "Xorg_xtrans_jll"]

@@ -7,6 +7,7 @@ module PMFRG_xyz
 using RecursiveArrayTools
 using SpinFRGLattices,OrdinaryDiffEq,DiffEqCallbacks,RecursiveArrayTools,StructArrays
 using SpinFRGLattices.StaticArrays
+using Unroll
 
 setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a,zero(T))
 
@@ -228,29 +229,35 @@ end
 using LinearAlgebra
 using SparseArrays
 
-# I include isFlavorTransform for optimization purposes. The integer n
-# labels the Vertex flavor.
-function V_(
-    Vertex::AbstractArray, n::Int, ns::Int, nt::Int, nu::Int,
+function V_!(V::AbstractVector,
+    Vertex::AbstractArray, ns::Int, nt::Int, nu::Int,
     isFlavorTransform::Tuple{Bool, Bool, Bool},
     Rij::Integer, Rji::Integer, N::Integer)
 
-    # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
-    block = div(n + 2, 6)
+    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
+    new_Rij = ifelse(isFlavorTransform[1], Rji, Rij)
 
-    n_transf = n
-    if(block != 0)
-        if(isFlavorTransform[block])
-            # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
-            # The layout of the fd-module is hence *very* important
-            n_transf = ((n-3) - (block-1)*6 + 2) % 6 + 1 + 3 + (block-1)*6
+    V[1:3] = Vertex[1:3, new_Rij, ns+1, nt+1, nu+1]
+
+    # I include isFlavorTransform for optimization purposes. The integer n
+    # labels the Vertex flavor.
+   
+    @unroll for iblock in 1:3
+        block_start = 3 + 1 +(iblock-1)*6
+        if isFlavorTransform[iblock]
+
+            lower_range = block_start : block_start+2
+            upper_range = lower_range .+ 3
+
+            V[lower_range] = Vertex[upper_range, new_Rij, ns+1, nt+1, nu+1]
+            V[upper_range] = Vertex[lower_range, new_Rij, ns+1, nt+1, nu+1]
+        else
+            full_block_range = block_start : block_start+5 
+            V[full_block_range] = Vertex[full_block_range, new_Rij, ns+1, nt+1, nu+1]
         end
     end
-    
-    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-    Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-    return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
 end
+
 
 function mixedFrequencies(ns,nt,nu,nwpr)
 	nw1=Int((ns + nt + nu - 1) / 2)
@@ -302,7 +309,8 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 	N = Par.NumericalParams.N
 	(; Npairs, Nsum, siteSum, invpairs) = Par.System
 
-    Vert(n, Rij, s, t, u, isFlavorTransform) = V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert!(V, Rij, s, t, u, isFlavorTransform) = V_!(V,State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
 	ns = is - 1
 	nt = it - 1
 	nu = iu - 1
@@ -322,16 +330,12 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
         V34 = zeros((21,max_kj))
 
         for ki in 1:max_ki
-            for n in 1:21
-                V12[n,ki] = Vert(n, ki, ns, wpw1, -wpw2, flavTransf12) 
-            end
+            Vert!((@view V12[:, ki]), ki, ns, wpw1, -wpw2, flavTransf12)
         end
         for kj in 1:max_kj
-            for n in 1:21
-                V34[n,kj] = Vert(n, kj, ns, -wmw3, -wmw4, flavTransf34)
-            end
+            Vert!((@view V34[:, kj]), kj, ns, -wmw3, -wmw4, flavTransf34)
         end
-        V12,V34
+        V12, V34
     end
 
 
@@ -385,7 +389,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 	N = Par.NumericalParams.N
 	(; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
-    Vert(n, Rij, s, t, u, isFlavorTransform) = V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert!(V, Rij, s, t, u, isFlavorTransform) = V_!(V,State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 	ns = is - 1
 	nt = it - 1
 	nu = iu - 1
@@ -395,7 +399,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
     flavTransf42 = (nt * wpw2 > 0, wpw4 * wpw2 > 0, wpw4 * nt < 0)
 
-    X_sum = @MVector zeros(42)
+    X_sum = @MVector zeros(21)
 
     V13 = @MVector zeros(21) 
     V24 = @MVector zeros(21) 
@@ -420,18 +424,17 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             return Props[ m, n, xj, xi]
         end
 
-        for n in 1:21
-            V13[n] = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
-            V24[n] = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
-            V31[n] = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
-            V42[n] = Vert(n, Rij, -wpw4, -nt, wpw2, flavTransf42)
-        end
+        
+        Vert!(V13, Rij, -wmw1, nt, wmw3, flavTransf13)
+        Vert!(V24, Rij, wpw2, -nt, -wpw4, flavTransf24)
+        Vert!(V31, Rij, wmw3, nt, -wmw1, flavTransf31)
+        Vert!(V42, Rij, -wpw4, -nt, wpw2, flavTransf42)
 
         fill!(X_sum, 0.0)
 
         ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
-        X_sum[21 + fd.xx] += (
+        X_sum[fd.xx] += (
             (V13[fd.xx] * V24[fd.xx] * P_(1, 1)
             + V13[fd.xy2] * V24[fd.xy2] * P_(2, 2) 
             + V13[fd.xz2] * V24[fd.xz2] * P_(3, 3))
@@ -441,7 +444,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xz2] * V42[fd.xz2] * PT_(3, 3))
         )
 
-        X_sum[21 + fd.yy] += (
+        X_sum[fd.yy] += (
             (V13[fd.yy] * V24[fd.yy] * P_(2, 2)
             + V13[fd.yx2] * V24[fd.yx2] * P_(1, 1)  
             + V13[fd.yz2] * V24[fd.yz2] * P_(3, 3))
@@ -451,7 +454,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yz2] * V42[fd.yz2] * PT_(3, 3))
         )
 
-        X_sum[21 + fd.zz] += (
+        X_sum[fd.zz] += (
             (V13[fd.zz] * V24[fd.zz] * P_(3, 3)
             + V13[fd.zx2] * V24[fd.zx2] * P_(1, 1) 
             + V13[fd.zy2] * V24[fd.zy2] * P_(2, 2))
@@ -463,7 +466,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 
         ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
 
-        X_sum[21 + fd.xy1] += (
+        X_sum[fd.xy1] += (
             (V13[fd.xy3] * V24[fd.xy3] * P_(2, 1)
             + V13[fd.xy1] * V24[fd.xy1] * P_(1, 2))
 
@@ -471,7 +474,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xy1] * V42[fd.xy1] * PT_(1, 2))
         )
 
-        X_sum[21 + fd.xz1] += (
+        X_sum[fd.xz1] += (
             (V13[fd.xz3] * V24[fd.xz3] * P_(3, 1)
             + V13[fd.xz1] * V24[fd.xz1] * P_(1, 3))
 
@@ -479,7 +482,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xz1] * V42[fd.xz1] * PT_(1, 3))
         )
 
-        X_sum[21 + fd.yx1] += (
+        X_sum[fd.yx1] += (
             (V13[fd.yx3] * V24[fd.yx3] * P_(1, 2)
             + V13[fd.yx1] * V24[fd.yx1] * P_(2, 1))
 
@@ -487,7 +490,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yx1] * V42[fd.yx1] * PT_(2, 1))
         )
 
-        X_sum[21 + fd.yz1] += (
+        X_sum[fd.yz1] += (
             (V13[fd.yz3] * V24[fd.yz3] * P_(3, 2)
             + V13[fd.yz1] * V24[fd.yz1] * P_(2, 3))
 
@@ -495,7 +498,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yz1] * V42[fd.yz1] * PT_(2, 3))
         )
 
-        X_sum[21 + fd.zx1] += (
+        X_sum[fd.zx1] += (
             (V13[fd.zx3] * V24[fd.zx3] * P_(1, 3)
             + V13[fd.zx1] * V24[fd.zx1] * P_(3, 1))
 
@@ -503,7 +506,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.zx1] * V42[fd.zx1] * PT_(3, 1))
         )
 
-        X_sum[21 + fd.zy1] += (
+        X_sum[fd.zy1] += (
             (V13[fd.zy3] * V24[fd.zy3] * P_(2, 3)
             + V13[fd.zy1] * V24[fd.zy1] * P_(3, 2))
 
@@ -513,7 +516,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 
         ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
 
-        X_sum[21 + fd.xy2] += (
+        X_sum[fd.xy2] += (
             (V13[fd.xx] * V24[fd.yx2] * P_(1, 1)
             + V13[fd.xy2] * V24[fd.yy] * P_(2, 2)
             + V13[fd.xz2] * V24[fd.yz2] * P_(3, 3))
@@ -523,7 +526,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xz2] * V42[fd.yz2] * PT_(3, 3))
         )
 
-        X_sum[21 + fd.xz2] += (
+        X_sum[fd.xz2] += (
             (V13[fd.xx] * V24[fd.zx2] * P_(1, 1)
             + V13[fd.xz2] * V24[fd.zz] * P_(3, 3)
             + V13[fd.xy2] * V24[fd.zy2] * P_(2, 2))
@@ -533,7 +536,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xy2] * V42[fd.zy2] * PT_(2, 2))
         )
 
-        X_sum[21 + fd.yx2] += (
+        X_sum[fd.yx2] += (
             (V13[fd.yy] * V24[fd.xy2] * P_(2, 2)
             + V13[fd.yx2] * V24[fd.xx] * P_(1, 1)
             + V13[fd.yz2] * V24[fd.xz2] * P_(3, 3))
@@ -543,7 +546,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yz2] * V42[fd.xz2] * PT_(3, 3))
         )
 
-        X_sum[21 + fd.yz2] += (
+        X_sum[fd.yz2] += (
             (V13[fd.yy] * V24[fd.zy2] * P_(2, 2)
             + V13[fd.yz2] * V24[fd.zz] * P_(3, 3)
             + V13[fd.yx2] * V24[fd.zx2] * P_(1, 1))
@@ -553,7 +556,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yx2] * V42[fd.zx2] * PT_(1, 1))
         )
 
-        X_sum[21 + fd.zx2] += (
+        X_sum[fd.zx2] += (
             (V13[fd.zz] * V24[fd.xz2] * P_(3, 3)
             + V13[fd.zx2] * V24[fd.xx] * P_(1, 1)
             + V13[fd.zy2] * V24[fd.xy2] * P_(2, 2))
@@ -563,7 +566,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.zy2] * V42[fd.xy2] * PT_(2, 2))
         )
 
-        X_sum[21 + fd.zy2] += (
+        X_sum[fd.zy2] += (
             (V13[fd.zz] * V24[fd.yz2] * P_(3, 3)
             + V13[fd.zy2] * V24[fd.yy] * P_(2, 2)
             + V13[fd.zx2] * V24[fd.yx2] * P_(1, 1))
@@ -575,7 +578,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 
         ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
 
-        X_sum[21 + fd.xy3] += (
+        X_sum[fd.xy3] += (
             (V13[fd.xy3] * V24[fd.yx1] * P_(2, 1)
             + V13[fd.xy1] * V24[fd.yx3] * P_(1, 2))
 
@@ -583,7 +586,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xy1] * V42[fd.yx3] * PT_(1, 2)) 
         )
 
-        X_sum[21 + fd.xz3] += (
+        X_sum[fd.xz3] += (
             (V13[fd.xz3] * V24[fd.zx1] * P_(3, 1)
             + V13[fd.xz1] * V24[fd.zx3] * P_(1, 3)) 
 
@@ -591,7 +594,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.xz1] * V42[fd.zx3] * PT_(1, 3)) 
         )
 
-        X_sum[21 + fd.yx3] += (
+        X_sum[fd.yx3] += (
             (V13[fd.yx3] * V24[fd.xy1] * P_(1, 2)
             + V13[fd.yx1] * V24[fd.xy3] * P_(2, 1)) 
 
@@ -599,7 +602,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yx1] * V42[fd.xy3] * PT_(2, 1)) 
         )
 
-        X_sum[21 + fd.yz3] += (
+        X_sum[fd.yz3] += (
             (V13[fd.yz3] * V24[fd.zy1] * P_(3, 2)
             + V13[fd.yz1] * V24[fd.zy3] * P_(2, 3)) 
 
@@ -607,7 +610,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.yz1] * V42[fd.zy3] * PT_(2, 3)) 
         )
 
-        X_sum[21 + fd.zx3] += (
+        X_sum[fd.zx3] += (
             (V13[fd.zx3] * V24[fd.xz1] * P_(1, 3)
             + V13[fd.zx1] * V24[fd.xz3] * P_(3, 1)) 
 
@@ -615,7 +618,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.zx1] * V42[fd.xz3] * PT_(3, 1)) 
         )
 
-        X_sum[21 + fd.zy3] += (
+        X_sum[fd.zy3] += (
             (V13[fd.zy3] * V24[fd.yz1] * P_(2, 3)
             + V13[fd.zy1] * V24[fd.yz3] * P_(3, 2)) 
 
@@ -623,7 +626,7 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             + V31[fd.zy1] * V42[fd.yz3] * PT_(3, 2)) 
         )
 
-        X[:, Rij, is, it, iu] .+= X_sum
+        X[22:end, Rij, is, it, iu] .+= X_sum
     end
 end
 
