@@ -49,3 +49,9 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
     end
     return data
 end
+
+
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    println(getXBubble_test_and_benchmark(true))
+end

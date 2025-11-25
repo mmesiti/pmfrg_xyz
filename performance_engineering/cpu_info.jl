@@ -22,9 +22,12 @@ Assumes all HWThreads have the same configuration.
 - `ErrorException`: If `likwid-setFrequencies` command fails or output cannot be parsed
 """
 function get_cpu_info()::Dict{String,Any}
-    output_str = read(`likwid-setFrequencies -p`, String)
+    io = IOBuffer()
+    run(pipeline(`likwid-setFrequencies -p`, stdout=io, stderr=io))
+    output_str = String(take!(io))
     lines = split(output_str, '\n')
 
+    hwp_on_line = find_line_with_pattern(lines,r"HWP")
     hwthread0_line = find_line_with_pattern(lines, r"^HWThread 0:")
     socket0_line = find_line_with_pattern(lines, r"^Socket 0:")
 
@@ -41,7 +44,8 @@ function get_cpu_info()::Dict{String,Any}
          "max_freq" => max_freq,
          "turbo" => turbo,
          "uncore_max_freq" => uncore_max_freq,
-         "hostname" => hostname)
+         "hostname" => hostname,
+         "hwp on" => if hwp_on_line == "" "no" else "yes" end)
 end
 
 # level 2
@@ -51,7 +55,7 @@ function find_line_with_pattern(lines::Vector{SubString{String}}, pattern::Regex
             return line
         end
     end
-    error("Could not find line matching pattern: $pattern")
+    ""
 end
 
 function extract_max_frequency(hwthread_line::SubString{String})::Float64
