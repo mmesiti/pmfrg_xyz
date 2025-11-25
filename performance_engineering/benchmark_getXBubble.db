@@ -1,111 +1,289 @@
 [
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.0853935854545455e7,
-      "times_maximum": 1.63860712e8,
-      "times_mean": 9.180764556363636e7,
-      "gctimes_maximum": 5.2366366e7,
-      "times_minimum": 7.1313518e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "ccb52c"
+    "benchmark_data": {
+      "gctimes_mean": 1.7061205e6,
+      "times_maximum": 9.84105364e8,
+      "times_mean": 9.779369378333334e8,
+      "gctimes_maximum": 7.320878e6,
+      "times_minimum": 9.7572898e8,
+      "gctimes_minimum": 511846.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 7.4849486e6,
-      "times_maximum": 3.81680222e8,
-      "times_mean": 3.4825937706666666e8,
-      "gctimes_maximum": 3.8198444e7,
-      "times_minimum": 3.32852841e8,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "4fdf67"
+    "benchmark_data": {
+      "gctimes_mean": 2.62221e6,
+      "times_maximum": 2.25352412e8,
+      "times_mean": 2.212853516521739e8,
+      "gctimes_maximum": 8.903547e6,
+      "times_minimum": 2.08312588e8,
+      "gctimes_minimum": 2.099584e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 3.3044052e6,
-      "times_maximum": 1.004584739e9,
-      "times_mean": 1.0031056014e9,
-      "gctimes_maximum": 4.740955e6,
-      "times_minimum": 1.001779128e9,
-      "gctimes_minimum": 2.306976e6
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "020e9a"
+    "benchmark_data": {
+      "gctimes_mean": 2.415473227272727e6,
+      "times_maximum": 2.30198578e8,
+      "times_mean": 2.2766265104545453e8,
+      "gctimes_maximum": 8.931902e6,
+      "times_minimum": 2.20674565e8,
+      "gctimes_minimum": 1.955869e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.0470676196721312e7,
-      "times_maximum": 1.04600277e8,
-      "times_mean": 8.323921416393442e7,
-      "gctimes_maximum": 3.3518362e7,
-      "times_minimum": 6.9570282e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "192f6e"
+    "benchmark_data": {
+      "gctimes_mean": 2.0355166e6,
+      "times_maximum": 1.080339899e9,
+      "times_mean": 1.0713941686e9,
+      "gctimes_maximum": 7.681946e6,
+      "times_minimum": 1.058245853e9,
+      "gctimes_minimum": 602091.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.0241920516129032e7,
-      "times_maximum": 1.09108296e8,
-      "times_mean": 8.16277845e7,
-      "gctimes_maximum": 3.9338809e7,
-      "times_minimum": 6.8148872e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "9e6ddd"
+    "benchmark_data": {
+      "gctimes_mean": 2.1195664636363637e7,
+      "times_maximum": 2.40899602e8,
+      "times_mean": 2.372685559090909e8,
+      "gctimes_maximum": 2.79954e7,
+      "times_minimum": 2.22605814e8,
+      "gctimes_minimum": 1.8623932e7
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.2733914379310345e7,
-      "times_maximum": 1.45407118e8,
-      "times_mean": 8.70277520862069e7,
-      "gctimes_maximum": 7.3671116e7,
-      "times_minimum": 7.0534589e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "713054"
+    "benchmark_data": {
+      "gctimes_mean": 2.497678652173913e6,
+      "times_maximum": 2.2160379e8,
+      "times_mean": 2.1836036247826087e8,
+      "gctimes_maximum": 9.027449e6,
+      "times_minimum": 2.10918785e8,
+      "gctimes_minimum": 2.005016e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.1171758984126983e7,
-      "times_maximum": 1.25316456e8,
-      "times_mean": 8.0058932e7,
-      "gctimes_maximum": 3.7065829e7,
-      "times_minimum": 6.226025e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "fdbb70"
+    "benchmark_data": {
+      "gctimes_mean": 2.4120331e7,
+      "times_maximum": 2.47681236e8,
+      "times_mean": 2.451227642857143e8,
+      "gctimes_maximum": 3.0427891e7,
+      "times_minimum": 2.34773412e8,
+      "gctimes_minimum": 2.1397718e7
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 4.110964081818182e7,
-      "times_maximum": 1.87255739e8,
-      "times_mean": 1.5524427321212122e8,
-      "gctimes_maximum": 7.0675537e7,
-      "times_minimum": 1.40779599e8,
-      "gctimes_minimum": 2.5503031e7
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "cf2a3a"
+    "benchmark_data": {
+      "gctimes_mean": 2.2876930454545454e6,
+      "times_maximum": 2.32278921e8,
+      "times_mean": 2.296727241818182e8,
+      "gctimes_maximum": 8.827142e6,
+      "times_minimum": 2.23249856e8,
+      "gctimes_minimum": 1.848902e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
-    "nthreads": 8,
-    "benchmark_data": {
-      "gctimes_mean": 1.0844100096774194e7,
-      "times_maximum": 1.08688497e8,
-      "times_mean": 8.165542564516129e7,
-      "gctimes_maximum": 3.9898741e7,
-      "times_minimum": 6.6182695e7,
-      "gctimes_minimum": 0.0
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
     },
-    "commit": "0869c8"
+    "benchmark_data": {
+      "gctimes_mean": 2.471792772727273e6,
+      "times_maximum": 2.3510968e8,
+      "times_mean": 2.334910786818182e8,
+      "gctimes_maximum": 9.10096e6,
+      "times_minimum": 2.26667583e8,
+      "gctimes_minimum": 2.017928e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 5.033456375e6,
+      "times_maximum": 3.23212386e8,
+      "times_mean": 3.194795223125e8,
+      "gctimes_maximum": 1.1580212e7,
+      "times_minimum": 3.05086454e8,
+      "gctimes_minimum": 4.456266e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 1,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 2.622750086956522e6,
+      "times_maximum": 2.25937473e8,
+      "times_mean": 2.2394103217391303e8,
+      "gctimes_maximum": 9.281475e6,
+      "times_minimum": 2.20055699e8,
+      "gctimes_minimum": 2.133646e6
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   },
   {
     "nthreads": 8,
@@ -115,14 +293,282 @@
       "type": "square lattice"
     },
     "benchmark_data": {
-      "gctimes_mean": 1.1064126950819673e7,
-      "times_maximum": 1.19912685e8,
-      "times_mean": 8.277776270491803e7,
-      "gctimes_maximum": 3.5306425e7,
-      "times_minimum": 6.4331709e7,
+      "gctimes_mean": 2.1802153333333335e6,
+      "times_maximum": 9.8812596e8,
+      "times_mean": 9.834243771666666e8,
+      "gctimes_maximum": 7.689652e6,
+      "times_minimum": 9.81710909e8,
+      "gctimes_minimum": 969689.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.6159158136363637e7,
+      "times_maximum": 1.41686869e8,
+      "times_mean": 1.1440269e8,
+      "gctimes_maximum": 4.2956633e7,
+      "times_minimum": 8.5543426e7,
       "gctimes_minimum": 0.0
     },
-    "commit": "80f584",
-    "comment": "tidying up sprop computation"
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.5463658325581396e7,
+      "times_maximum": 1.4678725e8,
+      "times_mean": 1.1733387855813953e8,
+      "gctimes_maximum": 4.2876738e7,
+      "times_minimum": 8.955863e7,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.13444503e7,
+      "times_maximum": 5.40434142e8,
+      "times_mean": 5.0029864e8,
+      "gctimes_maximum": 5.7082083e7,
+      "times_minimum": 4.43748877e8,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 5.0503904375e7,
+      "times_maximum": 1.8448743e8,
+      "times_mean": 1.5907330290625e8,
+      "gctimes_maximum": 7.5849389e7,
+      "times_minimum": 1.28647852e8,
+      "gctimes_minimum": 3.1042494e7
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.5757708555555556e7,
+      "times_maximum": 1.4156917e8,
+      "times_mean": 1.1302623791111112e8,
+      "gctimes_maximum": 4.2860178e7,
+      "times_minimum": 8.3473194e7,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 5.0493016625e7,
+      "times_maximum": 1.86204406e8,
+      "times_mean": 1.598913189375e8,
+      "gctimes_maximum": 7.6351148e7,
+      "times_minimum": 1.32579107e8,
+      "gctimes_minimum": 3.1433258e7
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.5496068744186046e7,
+      "times_maximum": 1.44890254e8,
+      "times_mean": 1.1675334965116279e8,
+      "gctimes_maximum": 4.4037659e7,
+      "times_minimum": 8.7840843e7,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.6522417214285715e7,
+      "times_maximum": 1.50082964e8,
+      "times_mean": 1.2019353771428572e8,
+      "gctimes_maximum": 4.4900709e7,
+      "times_minimum": 8.9091979e7,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 6.208091243478261e7,
+      "times_maximum": 2.44989999e8,
+      "times_mean": 2.206322355652174e8,
+      "gctimes_maximum": 8.6187146e7,
+      "times_minimum": 1.87130639e8,
+      "gctimes_minimum": 3.6959776e7
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.6481498545454545e7,
+      "times_maximum": 1.42502418e8,
+      "times_mean": 1.1438201156818181e8,
+      "gctimes_maximum": 4.274564e7,
+      "times_minimum": 8.5927525e7,
+      "gctimes_minimum": 0.0
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "commit": "902af1",
+    "comment": ""
   }
 ]

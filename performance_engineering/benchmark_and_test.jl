@@ -10,8 +10,12 @@ import .CPUInfo
 
 function add_data_to_db(data)
     fname = joinpath(@__DIR__, "benchmark_getXBubble.db")
-    existing_data = open(fname, "r") do f
-        JSON.parse(read(f))
+    if isfile(fname)
+        existing_data = open(fname, "r") do f
+            JSON.parse(read(f))
+        end
+    else
+        existing_data = []
     end
     push!(existing_data, data)
     open(fname, "w") do f
