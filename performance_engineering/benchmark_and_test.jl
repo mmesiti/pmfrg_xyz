@@ -25,6 +25,20 @@ function add_data_to_db(data)
 
 end
 
+function get_metadata(comment, threadpinning, N, lattice_size)
+    Dict("commit" => GitUtils.get_git_commit_short(),
+        "comment" => comment,
+        "nthreads" => Threads.nthreads(),
+        "threadpinning" => threadpinning,
+        "physics" => Dict(
+            "type" => "square lattice",
+            "N" => N,
+            "lattice_size" => lattice_size,
+        ),
+        "cpu_info" => CPUInfo.get_cpu_info(),
+        "julia_opt_level" => Base.JLOptions().opt_level)
+end
+
 function getXBubble_test_and_benchmark(record::Bool, comment="")
     println("Testing...")
     run_getXbubble_regression_tests()
@@ -32,9 +46,9 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
     N = 10
     lattice_size = 5
 
-    threadpinning = false 
+    threadpinning = false
 
-    if threadpinning 
+    if threadpinning
         ThreadPinning.pinthreads(:cores)
         ThreadPinning.threadinfo()
     end
@@ -42,22 +56,13 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
 
     funcnames = ["mean", "minimum", "maximum"]
     quantities = ["times", "gctimes"]
+    metadata = get_metadata(comment, threadpinning, N, lattice_size)
 
-
-    data = Dict("commit" => GitUtils.get_git_commit_short(),
-        "comment" => comment,
-        "nthreads" => Threads.nthreads(),
-        "threadpinning" => threadpinning,
-        "benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
-                                 for q in quantities
-                                 for fn in funcnames),
+    data = Dict("benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
+                                         for q in quantities
+                                         for fn in funcnames),
         "allocations" => allocations,
-        "physics" => Dict(
-            "type" => "square lattice",
-            "N" => N,
-            "lattice_size" => lattice_size,
-        ),
-        "cpu_info" => CPUInfo.get_cpu_info())
+        "metadata" => metadata)
     if record
         add_data_to_db(data)
     end
