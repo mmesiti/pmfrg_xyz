@@ -3,20 +3,23 @@
 
 using BenchmarkTools
 using JLD2
-using SpinFRGLattices
-using SpinFRGLattices.SquareLattice
-import PMFRG_xyz: Params, getXBubble!, AllocateSetup, InitializeState, OneLoopWorkspace
+import PMFRG_xyz: getXBubble!, addX!, addY!
+using StaticArrays
+include("benchmark_utils.jl")
 
 function main()::Int
+    println("=== check addX! and addY! allocations ===\n")
+    check_addXY_allocations()
+
     println("=== getXBubble! Benchmark ===\n")
 
-    # Benchmark using regression test data
-    println("1. Benchmarking with regression test data...")
-    benchmark_from_regression_data()
+    # # Benchmark using regression test data
+    # println("1. Benchmarking with regression test data...")
+    # benchmark_from_regression_data()
 
-    # Benchmark with synthetic data (dimer, N=8)
-    println("\n2. Benchmarking with synthetic data (dimer, N=8)...")
-    benchmark_synthetic_dimer(N=8)
+    # # Benchmark with synthetic data (dimer, N=8)
+    # println("\n2. Benchmarking with synthetic data (dimer, N=8)...")
+    # benchmark_synthetic_dimer(N=8)
 
     # Benchmark with synthetic data (square lattice, N=8)
     N=10
@@ -28,6 +31,37 @@ function main()::Int
 end
 
 # level 1
+function check_addXY_allocations()
+
+    workspace, _ = create_synthetic_workspace_dimer(N=10)
+
+    Par = workspace.Par
+    (; NUnique) = Par.System
+
+
+    buffs = (V12=zeros((21, maximum(Par.System.siteSum.ki))),
+        V34=zeros((21, maximum(Par.System.siteSum.kj))),
+        X_sum=(@MVector zeros(21)),
+        spropX=(@MArray zeros(3, 3, NUnique)),
+        spropY=zeros(3, 3, NUnique, NUnique))
+
+    (;spropX,spropY) = buffs
+
+    spropX = (@MArray zeros(3,3,NUnique))
+
+    addX!(workspace,1,1,2,1,spropX,buffs)
+    addY!(workspace,1,1,2,1,spropY)
+
+    addXallocated = @allocated addX!(workspace,1,1,2,1,spropX,buffs)
+    addXallocations = @allocations addX!(workspace,1,1,2,1,spropX,buffs)
+    addYallocated = @allocated addY!(workspace,1,1,2,1,spropY)
+    addYallocations = @allocations addY!(workspace,1,1,2,1,spropY)
+
+    println("addXAllocations: $addXallocations ($addXallocated)")
+    println("addYAllocations: $addYallocations ($addYallocated)")
+end
+
+
 function benchmark_from_regression_data()
     script_dir = @__DIR__
     project_root = dirname(script_dir)
@@ -63,81 +97,12 @@ function benchmark_synthetic_square(; N::Int=8, lattice_size::Int=4)
     println("  N = $N, lattice_size = $lattice_size")
     println("  Lam = $lam")
 
+    getXBubble!(workspace, lam)
     allocations = @ballocations getXBubble!($workspace, $lam)
     timing_results = @benchmark getXBubble!($workspace, $lam)
+    display(allocations)
     display(timing_results)
     timing_results, allocations
-end
-
-# level 2
-function create_synthetic_workspace_dimer(; N::Int=8)
-    System = SpinFRGLattices.getPolymer(2)
-    par = Params(System, N=N, temp_max=10.0, temp_min=1.0)
-    isotropy = zeros(System.Npairs, 3)
-
-    for n in 1:System.Npairs
-        isotropy[n, :] = [1.0, 0.5, 0.2]
-    end
-
-    State = InitializeState(par, isotropy)
-    setup = AllocateSetup(par)
-
-    X = setup[1]
-    Par = setup[end]
-    Deriv = copy(State)
-    fill_with_zeros!(Deriv)
-
-    workspace = OneLoopWorkspace(State, Deriv, X, Par)
-    lam = 5.0
-
-    return workspace, lam
-end
-
-function create_synthetic_workspace_square(; N::Int=8, lattice_size::Int=4)
-    J1 = 1.0
-    J2 = 0.5
-
-    System = getSquareLattice(lattice_size, [J1, J2])
-    par = Params(System, N=N, temp_max=10.0, temp_min=1.0)
-    isotropy = zeros(System.Npairs, 3)
-
-    for n in 1:System.Npairs
-        isotropy[n, :] = [1.0, 0.5, 0.2]
-    end
-
-    State = InitializeState(par, isotropy)
-    setup = AllocateSetup(par)
-
-    X = setup[1]
-    Par = setup[end]
-    Deriv = copy(State)
-    fill_with_zeros!(Deriv)
-
-    workspace = OneLoopWorkspace(State, Deriv, X, Par)
-    lam = 5.0
-
-    return workspace, lam
-end
-
-# level 3
-function fill_with_zeros!(state)
-    if hasfield(typeof(state), :f_int)
-        fill!(state.f_int, 0.0)
-    end
-    if hasfield(typeof(state), :iSigma)
-        if hasfield(typeof(state.iSigma), :x)
-            fill!(state.iSigma.x, 0.0)
-        end
-        if hasfield(typeof(state.iSigma), :y)
-            fill!(state.iSigma.y, 0.0)
-        end
-        if hasfield(typeof(state.iSigma), :z)
-            fill!(state.iSigma.z, 0.0)
-        end
-    end
-    if hasfield(typeof(state), :Gamma)
-        fill!(state.Gamma, 0.0)
-    end
 end
 
 #######

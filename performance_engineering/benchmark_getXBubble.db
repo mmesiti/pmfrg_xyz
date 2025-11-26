@@ -919,5 +919,36 @@
     "commit": "3b7afd",
     "allocations": 9553333,
     "comment": "this seems very slow..."
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 5.053058906451613e7,
+      "times_maximum": 1.89872399e8,
+      "times_mean": 1.619842860967742e8,
+      "gctimes_maximum": 6.3270776e7,
+      "times_minimum": 9.9109983e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 8,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "b4c10e",
+      "julia_opt_level": 3,
+      "comment": "spropX/Y local thread buffers, second attempt"
+    },
+    "allocations": 3833364
   }
 ]
