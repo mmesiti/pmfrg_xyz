@@ -7,6 +7,7 @@ include("git_utils.jl")
 import .GitUtils
 include("cpu_info.jl")
 import .CPUInfo
+import ThreadPinning
 
 function add_data_to_db(data)
     fname = joinpath(@__DIR__, "benchmark_getXBubble.db")
@@ -30,7 +31,14 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
     println("Benchmarking...")
     N = 10
     lattice_size = 5
-    bench_result = benchmark_synthetic_square(N=N, lattice_size=lattice_size)
+
+    threadpinning = false 
+
+    if threadpinning 
+        ThreadPinning.pinthreads(:cores)
+        ThreadPinning.threadinfo()
+    end
+    bench_result, allocations = benchmark_synthetic_square(N=N, lattice_size=lattice_size)
 
     funcnames = ["mean", "minimum", "maximum"]
     quantities = ["times", "gctimes"]
@@ -39,9 +47,11 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
     data = Dict("commit" => GitUtils.get_git_commit_short(),
         "comment" => comment,
         "nthreads" => Threads.nthreads(),
+        "threadpinning" => threadpinning,
         "benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
                                  for q in quantities
                                  for fn in funcnames),
+        "allocations" => allocations,
         "physics" => Dict(
             "type" => "square lattice",
             "N" => N,

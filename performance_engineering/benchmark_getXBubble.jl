@@ -63,9 +63,10 @@ function benchmark_synthetic_square(; N::Int=8, lattice_size::Int=4)
     println("  N = $N, lattice_size = $lattice_size")
     println("  Lam = $lam")
 
-    result = @benchmark getXBubble!($workspace, $lam)
-    display(result)
-    result
+    allocations = @ballocations getXBubble!($workspace, $lam)
+    timing_results = @benchmark getXBubble!($workspace, $lam)
+    display(timing_results)
+    timing_results, allocations
 end
 
 # level 2

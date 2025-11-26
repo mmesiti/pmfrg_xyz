@@ -304,7 +304,7 @@ end
 
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
-function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props, V12,V34)
+function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props, Buffers)
 	(; State, X, Par) = Workspace
 	N = Par.NumericalParams.N
 	(; Npairs, Nsum, siteSum, invpairs) = Par.System
@@ -324,6 +324,7 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 	S_xk = siteSum.xk
 	S_m = siteSum.m
 
+    (;V12,V34,X_sum) = Buffers
     let max_ki = maximum(S_ki), max_kj = maximum(S_kj)
         for ki in 1:max_ki
             Vert!((@view V12[:, ki]), ki, ns, wpw1, -wpw2, flavTransf12)
@@ -335,7 +336,6 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
 
 
     
-    X_sum = @MVector zeros(42)
 	for Rij in 1:Npairs
 		#loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
@@ -374,7 +374,7 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             X_sum[fd.zy3] += -V12[fd.zy2,ki] * V34[fd.zy3,kj] * Ptm[3, 2] - V12[fd.zy3,ki] * V34[fd.yz2,kj] * Ptm[2, 3]
 		end
 
-		X[:, Rij, is, it, iu] .+= X_sum
+		X[1:21, Rij, is, it, iu] .+= X_sum
     end
     return
 end
@@ -662,20 +662,21 @@ function getXBubble!(Workspace, T::Real)
             end
         end
 
-        return SArray{Tuple{3,3,NUnique}}(BubbleProp)
+        return MArray{Tuple{3,3,NUnique}}(BubbleProp)
     end
 
 
 
-    V12Buffs = [zeros((21,maximum(Par.System.siteSum.ki))) for _ in 1:Threads.nthreads()]
-    V34Buffs = [zeros((21,maximum(Par.System.siteSum.kj))) for _ in 1:Threads.nthreads()]
+    AllBuffs = [ (V12 = zeros((21,maximum(Par.System.siteSum.ki))),
+                  V34 = zeros((21,maximum(Par.System.siteSum.kj))),
+                  X_sum = @MVector zeros(21))
+                 for _ in 1:Threads.nthreads()]
+
 
 
 	Threads.@threads :static for (is,it)  in collect( (is,it) for is in 1:N, it in 1:N)
         # WARNING: 
         # This works only with :static
-        V12Buff = V12Buffs[Threads.threadid()]
-        V34Buff = V34Buffs[Threads.threadid()]
         ns = is - 1
         nt = it - 1
         for nw in -lenIntw:lenIntw-1 # Matsubara sum
@@ -692,7 +693,11 @@ function getXBubble!(Workspace, T::Real)
                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                 # if(!Par.Options.use_symmetry || nu<=nt)
 
-                addX!(Workspace, is, it, iu, nw, spropX, V12Buff, V34Buff)
+
+                # WARNING: 
+                # This works only with :static
+                ThreadLocalBuffs = AllBuffs[Threads.threadid()]
+                addX!(Workspace, is, it, iu, nw, spropX,ThreadLocalBuffs )
                 # end
             end
         end
