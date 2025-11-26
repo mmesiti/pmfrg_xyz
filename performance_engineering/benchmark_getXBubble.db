@@ -891,5 +891,33 @@
     "commit": "86a53a",
     "allocations": 3879309,
     "comment": ""
+  },
+  {
+    "nthreads": 8,
+    "physics": {
+      "lattice_size": 5,
+      "N": 10,
+      "type": "square lattice"
+    },
+    "benchmark_data": {
+      "gctimes_mean": 1.3421245471428572e8,
+      "times_maximum": 4.37344091e8,
+      "times_mean": 3.7813913214285713e8,
+      "gctimes_maximum": 1.69874274e8,
+      "times_minimum": 3.51902039e8,
+      "gctimes_minimum": 1.12009053e8
+    },
+    "cpu_info": {
+      "governor": "schedutil",
+      "max_freq": 2.6,
+      "hwp on": "no",
+      "hostname": "pisolo",
+      "uncore_max_freq": 3.6,
+      "turbo": true
+    },
+    "threadpinning": false,
+    "commit": "3b7afd",
+    "allocations": 9553333,
+    "comment": "this seems very slow..."
   }
 ]
