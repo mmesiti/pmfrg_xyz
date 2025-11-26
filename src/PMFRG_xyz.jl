@@ -641,35 +641,33 @@ function getXBubble!(Workspace, T::Real)
                                               (DiSigma.x,DiSigma.y,DiSigma.z))]
     end)
 
-    function getKataninPropY!(nw1, nw2)
-        BubbleProp = zeros(3, 3, NUnique, NUnique)
-        for Rij_1 in 1:NUnique, Rij_2 in 1:NUnique
-            for j in 1:3, i in 1:3
-                ### Relative minus sign between paper & Nils' thesis
-                BubbleProp[i, j, Rij_1, Rij_2] = -iSKat[i](Rij_1, nw1) * iG[j](Rij_2, nw2)
-            end
-        end
-        return BubbleProp
-    end
-
-    function getKataninPropX!(nw1, nw2)
-        BubbleProp = zeros(3, 3, NUnique)
+    function getKataninPropX!(spropX,nw1, nw2)
 
         for Rij in 1:Par.System.NUnique
             for j in 1:3, i in 1:3
                 ### Relative minus sign between paper & Nils' thesis
-                BubbleProp[i, j, Rij] = -iSKat[i](Rij, nw1) * iG[j](Rij, nw2)
+                spropX[i, j, Rij] = -iSKat[i](Rij, nw1) * iG[j](Rij, nw2)
             end
         end
 
-        return MArray{Tuple{3,3,NUnique}}(BubbleProp)
+    end
+
+    function getKataninPropY!(spropY,nw1, nw2)
+        for Rij_1 in 1:NUnique, Rij_2 in 1:NUnique
+            for j in 1:3, i in 1:3
+                ### Relative minus sign between paper & Nils' thesis
+                spropY[i, j, Rij_1, Rij_2] = -iSKat[i](Rij_1, nw1) * iG[j](Rij_2, nw2)
+            end
+        end
     end
 
 
 
     AllBuffs = [ (V12 = zeros((21,maximum(Par.System.siteSum.ki))),
                   V34 = zeros((21,maximum(Par.System.siteSum.kj))),
-                  X_sum = @MVector zeros(21))
+                  X_sum = zeros(21),
+                  spropX = zeros(3, 3, NUnique),
+                  spropY = zeros(3, 3, NUnique, NUnique))
                  for _ in 1:Threads.nthreads()]
 
 
@@ -679,9 +677,10 @@ function getXBubble!(Workspace, T::Real)
         # This works only with :static
         ns = is - 1
         nt = it - 1
+        (;spropX,spropY) = AllBuffs[Threads.threadid()]
         for nw in -lenIntw:lenIntw-1 # Matsubara sum
-            spropX = getKataninPropX!(nw,nw+ns)
-            spropY = getKataninPropY!(nw,nw-nt)
+            getKataninPropX!(spropX,nw,nw+ns)
+            getKataninPropY!(spropY,nw,nw-nt)
             for iu in 1:N
                 nu = iu - 1
                 if (ns+nt+nu)%2 == 0	# skip unphysical bosonic frequency combinations
