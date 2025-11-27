@@ -221,6 +221,18 @@ end
 using LinearAlgebra
 using SparseArrays
 
+function V_(Vertex::AbstractArray, ns::Int, nt::Int, nu::Int,
+    isFlavorTransform::Tuple{Bool,Bool,Bool},
+    Rij::Integer, Rji::Integer, N::Integer)
+
+    V = zeros(21)
+    V_!(V, Vertex, ns, nt, nu, isFlavorTransform, Rij,  Rji, N)
+
+
+end
+
+
+
 function V_!(V::AbstractVector,
     Vertex::AbstractArray, ns::Int, nt::Int, nu::Int,
     isFlavorTransform::Tuple{Bool,Bool,Bool},
