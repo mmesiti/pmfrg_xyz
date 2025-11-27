@@ -3,7 +3,7 @@
 
 using BenchmarkTools
 using JLD2
-import PMFRG_xyz: getXBubble!, addX!, addY!
+import PMFRG_xyz: getXBubble!, addX!, addY!, ThreadLocalBuffersT
 using StaticArrays
 include("benchmark_utils.jl")
 
@@ -33,32 +33,34 @@ end
 # level 1
 function check_addXY_allocations()
 
-    workspace, _ = create_synthetic_workspace_dimer(N=10)
+    workspace, _ = create_synthetic_workspace_square(N=10, lattice_size=5)
 
     Par = workspace.Par
-    (; NUnique) = Par.System
+    (; NUnique, Npairs) = Par.System
 
 
-    buffs = (V12=zeros((21, maximum(Par.System.siteSum.ki))),
-        V34=zeros((21, maximum(Par.System.siteSum.kj))),
-        X_sum=(@MVector zeros(21)),
-        spropX=(@MArray zeros(3, 3, NUnique)),
-        spropY=zeros(3, 3, NUnique, NUnique))
+    buffs = ThreadLocalBuffersT( zeros((21, Npairs)),
+              zeros((21, Npairs)),
+              zeros(21),
+              zeros(3, 3, NUnique),
+              zeros(3, 3, NUnique, NUnique),
+              zeros(3,3),
+              zeros(21),
+              zeros(21),
+              zeros(21),
+              zeros(21))
 
-    (;spropX,spropY) = buffs
 
-    spropX = (@MArray zeros(3,3,NUnique))
 
-    addX!(workspace,1,1,2,1,spropX,buffs)
-    addY!(workspace,1,1,2,1,spropY)
 
-    addXallocated = @allocated addX!(workspace,1,1,2,1,spropX,buffs)
-    addXallocations = @allocations addX!(workspace,1,1,2,1,spropX,buffs)
-    addYallocated = @allocated addY!(workspace,1,1,2,1,spropY)
-    addYallocations = @allocations addY!(workspace,1,1,2,1,spropY)
+    addX!(workspace,1,1,2,1,buffs.spropX,buffs)
+    addY!(workspace,1,1,2,1,buffs.spropY,buffs)
 
-    println("addXAllocations: $addXallocations ($addXallocated)")
-    println("addYAllocations: $addYallocations ($addYallocated)")
+    addXallocations = @allocations addX!(workspace,1,1,2,1,buffs.spropX,buffs)
+    @assert addXallocations <= 1 "$addXallocations in addX!"
+
+    addYallocations = @allocations addY!(workspace,1,1,2,1,buffs.spropY,buffs)
+    @assert addYallocations <= 1 "$addYallocations in addY!"
 end
 
 
@@ -97,6 +99,9 @@ function benchmark_synthetic_square(; N::Int=8, lattice_size::Int=4)
     println("  N = $N, lattice_size = $lattice_size")
     println("  Lam = $lam")
 
+    #getXBubble!(workspace, lam, ThreadLocalBuffers)
+    #allocations = @ballocations getXBubble!($workspace, $lam, $ThreadLocalBuffers)
+    #timing_results = @benchmark getXBubble!($workspace, $lam, $ThreadLocalBuffers)
     getXBubble!(workspace, lam)
     allocations = @ballocations getXBubble!($workspace, $lam)
     timing_results = @benchmark getXBubble!($workspace, $lam)

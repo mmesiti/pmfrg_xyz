@@ -55,6 +55,8 @@ function run_getXbubble_regression_tests()
                 return_value = (data["return_value"])[i]
                 arguments = (data["arguments"])[i]
                 arguments_post = (data["arguments_post"])[i]
+                Workspace = arguments[1]
+                ThreadLocalBuffers = PMFRG_xyz.get_ThreadLocalBuffers(Workspace.Par.System)
                 @test compare_return_values(return_value, (PMFRG_xyz.getXBubble!)(arguments...)) &&
                       compare_arguments_post(arguments, arguments_post)
             end

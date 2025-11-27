@@ -41,8 +41,7 @@ function create_synthetic_workspace_square(; N::Int=8, lattice_size::Int=4)
     State = InitializeState(par, isotropy)
     setup = AllocateSetup(par)
 
-    X = setup[1]
-    Par = setup[end]
+    (;X,Par)  = setup
     Deriv = copy(State)
     fill_with_zeros!(Deriv)
 

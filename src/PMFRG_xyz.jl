@@ -103,7 +103,7 @@ function SigmaType(NUnique::Int, N::Int, type=Float64)
         zeros(type, NUnique, N)
     )
 end
-SigmaType(Par) = SigmaType(Par.System.NPairs, Par.NumericalParams.N)
+SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
 
 function StateType(NUnique::Int, N::Int, VDims::Tuple, type=Float64)
     return StateType(
@@ -229,7 +229,7 @@ function V_!(V::AbstractVector,
     ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
     new_Rij = ifelse(isFlavorTransform[1], Rji, Rij)
 
-    V[1:3] = Vertex[1:3, new_Rij, ns+1, nt+1, nu+1]
+    V[1:3] .= @view Vertex[1:3, new_Rij, ns+1, nt+1, nu+1]
 
     # I include isFlavorTransform for optimization purposes. The integer n
     # labels the Vertex flavor.
@@ -241,11 +241,11 @@ function V_!(V::AbstractVector,
             lower_range = block_start:block_start+2
             upper_range = lower_range .+ 3
 
-            V[lower_range] = Vertex[upper_range, new_Rij, ns+1, nt+1, nu+1]
-            V[upper_range] = Vertex[lower_range, new_Rij, ns+1, nt+1, nu+1]
+            V[lower_range] .= @view Vertex[upper_range, new_Rij, ns+1, nt+1, nu+1]
+            V[upper_range] .= @view Vertex[lower_range, new_Rij, ns+1, nt+1, nu+1]
         else
             full_block_range = block_start:block_start+5
-            V[full_block_range] = Vertex[full_block_range, new_Rij, ns+1, nt+1, nu+1]
+            V[full_block_range] .= @view Vertex[full_block_range, new_Rij, ns+1, nt+1, nu+1]
         end
     end
 end
@@ -294,9 +294,49 @@ const zx3 = 20
 const zy3 = 21
 end
 
+struct ThreadLocalBuffersT{T}
+    V12_addX::Matrix{T}
+    V34_addX::Matrix{T}
+    X_sum::Vector{T}
+    spropX::Array{T,3}
+    spropY::Array{T,4}
+    Ptm::Matrix{T}
+    V13_addY::Vector{T}
+    V24_addY::Vector{T}
+    V31_addY::Vector{T}
+    V42_addY::Vector{T}
+
+end
+
+function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
+    (; Npairs, NUnique) = System
+
+    [ThreadLocalBuffersT(zeros(21, Npairs),
+      zeros(21, Npairs),
+      zeros(21),
+      zeros(3, 3, NUnique),
+      zeros(3, 3, NUnique, NUnique),
+      zeros(3, 3),
+      zeros(21),
+      zeros(21),
+      zeros(21),
+      zeros(21))
+     for _ in 1:Threads.nthreads()]
+end
+
+
+
+
+
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
-function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props, Buffers)
+function addX!(Workspace::OneLoopWorkspace,
+               is::Integer,
+               it::Integer,
+               iu::Integer,
+               nwpr::Integer,
+               Props::Array{T,3},
+               Buffers::ThreadLocalBuffersT) where T
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, Nsum, siteSum, invpairs) = Par.System
@@ -306,7 +346,9 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     ns = is - 1
     nt = it - 1
     nu = iu - 1
-    wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+
+    wpw1, wpw2, _, _, _, _, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+
     flavTransf12 = (wpw1 * wpw2 > 0, ns * wpw2 > 0, ns * wpw1 < 0)
     flavTransf34 = (wmw3 * wmw4 < 0, ns * wmw4 > 0, ns * wmw3 > 0)
 
@@ -316,14 +358,14 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     S_xk = siteSum.xk
     S_m = siteSum.m
 
-    (; V12, V34, X_sum) = Buffers
-    let max_ki = maximum(S_ki), max_kj = maximum(S_kj)
-        for ki in 1:max_ki
-            Vert!((@view V12[:, ki]), ki, ns, wpw1, -wpw2, flavTransf12)
-        end
-        for kj in 1:max_kj
-            Vert!((@view V34[:, kj]), kj, ns, -wmw3, -wmw4, flavTransf34)
-        end
+    (; V12_addX, V34_addX, X_sum, Ptm) = Buffers
+    V12 = V12_addX
+    V34 = V34_addX
+    for ki in 1:Npairs
+        Vert!((@view V12[:, ki]), ki, ns, wpw1, -wpw2, flavTransf12)
+    end
+    for kj in 1:Npairs
+        Vert!((@view V34[:, kj]), kj, ns, -wmw3, -wmw4, flavTransf34)
     end
 
 
@@ -331,11 +373,12 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     for Rij in 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
-        sumsum = 0
         for k_spl in 1:Nsum[Rij]
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
             ki, kj, m, xk = S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
-            Ptm = m * Props[:, :, xk] ### Props now contains two flavor indices
+            for i in 1:3, j in 1:3
+                Ptm[i,j] = m * Props[i, j, xk] ### Props now contains two flavor indices
+            end
 
             X_sum[fd.yy] += -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] - V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] - V12[fd.yx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
             X_sum[fd.zz] += -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] - V12[fd.zx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1] - V12[fd.zy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
@@ -366,39 +409,45 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             X_sum[fd.zy3] += -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] - V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
         end
 
-        X[1:21, Rij, is, it, iu] .+= X_sum
+        (@view X[1:21, Rij, is, it, iu]) .+= X_sum
     end
     return
 end
 
-function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props; _l=1.0)
+function addY!(Workspace::OneLoopWorkspace, is::Integer,
+               it::Integer,
+               iu::Integer,
+               nwpr::Integer,
+               Props::Array{T,4},
+               Buffers::ThreadLocalBuffersT) where T
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
-    Vert!(V, Rij, s, t, u, isFlavorTransform) = V_!(V, State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert!(V, Rij, s, t, u, isFlavorTransform) =
+        V_!(V, State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
-    wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+    _, wpw2, _, wpw4, wmw1, _, wmw3, _ = mixedFrequencies(ns, nt, nu, nwpr)
     flavTransf13 = (nt * wmw3 < 0, wmw1 * wmw3 > 0, wmw1 * nt > 0)
     flavTransf24 = (nt * wpw4 < 0, wpw2 * wpw4 > 0, wpw2 * nt > 0)
     flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
     flavTransf42 = (nt * wpw2 > 0, wpw4 * wpw2 > 0, wpw4 * nt < 0)
 
-    X_sum = @MVector zeros(21)
+    (;X_sum, V13_addY, V24_addY, V31_addY, V42_addY)  = Buffers
 
-    V13 = @MVector zeros(21)
-    V24 = @MVector zeros(21)
-    V31 = @MVector zeros(21)
-    V42 = @MVector zeros(21)
+    V13 = V13_addY
+    V24 = V24_addY
+    V31 = V31_addY
+    V42 = V42_addY
 
 
     # Xtilde only defined for nonlocal pairs Rij != Rii
     for Rij in 1:Npairs
         Rij in OnsitePairs && continue
         # loop over all left hand side inequivalent pairs Rij
-        Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
+        #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
         (; xi, xj) = PairTypes[Rij]
 
         # For some reason promoting P_ and PT_ to SMatrix objects
@@ -637,11 +686,12 @@ function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
              V31[fd.zy1] * V42[fd.yz3] * PT_(3, 2))
         )
 
-        X[22:end, Rij, is, it, iu] .+= X_sum
+        (@view X[22:end, Rij, is, it, iu]) .+= X_sum
     end
 end
 
-function getXBubble!(Workspace, T::Real)
+
+function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
     Par = Workspace.Par
     (; N, lenIntw) = Par.NumericalParams
     (; NUnique) = Par.System
@@ -657,8 +707,7 @@ function getXBubble!(Workspace, T::Real)
             (DiSigma.x, DiSigma.y, DiSigma.z))]
     end)
 
-    function getKataninPropX!(spropX, nw1, nw2)
-
+    function getKataninPropX!(spropX::Array{T,3}, nw1::Int64, nw2::Int64) where T
         for Rij in 1:Par.System.NUnique
             for j in 1:3, i in 1:3
                 ### Relative minus sign between paper & Nils' thesis
@@ -667,7 +716,7 @@ function getXBubble!(Workspace, T::Real)
         end
     end
 
-    function getKataninPropY!(spropY, nw1, nw2)
+    function getKataninPropY!(spropY::Array{T,4}, nw1::Int64, nw2::Int64) where T
         for Rij_1 in 1:NUnique, Rij_2 in 1:NUnique
             for j in 1:3, i in 1:3
                 ### Relative minus sign between paper & Nils' thesis
@@ -676,40 +725,30 @@ function getXBubble!(Workspace, T::Real)
         end
     end
 
-    AllBuffs = [(V12=zeros((21, maximum(Par.System.siteSum.ki))),
-        V34=zeros((21, maximum(Par.System.siteSum.kj))),
-        X_sum=(@MVector zeros(21)),
-        spropX=(@MArray zeros(3, 3, NUnique)),
-        spropY=zeros(3, 3, NUnique, NUnique))
-                for _ in 1:Threads.nthreads()]
+    ThreadLocalBuffers = get_ThreadLocalBuffers(Par.System)
 
-
-
-    Threads.@threads :static for (is, it) in collect((is, it) for is in 1:N, it in 1:N)
+    Threads.@threads :static for is_it in 1:N*N
+        is = div(is_it-1,N) + 1
+        it = (is_it-1) % N + 1
         # WARNING: 
         # This works only with :static
-        ThreadLocalBuffs = AllBuffs[Threads.threadid()]
+        Buffs = ThreadLocalBuffers[Threads.threadid()]
         ns = is - 1
         nt = it - 1
-        (; spropX, spropY) = ThreadLocalBuffs
         for nw in -lenIntw:lenIntw-1 # Matsubara sum
-            getKataninPropX!(spropX, nw, nw + ns)
-            getKataninPropY!(spropY, nw, nw - nt)
+            getKataninPropX!(Buffs.spropX, nw, nw + ns)
+            getKataninPropY!(Buffs.spropY, nw, nw - nt)
             for iu in 1:N
                 nu = iu - 1
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                     continue
                 end
-                addY!(Workspace, is, it, iu, nw, spropY) # add to XTilde-type bubble functions
+                addY!(Workspace, is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
 
                 ### If no u--t symmetry, then add all the bubbles
                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                 # if(!Par.Options.use_symmetry || nu<=nt)
-
-
-                # WARNING: 
-                # This works only with :static
-                addX!(Workspace, is, it, iu, nw, spropX, ThreadLocalBuffs)
+                addX!(Workspace, is, it, iu, nw, Buffs.spropX, Buffs)
                 # end
             end
         end
@@ -884,7 +923,7 @@ end
 using JLD2
 function getDeriv!(Deriv, State, setup, Lam; saveArgs=true)
 
-    (X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
+    (;X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
     getDFint!(Workspace, Lam)
@@ -908,8 +947,8 @@ function AllocateSetup(Par::OneLoopParams_1)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
-    X = zeros(floattype, getBubbleVDims(Par))
-    return (X, Par)
+    return (X= zeros(floattype, getBubbleVDims(Par)),
+            Par=Par)
 end
 
 function InitializeState(Par, isotropy)
@@ -1007,9 +1046,9 @@ end
 
 function generateSubstituteDeriv(getDeriv!::Function)
 
-    function DerivSubs!(Deriv, State, par, t; s=true)
+    function DerivSubs!(Deriv, State, setup, t; s=true)
         Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, par, Lam, saveArgs=s)
+        a = getDeriv!(Deriv, State, setup, Lam, saveArgs=s)
         Deriv .*= Lam
         a
     end
