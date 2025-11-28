@@ -1,0 +1,42 @@
+name: Run tests
+
+on:
+  push:
+    branches:
+      - main
+      - performance-engineering
+  pull_request:
+  workflow_dispatch:
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: 'true'
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.10'
+      - name: Install dependencies and Test
+        run: |
+          export JULIA_PKG_PRECOMPILE_AUTO=0
+          julia -e 'macro pex(expr)
+                        quote
+                        println("Command: ", $(string(expr)))
+                        $expr
+                        println("Command: ", $(string(expr)), " terminated.")
+                        end
+                    end
+                    @pex using Pkg
+                    @pex Pkg.activate(".")
+                    @pex Pkg.add(url="https://github.com/NilsNiggemann/SpinFRGLattices.jl")
+                    @pex ENV["JULIA_PKG_PRECOMPILE_AUTO"]=1
+                    @pex Pkg.test()'
+      - name: Formatting Check
+        run: |
+          julia -e 'using Pkg
+                    Pkg.add("JuliaFormatter",version= "1.0.62")'
+          julia -e 'using JuliaFormatter
+                    @assert format(".") "Code not properly formatted!"'
