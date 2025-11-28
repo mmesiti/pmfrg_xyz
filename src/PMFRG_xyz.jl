@@ -221,45 +221,30 @@ end
 using LinearAlgebra
 using SparseArrays
 
-function V_(Vertex::AbstractArray, ns::Int, nt::Int, nu::Int,
-    isFlavorTransform::Tuple{Bool,Bool,Bool},
+function V_(
+    Vertex::AbstractArray, n::Int, ns::Int, nt::Int, nu::Int,
+    isFlavorTransform::Tuple{Bool, Bool, Bool},
     Rij::Integer, Rji::Integer, N::Integer)
 
-    V = zeros(21)
-    V_!(V, Vertex, ns, nt, nu, isFlavorTransform, Rij,  Rji, N)
+    # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
+    block = div(n + 2, 6)
 
+    if(block != 0 && isFlavorTransform[block])
+        # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
+        # The layout of the fd-module is hence *very* important
+         
+        block_start = 4 + (block -1)*6
+        offset = n - block_start
+        new_offset  = (offset + 3) % 6 # cyclic permutation, right shift by 3
 
-end
-
-
-
-function V_!(V::AbstractVector,
-    Vertex::AbstractArray, ns::Int, nt::Int, nu::Int,
-    isFlavorTransform::Tuple{Bool,Bool,Bool},
-    Rij::Integer, Rji::Integer, N::Integer)
-
-    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-    new_Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-
-    V[1:3] .= @view Vertex[1:3, new_Rij, ns+1, nt+1, nu+1]
-
-    # I include isFlavorTransform for optimization purposes. The integer n
-    # labels the Vertex flavor.
-
-    @unroll for iblock in 1:3
-        block_start = 3 + 1 + (iblock - 1) * 6
-        if isFlavorTransform[iblock]
-
-            lower_range = block_start:block_start+2
-            upper_range = lower_range .+ 3
-
-            V[lower_range] .= @view Vertex[upper_range, new_Rij, ns+1, nt+1, nu+1]
-            V[upper_range] .= @view Vertex[lower_range, new_Rij, ns+1, nt+1, nu+1]
-        else
-            full_block_range = block_start:block_start+5
-            V[full_block_range] .= @view Vertex[full_block_range, new_Rij, ns+1, nt+1, nu+1]
-        end
+        n_transf = block_start + new_offset  
+    else
+        n_transf = n
     end
+    
+    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
+    Rij = ifelse(isFlavorTransform[1], Rji, Rij)
+    return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
 end
 
 
@@ -353,7 +338,7 @@ function addX!(Workspace::OneLoopWorkspace,
     N = Par.NumericalParams.N
     (; Npairs, Nsum, siteSum, invpairs) = Par.System
 
-    Vert!(V, Rij, s, t, u, isFlavorTransform) = V_!(V, State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert(n, Rij, s, t, u, isFlavorTransform) = V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     ns = is - 1
     nt = it - 1
@@ -374,10 +359,10 @@ function addX!(Workspace::OneLoopWorkspace,
     V12 = V12_addX
     V34 = V34_addX
     for ki in 1:Npairs
-        Vert!((@view V12[:, ki]), ki, ns, wpw1, -wpw2, flavTransf12)
-    end
-    for kj in 1:Npairs
-        Vert!((@view V34[:, kj]), kj, ns, -wmw3, -wmw4, flavTransf34)
+        for n in 1:21
+            V12[n, ki]= Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
+            V34[n, ki]= Vert(n, ki, ns, -wmw3, -wmw4, flavTransf34)
+        end
     end
 
 
@@ -436,8 +421,8 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
     N = Par.NumericalParams.N
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
-    Vert!(V, Rij, s, t, u, isFlavorTransform) =
-        V_!(V, State.Gamma, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert(n, Rij, s, t, u, isFlavorTransform) =
+        V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
@@ -473,10 +458,12 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
         end
 
 
-        Vert!(V13, Rij, -wmw1, nt, wmw3, flavTransf13)
-        Vert!(V24, Rij, wpw2, -nt, -wpw4, flavTransf24)
-        Vert!(V31, Rij, wmw3, nt, -wmw1, flavTransf31)
-        Vert!(V42, Rij, -wpw4, -nt, wpw2, flavTransf42)
+        for n in 1:21
+            V13[n] = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
+            V24[n] = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
+            V31[n] = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
+            V42[n] = Vert(n, Rij, -wpw4, -nt, wpw2, flavTransf42)
+        end
 
         fill!(X_sum, 0.0)
 
@@ -866,7 +853,7 @@ function getDFint!(Workspace, T::Real)
 
     for x in 1:NUnique
         sumres = 0.0
-        for nw in -lenIntw_acc:lenIntw_acc-1
+        for nw in -lenIntw_acc:lenIntw_acc-1 
             w = get_w(nw, T)
             sumres += iSx(x, nw) / iGx(x, nw) * iSigmax(x, nw) / w
             sumres += iSy(x, nw) / iGy(x, nw) * iSigmay(x, nw) / w
