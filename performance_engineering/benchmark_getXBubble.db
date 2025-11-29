@@ -981,5 +981,36 @@
       "comment": ""
     },
     "allocations": 132
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 3.63056006e8,
+      "times_mean": 3.32095501e8,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 2.86034318e8,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "d5649b",
+      "julia_opt_level": 3,
+      "comment": "split body of Rij loop in addX!"
+    },
+    "allocations": 68
   }
 ]
