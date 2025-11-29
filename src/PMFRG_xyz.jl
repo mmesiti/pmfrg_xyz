@@ -394,14 +394,20 @@ function addX!(
     for Rij = 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
-        for k_spl = 1:Nsum[Rij]
-            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-            ki, kj, m, xk =
-                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
-            for i = 1:3, j = 1:3
-                Ptm[i, j] = m * Props[i, j, xk] ### Props now contains two flavor indices
-            end
 
+        loop_nsum(f) = begin
+            for k_spl = 1:Nsum[Rij]
+                #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
+                ki, kj, m, xk =
+                    S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+                for i = 1:3, j = 1:3
+                    Ptm[i, j] = m * Props[i, j, xk] ### Props now contains two flavor indices
+                end
+                f(ki,kj,Ptm)
+            end
+        end
+
+        loop_nsum() do ki, kj, Ptm
             X_sum[fd.yy] +=
                 -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
                 V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
@@ -414,6 +420,9 @@ function addX!(
                 -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
                 V12[fd.xy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
                 V12[fd.xz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
+        end
+
+        loop_nsum() do ki, kj, Ptm
 
             ### Xab1 = -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
             X_sum[fd.xy1] +=
@@ -441,6 +450,9 @@ function addX!(
                 V12[fd.zy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
                 V12[fd.zx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
 
+        end
+
+        loop_nsum() do ki, kj, Ptm
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
             X_sum[fd.xy2] +=
                 -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] -
@@ -461,6 +473,9 @@ function addX!(
                 -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] -
                 V12[fd.zy3, ki] * V34[fd.yz3, kj] * Ptm[2, 3]
 
+        end
+
+        loop_nsum() do ki, kj, Ptm
             ### Xab3 = -Vab2 Vab3 - Vab3 Vba2
             X_sum[fd.xy3] +=
                 -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] -
