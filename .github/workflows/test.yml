@@ -37,6 +37,6 @@ jobs:
       - name: Formatting Check
         run: |
           julia -e 'using Pkg
-                    Pkg.add("JuliaFormatter",version= "1.0.62")'
+                    Pkg.add(name="JuliaFormatter",version= "1.0.62")'
           julia -e 'using JuliaFormatter
                     @assert format(".") "Code not properly formatted!"'
