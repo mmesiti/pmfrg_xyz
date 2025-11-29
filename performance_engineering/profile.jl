@@ -59,7 +59,7 @@ function save_and_display_results(example_name)
     profile_file = get_profile_filename(example_name, git_commit, pprof_version)
 
     println("\nSaving profile data to: $profile_file")
-    pprof(out=profile_file)
+    pprof(out = profile_file)
 
     println("\nGenerating interactive profile visualization...")
     pprof()
@@ -69,7 +69,11 @@ end
 
 # level 2
 function get_profile_filename(example_name, git_commit, pprof_version)
-    joinpath(@__DIR__, "profile_data", "profile_$(example_name)_$(git_commit)_pprof$(pprof_version).pb.gz")
+    joinpath(
+        @__DIR__,
+        "profile_data",
+        "profile_$(example_name)_$(git_commit)_pprof$(pprof_version).pb.gz",
+    )
 end
 
 function print_summary(profile_file, git_commit, pprof_version, pprof_path, example_name)

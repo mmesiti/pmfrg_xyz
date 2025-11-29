@@ -6,13 +6,23 @@ using SpinFRGLattices
 import PMFRG_xyz: Params, SolveFRG
 
 function print_usage()
-    println( "1. Apply the patch: git apply test-utils/patches/add_recorder_getxbubble.patch")
-    println( "2. Add Recorder.jl to PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.add(\"Recorder\")'")
-    println( "3. Run this script: julia --project=test-utils test-utils/regression/dimer_anisotropy/record_data.jl")
-    println( "4. Unapply patch: git apply -R < test-utils/patches/add_recorder_getxbubble.patch")
-    println( "5. Remove Recorder.jl from PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.rm(\"Recorder\")'")
+    println(
+        "1. Apply the patch: git apply test-utils/patches/add_recorder_getxbubble.patch",
+    )
+    println(
+        "2. Add Recorder.jl to PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.add(\"Recorder\")'",
+    )
+    println(
+        "3. Run this script: julia --project=test-utils test-utils/regression/dimer_anisotropy/record_data.jl",
+    )
+    println(
+        "4. Unapply patch: git apply -R < test-utils/patches/add_recorder_getxbubble.patch",
+    )
+    println(
+        "5. Remove Recorder.jl from PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.rm(\"Recorder\")'",
+    )
 end
-    
+
 function main()::Int
     record_test_data()
     script_fname = generate_regression_tests()
@@ -51,8 +61,8 @@ function generate_regression_tests()
 
     try
         cd(@__DIR__)
-        fname, _  = Recorder.create_regression_tests(tag="dimer")
-        return joinpath(@__DIR__,fname)
+        fname, _ = Recorder.create_regression_tests(tag = "dimer")
+        return joinpath(@__DIR__, fname)
     finally
         cd(current_dir)
     end
@@ -86,19 +96,14 @@ end
 function run_dimer_example()
     @eval begin
         System = SpinFRGLattices.getPolymer(2)
-        par = Params(System,
-                    N=8,
-                    accuracy = 1e-10,
-                    temp_max = 10.0,
-                    temp_min = 1.0
-                    )
+        par = Params(System, N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
         isotropy = zeros(System.Npairs, 3)
 
-        for n in 1:System.Npairs
+        for n = 1:System.Npairs
             isotropy[n, :] = [1.0, 0.5, 0.2]
         end
 
-        results = @record SolveFRG(par,isotropy)
+        results = @record SolveFRG(par, isotropy)
     end
 end
 

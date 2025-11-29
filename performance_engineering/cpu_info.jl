@@ -23,33 +23,42 @@ Assumes all HWThreads have the same configuration.
 """
 function get_cpu_info()::Dict{String,Any}
     io = IOBuffer()
-    run(pipeline(`likwid-setFrequencies -p`, stdout=io, stderr=io))
+    run(pipeline(`likwid-setFrequencies -p`, stdout = io, stderr = io))
     output_str = String(take!(io))
     lines = split(output_str, '\n')
 
-    hwp_on_line = find_line_with_pattern(lines,r"HWP")
+    hwp_on_line = find_line_with_pattern(lines, r"HWP")
     hwthread0_line = find_line_with_pattern(lines, r"^HWThread 0:")
     socket0_line = find_line_with_pattern(lines, r"^Socket 0:")
 
     governor = extract_governor(hwthread0_line)
-    max_freq =extract_max_frequency(hwthread0_line)
+    max_freq = extract_max_frequency(hwthread0_line)
     turbo = extract_turbo_state(hwthread0_line)
 
 
     uncore_max_freq = extract_uncore_max_frequency(socket0_line)
 
-    hostname = strip(read(`hostname`,String))
+    hostname = strip(read(`hostname`, String))
 
-    Dict("governor" => governor,
-         "max_freq" => max_freq,
-         "turbo" => turbo,
-         "uncore_max_freq" => uncore_max_freq,
-         "hostname" => hostname,
-         "hwp on" => if hwp_on_line == "" "no" else "yes" end)
+    Dict(
+        "governor" => governor,
+        "max_freq" => max_freq,
+        "turbo" => turbo,
+        "uncore_max_freq" => uncore_max_freq,
+        "hostname" => hostname,
+        "hwp on" => if hwp_on_line == ""
+            "no"
+        else
+            "yes"
+        end,
+    )
 end
 
 # level 2
-function find_line_with_pattern(lines::Vector{SubString{String}}, pattern::Regex)::SubString{String}
+function find_line_with_pattern(
+    lines::Vector{SubString{String}},
+    pattern::Regex,
+)::SubString{String}
     for line in lines
         if occursin(pattern, line)
             return line
@@ -86,7 +95,8 @@ function extract_uncore_max_frequency(socket_line::SubString{String})::Float64
     # Example: "Socket 0: min/max 0.4/4.4 GHz"
     # Extract the second number in min/max pattern
     freq_match = match(r"min/max\s+([\d.]+)/([\d.]+)\s+GHz", socket_line)
-    freq_match === nothing && error("Could not parse uncore max frequency from: $socket_line")
+    freq_match === nothing &&
+        error("Could not parse uncore max frequency from: $socket_line")
     return parse(Float64, freq_match.captures[2])
 end
 

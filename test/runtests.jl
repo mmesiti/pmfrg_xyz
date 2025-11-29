@@ -13,12 +13,11 @@ end
 
 function run_allocation_tests()
     @testset "Checking allocations" begin
-    check_addXY_allocations()
-    end 
+        check_addXY_allocations()
+    end
 end
 
-@time @testset verbose=true "PMFRG_xyz tests" begin
+@time @testset verbose = true "PMFRG_xyz tests" begin
     run_regression_tests()
     run_allocation_tests()
 end
-

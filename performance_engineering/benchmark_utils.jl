@@ -3,12 +3,12 @@ using SpinFRGLattices
 using SpinFRGLattices.SquareLattice
 import PMFRG_xyz: Params, AllocateSetup, InitializeState, OneLoopWorkspace
 # level 2
-function create_synthetic_workspace_dimer(; N::Int=8)
+function create_synthetic_workspace_dimer(; N::Int = 8)
     System = SpinFRGLattices.getPolymer(2)
-    par = Params(System, N=N, temp_max=10.0, temp_min=1.0)
+    par = Params(System, N = N, temp_max = 10.0, temp_min = 1.0)
     isotropy = zeros(System.Npairs, 3)
 
-    for n in 1:System.Npairs
+    for n = 1:System.Npairs
         isotropy[n, :] = [1.0, 0.5, 0.2]
     end
 
@@ -26,22 +26,22 @@ function create_synthetic_workspace_dimer(; N::Int=8)
     return workspace, lam
 end
 
-function create_synthetic_workspace_square(; N::Int=8, lattice_size::Int=4)
+function create_synthetic_workspace_square(; N::Int = 8, lattice_size::Int = 4)
     J1 = 1.0
     J2 = 0.5
 
     System = getSquareLattice(lattice_size, [J1, J2])
-    par = Params(System, N=N, temp_max=10.0, temp_min=1.0)
+    par = Params(System, N = N, temp_max = 10.0, temp_min = 1.0)
     isotropy = zeros(System.Npairs, 3)
 
-    for n in 1:System.Npairs
+    for n = 1:System.Npairs
         isotropy[n, :] = [1.0, 0.5, 0.2]
     end
 
     State = InitializeState(par, isotropy)
     setup = AllocateSetup(par)
 
-    (;X,Par)  = setup
+    (; X, Par) = setup
     Deriv = copy(State)
     fill_with_zeros!(Deriv)
 
@@ -71,4 +71,3 @@ function fill_with_zeros!(state)
         fill!(state.Gamma, 0.0)
     end
 end
-

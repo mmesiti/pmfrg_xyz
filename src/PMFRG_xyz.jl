@@ -92,62 +92,67 @@ end
 # This gives 21 different Vertex functions.
 # In my convention I dont use X and ̃X but just one big array called X.
 # If I need to acces the ̃X part (which in my convention I name Y) I just go X[21 + flavor]
-getVDims(Par) = (21, Par.System.Npairs, Par.NumericalParams.N, Par.NumericalParams.N, Par.NumericalParams.N)
-getBubbleVDims(Par) = (42, Par.System.Npairs, Par.NumericalParams.N, Par.NumericalParams.N, Par.NumericalParams.N)
+getVDims(Par) = (
+    21,
+    Par.System.Npairs,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+)
+getBubbleVDims(Par) = (
+    42,
+    Par.System.Npairs,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+)
 _getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
 
-function SigmaType(NUnique::Int, N::Int, type=Float64)
+function SigmaType(NUnique::Int, N::Int, type = Float64)
     return SigmaType(
         zeros(type, NUnique, N),
         zeros(type, NUnique, N),
-        zeros(type, NUnique, N)
+        zeros(type, NUnique, N),
     )
 end
 SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
 
-function StateType(NUnique::Int, N::Int, VDims::Tuple, type=Float64)
-    return StateType(
-        zeros(type, NUnique),
-        SigmaType(tpye, NUnique, N),
-        zeros(type, VDims)
-    )
+function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
+    return StateType(zeros(type, NUnique), SigmaType(tpye, NUnique, N), zeros(type, VDims))
 end
-StateType(Par) = StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
-StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) = StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), Gamma)
-RecursiveArrayTools.ArrayPartition(x) = ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma)
+StateType(Par) =
+    StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
+StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
+    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), Gamma)
+RecursiveArrayTools.ArrayPartition(x) =
+    ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma)
 StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 
 # The constructor of this is just blind-copied. To this day I dont really understand
 # the purpose of lenIntw and lenIntw_acc
 function NumericalParams(;
-    N::Integer=24, accuracy=1e-6,
-    temp_min=exp(-10.0),
-    temp_max=exp(10.0), lenIntw::Int=N,
-    lenIntw_acc::Int=2 * maximum((N, lenIntw))
+    N::Integer = 24,
+    accuracy = 1e-6,
+    temp_min = exp(-10.0),
+    temp_max = exp(10.0),
+    lenIntw::Int = N,
+    lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
 )
 
-    return NumericalParams(
-        N, accuracy,
-        temp_min,
-        temp_max, lenIntw,
-        lenIntw_acc
-    )
+    return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
 end
 
 function OneLoopWorkspace(State, Deriv, X, Par)
     setZero!(Deriv)
     setZero!(X)
 
-    return OneLoopWorkspace(
-        StateType(State.x...),
-        StateType(Deriv.x...),
-        X,
-        Par
-    )
+    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
 end
 
-OptionParams(; use_symmetry::Bool=true, MinimalOutput::Bool=false, kwargs...) = OptionParams(use_symmetry, MinimalOutput)
-Params(System; kwargs...) = OneLoopParams_1(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
+    OptionParams(use_symmetry, MinimalOutput)
+Params(System; kwargs...) =
+    OneLoopParams_1(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
 
 #############################################################
 ######### PROPAGATORS ## PROPAGATORS ## PROPAGATORS #########
@@ -192,7 +197,13 @@ end
 
 ### Katanin requires (d/dΛ)iΣ, which in the original code is iSigma_(DSigma, x, nw)
 ### might be wrong here though.
-function iSKat_(iSigma::AbstractArray, DSigma::AbstractArray, x::Integer, nw::Integer, T::Real)
+function iSKat_(
+    iSigma::AbstractArray,
+    DSigma::AbstractArray,
+    x::Integer,
+    nw::Integer,
+    T::Real,
+)
     w = get_w(nw, T)
     return -iG_(iSigma, x, nw, T)^2 * (w / (2.0 * sqrt(T)) + iSigma_(DSigma, x, nw))
 end
@@ -222,26 +233,33 @@ using LinearAlgebra
 using SparseArrays
 
 function V_(
-    Vertex::AbstractArray, n::Int, ns::Int, nt::Int, nu::Int,
-    isFlavorTransform::Tuple{Bool, Bool, Bool},
-    Rij::Integer, Rji::Integer, N::Integer)
+    Vertex::AbstractArray,
+    n::Int,
+    ns::Int,
+    nt::Int,
+    nu::Int,
+    isFlavorTransform::Tuple{Bool,Bool,Bool},
+    Rij::Integer,
+    Rji::Integer,
+    N::Integer,
+)
 
     # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
     block = div(n + 2, 6)
 
-    if(block != 0 && isFlavorTransform[block])
+    if (block != 0 && isFlavorTransform[block])
         # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
         # The layout of the fd-module is hence *very* important
-         
-        block_start = 4 + (block -1)*6
-        offset = n - block_start
-        new_offset  = (offset + 3) % 6 # cyclic permutation, right shift by 3
 
-        n_transf = block_start + new_offset  
+        block_start = 4 + (block - 1) * 6
+        offset = n - block_start
+        new_offset = (offset + 3) % 6 # cyclic permutation, right shift by 3
+
+        n_transf = block_start + new_offset
     else
         n_transf = n
     end
-    
+
     ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
     Rij = ifelse(isFlavorTransform[1], Rji, Rij)
     return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
@@ -308,17 +326,20 @@ end
 function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
     (; Npairs, NUnique) = System
 
-    [ThreadLocalBuffersT(zeros(21, Npairs),
-      zeros(21, Npairs),
-      zeros(21),
-      zeros(3, 3, NUnique),
-      zeros(3, 3, NUnique, NUnique),
-      zeros(3, 3),
-      zeros(21),
-      zeros(21),
-      zeros(21),
-      zeros(21))
-     for _ in 1:Threads.nthreads()]
+    [
+        ThreadLocalBuffersT(
+            zeros(21, Npairs),
+            zeros(21, Npairs),
+            zeros(21),
+            zeros(3, 3, NUnique),
+            zeros(3, 3, NUnique, NUnique),
+            zeros(3, 3),
+            zeros(21),
+            zeros(21),
+            zeros(21),
+            zeros(21),
+        ) for _ = 1:Threads.nthreads()
+    ]
 end
 
 
@@ -327,18 +348,21 @@ end
 
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
-function addX!(Workspace::OneLoopWorkspace,
-               is::Integer,
-               it::Integer,
-               iu::Integer,
-               nwpr::Integer,
-               Props::Array{T,3},
-               Buffers::ThreadLocalBuffersT) where T
+function addX!(
+    Workspace::OneLoopWorkspace,
+    is::Integer,
+    it::Integer,
+    iu::Integer,
+    nwpr::Integer,
+    Props::Array{T,3},
+    Buffers::ThreadLocalBuffersT,
+) where {T}
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, Nsum, siteSum, invpairs) = Par.System
 
-    Vert(n, Rij, s, t, u, isFlavorTransform) = V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vert(n, Rij, s, t, u, isFlavorTransform) =
+        V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     ns = is - 1
     nt = it - 1
@@ -358,52 +382,104 @@ function addX!(Workspace::OneLoopWorkspace,
     (; V12_addX, V34_addX, X_sum, Ptm) = Buffers
     V12 = V12_addX
     V34 = V34_addX
-    for ki in 1:Npairs
-        for n in 1:21
-            V12[n, ki]= Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
-            V34[n, ki]= Vert(n, ki, ns, -wmw3, -wmw4, flavTransf34)
+    for ki = 1:Npairs
+        for n = 1:21
+            V12[n, ki] = Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
+            V34[n, ki] = Vert(n, ki, ns, -wmw3, -wmw4, flavTransf34)
         end
     end
 
 
 
-    for Rij in 1:Npairs
+    for Rij = 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
-        for k_spl in 1:Nsum[Rij]
+        for k_spl = 1:Nsum[Rij]
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-            ki, kj, m, xk = S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
-            for i in 1:3, j in 1:3
-                Ptm[i,j] = m * Props[i, j, xk] ### Props now contains two flavor indices
+            ki, kj, m, xk =
+                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+            for i = 1:3, j = 1:3
+                Ptm[i, j] = m * Props[i, j, xk] ### Props now contains two flavor indices
             end
 
-            X_sum[fd.yy] += -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] - V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] - V12[fd.yx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
-            X_sum[fd.zz] += -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] - V12[fd.zx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1] - V12[fd.zy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.xx] += -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] - V12[fd.xy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2] - V12[fd.xz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
+            X_sum[fd.yy] +=
+                -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
+                V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
+                V12[fd.yx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
+            X_sum[fd.zz] +=
+                -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
+                V12[fd.zx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
+                V12[fd.zy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
+            X_sum[fd.xx] +=
+                -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
+                V12[fd.xy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
+                V12[fd.xz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
 
             ### Xab1 = -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-            X_sum[fd.xy1] += -V12[fd.xx, ki] * V34[fd.xy1, kj] * Ptm[1, 1] - V12[fd.xy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] - V12[fd.xz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3]
-            X_sum[fd.xz1] += -V12[fd.xx, ki] * V34[fd.xz1, kj] * Ptm[1, 1] - V12[fd.xz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] - V12[fd.xy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.yx1] += -V12[fd.yy, ki] * V34[fd.yx1, kj] * Ptm[2, 2] - V12[fd.yx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] - V12[fd.yz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
-            X_sum[fd.yz1] += -V12[fd.yy, ki] * V34[fd.yz1, kj] * Ptm[2, 2] - V12[fd.yz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] - V12[fd.yx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1]
-            X_sum[fd.zx1] += -V12[fd.zz, ki] * V34[fd.zx1, kj] * Ptm[3, 3] - V12[fd.zx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] - V12[fd.zy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2]
-            X_sum[fd.zy1] += -V12[fd.zz, ki] * V34[fd.zy1, kj] * Ptm[3, 3] - V12[fd.zy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] - V12[fd.zx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
+            X_sum[fd.xy1] +=
+                -V12[fd.xx, ki] * V34[fd.xy1, kj] * Ptm[1, 1] -
+                V12[fd.xy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
+                V12[fd.xz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3]
+            X_sum[fd.xz1] +=
+                -V12[fd.xx, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
+                V12[fd.xz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
+                V12[fd.xy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
+            X_sum[fd.yx1] +=
+                -V12[fd.yy, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
+                V12[fd.yx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
+                V12[fd.yz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
+            X_sum[fd.yz1] +=
+                -V12[fd.yy, ki] * V34[fd.yz1, kj] * Ptm[2, 2] -
+                V12[fd.yz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
+                V12[fd.yx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1]
+            X_sum[fd.zx1] +=
+                -V12[fd.zz, ki] * V34[fd.zx1, kj] * Ptm[3, 3] -
+                V12[fd.zx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
+                V12[fd.zy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2]
+            X_sum[fd.zy1] +=
+                -V12[fd.zz, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
+                V12[fd.zy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
+                V12[fd.zx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
 
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
-            X_sum[fd.xy2] += -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] - V12[fd.xy3, ki] * V34[fd.yx3, kj] * Ptm[2, 1]
-            X_sum[fd.xz2] += -V12[fd.xz2, ki] * V34[fd.xz2, kj] * Ptm[1, 3] - V12[fd.xz3, ki] * V34[fd.zx3, kj] * Ptm[3, 1]
-            X_sum[fd.yx2] += -V12[fd.yx2, ki] * V34[fd.yx2, kj] * Ptm[2, 1] - V12[fd.yx3, ki] * V34[fd.xy3, kj] * Ptm[1, 2]
-            X_sum[fd.yz2] += -V12[fd.yz2, ki] * V34[fd.yz2, kj] * Ptm[2, 3] - V12[fd.yz3, ki] * V34[fd.zy3, kj] * Ptm[3, 2]
-            X_sum[fd.zx2] += -V12[fd.zx2, ki] * V34[fd.zx2, kj] * Ptm[3, 1] - V12[fd.zx3, ki] * V34[fd.xz3, kj] * Ptm[1, 3]
-            X_sum[fd.zy2] += -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] - V12[fd.zy3, ki] * V34[fd.yz3, kj] * Ptm[2, 3]
+            X_sum[fd.xy2] +=
+                -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] -
+                V12[fd.xy3, ki] * V34[fd.yx3, kj] * Ptm[2, 1]
+            X_sum[fd.xz2] +=
+                -V12[fd.xz2, ki] * V34[fd.xz2, kj] * Ptm[1, 3] -
+                V12[fd.xz3, ki] * V34[fd.zx3, kj] * Ptm[3, 1]
+            X_sum[fd.yx2] +=
+                -V12[fd.yx2, ki] * V34[fd.yx2, kj] * Ptm[2, 1] -
+                V12[fd.yx3, ki] * V34[fd.xy3, kj] * Ptm[1, 2]
+            X_sum[fd.yz2] +=
+                -V12[fd.yz2, ki] * V34[fd.yz2, kj] * Ptm[2, 3] -
+                V12[fd.yz3, ki] * V34[fd.zy3, kj] * Ptm[3, 2]
+            X_sum[fd.zx2] +=
+                -V12[fd.zx2, ki] * V34[fd.zx2, kj] * Ptm[3, 1] -
+                V12[fd.zx3, ki] * V34[fd.xz3, kj] * Ptm[1, 3]
+            X_sum[fd.zy2] +=
+                -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] -
+                V12[fd.zy3, ki] * V34[fd.yz3, kj] * Ptm[2, 3]
 
             ### Xab3 = -Vab2 Vab3 - Vab3 Vba2
-            X_sum[fd.xy3] += -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] - V12[fd.xy3, ki] * V34[fd.yx2, kj] * Ptm[2, 1]
-            X_sum[fd.xz3] += -V12[fd.xz2, ki] * V34[fd.xz3, kj] * Ptm[1, 3] - V12[fd.xz3, ki] * V34[fd.zx2, kj] * Ptm[3, 1]
-            X_sum[fd.yx3] += -V12[fd.yx2, ki] * V34[fd.yx3, kj] * Ptm[2, 1] - V12[fd.yx3, ki] * V34[fd.xy2, kj] * Ptm[1, 2]
-            X_sum[fd.yz3] += -V12[fd.yz2, ki] * V34[fd.yz3, kj] * Ptm[2, 3] - V12[fd.yz3, ki] * V34[fd.zy2, kj] * Ptm[3, 2]
-            X_sum[fd.zx3] += -V12[fd.zx2, ki] * V34[fd.zx3, kj] * Ptm[3, 1] - V12[fd.zx3, ki] * V34[fd.xz2, kj] * Ptm[1, 3]
-            X_sum[fd.zy3] += -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] - V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
+            X_sum[fd.xy3] +=
+                -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] -
+                V12[fd.xy3, ki] * V34[fd.yx2, kj] * Ptm[2, 1]
+            X_sum[fd.xz3] +=
+                -V12[fd.xz2, ki] * V34[fd.xz3, kj] * Ptm[1, 3] -
+                V12[fd.xz3, ki] * V34[fd.zx2, kj] * Ptm[3, 1]
+            X_sum[fd.yx3] +=
+                -V12[fd.yx2, ki] * V34[fd.yx3, kj] * Ptm[2, 1] -
+                V12[fd.yx3, ki] * V34[fd.xy2, kj] * Ptm[1, 2]
+            X_sum[fd.yz3] +=
+                -V12[fd.yz2, ki] * V34[fd.yz3, kj] * Ptm[2, 3] -
+                V12[fd.yz3, ki] * V34[fd.zy2, kj] * Ptm[3, 2]
+            X_sum[fd.zx3] +=
+                -V12[fd.zx2, ki] * V34[fd.zx3, kj] * Ptm[3, 1] -
+                V12[fd.zx3, ki] * V34[fd.xz2, kj] * Ptm[1, 3]
+            X_sum[fd.zy3] +=
+                -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] -
+                V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
         end
 
         (@view X[1:21, Rij, is, it, iu]) .+= X_sum
@@ -411,12 +487,15 @@ function addX!(Workspace::OneLoopWorkspace,
     return
 end
 
-function addY!(Workspace::OneLoopWorkspace, is::Integer,
-               it::Integer,
-               iu::Integer,
-               nwpr::Integer,
-               Props::Array{T,4},
-               Buffers::ThreadLocalBuffersT) where T
+function addY!(
+    Workspace::OneLoopWorkspace,
+    is::Integer,
+    it::Integer,
+    iu::Integer,
+    nwpr::Integer,
+    Props::Array{T,4},
+    Buffers::ThreadLocalBuffersT,
+) where {T}
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
@@ -432,7 +511,7 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
     flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
     flavTransf42 = (nt * wpw2 > 0, wpw4 * wpw2 > 0, wpw4 * nt < 0)
 
-    (;X_sum, V13_addY, V24_addY, V31_addY, V42_addY)  = Buffers
+    (; X_sum, V13_addY, V24_addY, V31_addY, V42_addY) = Buffers
 
     V13 = V13_addY
     V24 = V24_addY
@@ -441,7 +520,7 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
 
 
     # Xtilde only defined for nonlocal pairs Rij != Rii
-    for Rij in 1:Npairs
+    for Rij = 1:Npairs
         Rij in OnsitePairs && continue
         # loop over all left hand side inequivalent pairs Rij
         #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
@@ -458,7 +537,7 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
         end
 
 
-        for n in 1:21
+        for n = 1:21
             V13[n] = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
             V24[n] = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
             V31[n] = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
@@ -470,219 +549,201 @@ function addY!(Workspace::OneLoopWorkspace, is::Integer,
         ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
         X_sum[fd.xx] += (
-            (V13[fd.xx] * V24[fd.xx] * P_(1, 1)
-             + V13[fd.xy2] * V24[fd.xy2] * P_(2, 2)
-             + V13[fd.xz2] * V24[fd.xz2] * P_(3, 3))
-            +
-            (V31[fd.xx] * V42[fd.xx] * PT_(1, 1)
-             + V31[fd.xy2] * V42[fd.xy2] * PT_(2, 2)
-             + V31[fd.xz2] * V42[fd.xz2] * PT_(3, 3))
+            (
+                V13[fd.xx] * V24[fd.xx] * P_(1, 1) +
+                V13[fd.xy2] * V24[fd.xy2] * P_(2, 2) +
+                V13[fd.xz2] * V24[fd.xz2] * P_(3, 3)
+            ) + (
+                V31[fd.xx] * V42[fd.xx] * PT_(1, 1) +
+                V31[fd.xy2] * V42[fd.xy2] * PT_(2, 2) +
+                V31[fd.xz2] * V42[fd.xz2] * PT_(3, 3)
+            )
         )
 
         X_sum[fd.yy] += (
-            (V13[fd.yy] * V24[fd.yy] * P_(2, 2)
-             + V13[fd.yx2] * V24[fd.yx2] * P_(1, 1)
-             + V13[fd.yz2] * V24[fd.yz2] * P_(3, 3))
-            +
-            (V31[fd.yy] * V42[fd.yy] * PT_(2, 2)
-             + V31[fd.yx2] * V42[fd.yx2] * PT_(1, 1)
-             + V31[fd.yz2] * V42[fd.yz2] * PT_(3, 3))
+            (
+                V13[fd.yy] * V24[fd.yy] * P_(2, 2) +
+                V13[fd.yx2] * V24[fd.yx2] * P_(1, 1) +
+                V13[fd.yz2] * V24[fd.yz2] * P_(3, 3)
+            ) + (
+                V31[fd.yy] * V42[fd.yy] * PT_(2, 2) +
+                V31[fd.yx2] * V42[fd.yx2] * PT_(1, 1) +
+                V31[fd.yz2] * V42[fd.yz2] * PT_(3, 3)
+            )
         )
 
         X_sum[fd.zz] += (
-            (V13[fd.zz] * V24[fd.zz] * P_(3, 3)
-             + V13[fd.zx2] * V24[fd.zx2] * P_(1, 1)
-             + V13[fd.zy2] * V24[fd.zy2] * P_(2, 2))
-            +
-            (V31[fd.zz] * V42[fd.zz] * PT_(3, 3)
-             + V31[fd.zx2] * V42[fd.zx2] * PT_(1, 1)
-             + V31[fd.zy2] * V42[fd.zy2] * PT_(2, 2))
+            (
+                V13[fd.zz] * V24[fd.zz] * P_(3, 3) +
+                V13[fd.zx2] * V24[fd.zx2] * P_(1, 1) +
+                V13[fd.zy2] * V24[fd.zy2] * P_(2, 2)
+            ) + (
+                V31[fd.zz] * V42[fd.zz] * PT_(3, 3) +
+                V31[fd.zx2] * V42[fd.zx2] * PT_(1, 1) +
+                V31[fd.zy2] * V42[fd.zy2] * PT_(2, 2)
+            )
         )
 
         ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
 
         X_sum[fd.xy1] += (
-            (V13[fd.xy3] * V24[fd.xy3] * P_(2, 1)
-             +
-             V13[fd.xy1] * V24[fd.xy1] * P_(1, 2))
-            +
-            (V31[fd.xy3] * V42[fd.xy3] * PT_(2, 1)
-             +
-             V31[fd.xy1] * V42[fd.xy1] * PT_(1, 2))
+            (V13[fd.xy3] * V24[fd.xy3] * P_(2, 1) + V13[fd.xy1] * V24[fd.xy1] * P_(1, 2)) + (
+                V31[fd.xy3] * V42[fd.xy3] * PT_(2, 1) +
+                V31[fd.xy1] * V42[fd.xy1] * PT_(1, 2)
+            )
         )
 
         X_sum[fd.xz1] += (
-            (V13[fd.xz3] * V24[fd.xz3] * P_(3, 1)
-             +
-             V13[fd.xz1] * V24[fd.xz1] * P_(1, 3))
-            +
-            (V31[fd.xz3] * V42[fd.xz3] * PT_(3, 1)
-             +
-             V31[fd.xz1] * V42[fd.xz1] * PT_(1, 3))
+            (V13[fd.xz3] * V24[fd.xz3] * P_(3, 1) + V13[fd.xz1] * V24[fd.xz1] * P_(1, 3)) + (
+                V31[fd.xz3] * V42[fd.xz3] * PT_(3, 1) +
+                V31[fd.xz1] * V42[fd.xz1] * PT_(1, 3)
+            )
         )
 
         X_sum[fd.yx1] += (
-            (V13[fd.yx3] * V24[fd.yx3] * P_(1, 2)
-             +
-             V13[fd.yx1] * V24[fd.yx1] * P_(2, 1))
-            +
-            (V31[fd.yx3] * V42[fd.yx3] * PT_(1, 2)
-             +
-             V31[fd.yx1] * V42[fd.yx1] * PT_(2, 1))
+            (V13[fd.yx3] * V24[fd.yx3] * P_(1, 2) + V13[fd.yx1] * V24[fd.yx1] * P_(2, 1)) + (
+                V31[fd.yx3] * V42[fd.yx3] * PT_(1, 2) +
+                V31[fd.yx1] * V42[fd.yx1] * PT_(2, 1)
+            )
         )
 
         X_sum[fd.yz1] += (
-            (V13[fd.yz3] * V24[fd.yz3] * P_(3, 2)
-             +
-             V13[fd.yz1] * V24[fd.yz1] * P_(2, 3))
-            +
-            (V31[fd.yz3] * V42[fd.yz3] * PT_(3, 2)
-             +
-             V31[fd.yz1] * V42[fd.yz1] * PT_(2, 3))
+            (V13[fd.yz3] * V24[fd.yz3] * P_(3, 2) + V13[fd.yz1] * V24[fd.yz1] * P_(2, 3)) + (
+                V31[fd.yz3] * V42[fd.yz3] * PT_(3, 2) +
+                V31[fd.yz1] * V42[fd.yz1] * PT_(2, 3)
+            )
         )
 
         X_sum[fd.zx1] += (
-            (V13[fd.zx3] * V24[fd.zx3] * P_(1, 3)
-             +
-             V13[fd.zx1] * V24[fd.zx1] * P_(3, 1))
-            +
-            (V31[fd.zx3] * V42[fd.zx3] * PT_(1, 3)
-             +
-             V31[fd.zx1] * V42[fd.zx1] * PT_(3, 1))
+            (V13[fd.zx3] * V24[fd.zx3] * P_(1, 3) + V13[fd.zx1] * V24[fd.zx1] * P_(3, 1)) + (
+                V31[fd.zx3] * V42[fd.zx3] * PT_(1, 3) +
+                V31[fd.zx1] * V42[fd.zx1] * PT_(3, 1)
+            )
         )
 
         X_sum[fd.zy1] += (
-            (V13[fd.zy3] * V24[fd.zy3] * P_(2, 3)
-             +
-             V13[fd.zy1] * V24[fd.zy1] * P_(3, 2))
-            +
-            (V31[fd.zy3] * V42[fd.zy3] * PT_(2, 3)
-             +
-             V31[fd.zy1] * V42[fd.zy1] * PT_(3, 2))
+            (V13[fd.zy3] * V24[fd.zy3] * P_(2, 3) + V13[fd.zy1] * V24[fd.zy1] * P_(3, 2)) + (
+                V31[fd.zy3] * V42[fd.zy3] * PT_(2, 3) +
+                V31[fd.zy1] * V42[fd.zy1] * PT_(3, 2)
+            )
         )
 
         ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
 
         X_sum[fd.xy2] += (
-            (V13[fd.xx] * V24[fd.yx2] * P_(1, 1)
-             + V13[fd.xy2] * V24[fd.yy] * P_(2, 2)
-             + V13[fd.xz2] * V24[fd.yz2] * P_(3, 3))
-            +
-            (V31[fd.xx] * V42[fd.yx2] * PT_(1, 1)
-             + V31[fd.xy2] * V42[fd.yy] * PT_(2, 2)
-             + V31[fd.xz2] * V42[fd.yz2] * PT_(3, 3))
+            (
+                V13[fd.xx] * V24[fd.yx2] * P_(1, 1) +
+                V13[fd.xy2] * V24[fd.yy] * P_(2, 2) +
+                V13[fd.xz2] * V24[fd.yz2] * P_(3, 3)
+            ) + (
+                V31[fd.xx] * V42[fd.yx2] * PT_(1, 1) +
+                V31[fd.xy2] * V42[fd.yy] * PT_(2, 2) +
+                V31[fd.xz2] * V42[fd.yz2] * PT_(3, 3)
+            )
         )
 
         X_sum[fd.xz2] += (
-            (V13[fd.xx] * V24[fd.zx2] * P_(1, 1)
-             + V13[fd.xz2] * V24[fd.zz] * P_(3, 3)
-             + V13[fd.xy2] * V24[fd.zy2] * P_(2, 2))
-            +
-            (V31[fd.xx] * V42[fd.zx2] * PT_(1, 1)
-             + V31[fd.xz2] * V42[fd.zz] * PT_(3, 3)
-             + V31[fd.xy2] * V42[fd.zy2] * PT_(2, 2))
+            (
+                V13[fd.xx] * V24[fd.zx2] * P_(1, 1) +
+                V13[fd.xz2] * V24[fd.zz] * P_(3, 3) +
+                V13[fd.xy2] * V24[fd.zy2] * P_(2, 2)
+            ) + (
+                V31[fd.xx] * V42[fd.zx2] * PT_(1, 1) +
+                V31[fd.xz2] * V42[fd.zz] * PT_(3, 3) +
+                V31[fd.xy2] * V42[fd.zy2] * PT_(2, 2)
+            )
         )
 
         X_sum[fd.yx2] += (
-            (V13[fd.yy] * V24[fd.xy2] * P_(2, 2)
-             + V13[fd.yx2] * V24[fd.xx] * P_(1, 1)
-             + V13[fd.yz2] * V24[fd.xz2] * P_(3, 3))
-            +
-            (V31[fd.yy] * V42[fd.xy2] * PT_(2, 2)
-             + V31[fd.yx2] * V42[fd.xx] * PT_(1, 1)
-             + V31[fd.yz2] * V42[fd.xz2] * PT_(3, 3))
+            (
+                V13[fd.yy] * V24[fd.xy2] * P_(2, 2) +
+                V13[fd.yx2] * V24[fd.xx] * P_(1, 1) +
+                V13[fd.yz2] * V24[fd.xz2] * P_(3, 3)
+            ) + (
+                V31[fd.yy] * V42[fd.xy2] * PT_(2, 2) +
+                V31[fd.yx2] * V42[fd.xx] * PT_(1, 1) +
+                V31[fd.yz2] * V42[fd.xz2] * PT_(3, 3)
+            )
         )
 
         X_sum[fd.yz2] += (
-            (V13[fd.yy] * V24[fd.zy2] * P_(2, 2)
-             + V13[fd.yz2] * V24[fd.zz] * P_(3, 3)
-             + V13[fd.yx2] * V24[fd.zx2] * P_(1, 1))
-            +
-            (V31[fd.yy] * V42[fd.zy2] * PT_(2, 2)
-             + V31[fd.yz2] * V42[fd.zz] * PT_(3, 3)
-             + V31[fd.yx2] * V42[fd.zx2] * PT_(1, 1))
+            (
+                V13[fd.yy] * V24[fd.zy2] * P_(2, 2) +
+                V13[fd.yz2] * V24[fd.zz] * P_(3, 3) +
+                V13[fd.yx2] * V24[fd.zx2] * P_(1, 1)
+            ) + (
+                V31[fd.yy] * V42[fd.zy2] * PT_(2, 2) +
+                V31[fd.yz2] * V42[fd.zz] * PT_(3, 3) +
+                V31[fd.yx2] * V42[fd.zx2] * PT_(1, 1)
+            )
         )
 
         X_sum[fd.zx2] += (
-            (V13[fd.zz] * V24[fd.xz2] * P_(3, 3)
-             + V13[fd.zx2] * V24[fd.xx] * P_(1, 1)
-             + V13[fd.zy2] * V24[fd.xy2] * P_(2, 2))
-            +
-            (V31[fd.zz] * V42[fd.xz2] * PT_(3, 3)
-             + V31[fd.zx2] * V42[fd.xx] * PT_(1, 1)
-             + V31[fd.zy2] * V42[fd.xy2] * PT_(2, 2))
+            (
+                V13[fd.zz] * V24[fd.xz2] * P_(3, 3) +
+                V13[fd.zx2] * V24[fd.xx] * P_(1, 1) +
+                V13[fd.zy2] * V24[fd.xy2] * P_(2, 2)
+            ) + (
+                V31[fd.zz] * V42[fd.xz2] * PT_(3, 3) +
+                V31[fd.zx2] * V42[fd.xx] * PT_(1, 1) +
+                V31[fd.zy2] * V42[fd.xy2] * PT_(2, 2)
+            )
         )
 
         X_sum[fd.zy2] += (
-            (V13[fd.zz] * V24[fd.yz2] * P_(3, 3)
-             + V13[fd.zy2] * V24[fd.yy] * P_(2, 2)
-             + V13[fd.zx2] * V24[fd.yx2] * P_(1, 1))
-            +
-            (V31[fd.zz] * V42[fd.yz2] * PT_(3, 3)
-             + V31[fd.zy2] * V42[fd.yy] * PT_(2, 2)
-             + V31[fd.zx2] * V42[fd.yx2] * PT_(1, 1))
+            (
+                V13[fd.zz] * V24[fd.yz2] * P_(3, 3) +
+                V13[fd.zy2] * V24[fd.yy] * P_(2, 2) +
+                V13[fd.zx2] * V24[fd.yx2] * P_(1, 1)
+            ) + (
+                V31[fd.zz] * V42[fd.yz2] * PT_(3, 3) +
+                V31[fd.zy2] * V42[fd.yy] * PT_(2, 2) +
+                V31[fd.zx2] * V42[fd.yx2] * PT_(1, 1)
+            )
         )
 
         ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
 
         X_sum[fd.xy3] += (
-            (V13[fd.xy3] * V24[fd.yx1] * P_(2, 1)
-             +
-             V13[fd.xy1] * V24[fd.yx3] * P_(1, 2))
-            +
-            (V31[fd.xy3] * V42[fd.yx1] * PT_(2, 1)
-             +
-             V31[fd.xy1] * V42[fd.yx3] * PT_(1, 2))
+            (V13[fd.xy3] * V24[fd.yx1] * P_(2, 1) + V13[fd.xy1] * V24[fd.yx3] * P_(1, 2)) + (
+                V31[fd.xy3] * V42[fd.yx1] * PT_(2, 1) +
+                V31[fd.xy1] * V42[fd.yx3] * PT_(1, 2)
+            )
         )
 
         X_sum[fd.xz3] += (
-            (V13[fd.xz3] * V24[fd.zx1] * P_(3, 1)
-             +
-             V13[fd.xz1] * V24[fd.zx3] * P_(1, 3))
-            +
-            (V31[fd.xz3] * V42[fd.zx1] * PT_(3, 1)
-             +
-             V31[fd.xz1] * V42[fd.zx3] * PT_(1, 3))
+            (V13[fd.xz3] * V24[fd.zx1] * P_(3, 1) + V13[fd.xz1] * V24[fd.zx3] * P_(1, 3)) + (
+                V31[fd.xz3] * V42[fd.zx1] * PT_(3, 1) +
+                V31[fd.xz1] * V42[fd.zx3] * PT_(1, 3)
+            )
         )
 
         X_sum[fd.yx3] += (
-            (V13[fd.yx3] * V24[fd.xy1] * P_(1, 2)
-             +
-             V13[fd.yx1] * V24[fd.xy3] * P_(2, 1))
-            +
-            (V31[fd.yx3] * V42[fd.xy1] * PT_(1, 2)
-             +
-             V31[fd.yx1] * V42[fd.xy3] * PT_(2, 1))
+            (V13[fd.yx3] * V24[fd.xy1] * P_(1, 2) + V13[fd.yx1] * V24[fd.xy3] * P_(2, 1)) + (
+                V31[fd.yx3] * V42[fd.xy1] * PT_(1, 2) +
+                V31[fd.yx1] * V42[fd.xy3] * PT_(2, 1)
+            )
         )
 
         X_sum[fd.yz3] += (
-            (V13[fd.yz3] * V24[fd.zy1] * P_(3, 2)
-             +
-             V13[fd.yz1] * V24[fd.zy3] * P_(2, 3))
-            +
-            (V31[fd.yz3] * V42[fd.zy1] * PT_(3, 2)
-             +
-             V31[fd.yz1] * V42[fd.zy3] * PT_(2, 3))
+            (V13[fd.yz3] * V24[fd.zy1] * P_(3, 2) + V13[fd.yz1] * V24[fd.zy3] * P_(2, 3)) + (
+                V31[fd.yz3] * V42[fd.zy1] * PT_(3, 2) +
+                V31[fd.yz1] * V42[fd.zy3] * PT_(2, 3)
+            )
         )
 
         X_sum[fd.zx3] += (
-            (V13[fd.zx3] * V24[fd.xz1] * P_(1, 3)
-             +
-             V13[fd.zx1] * V24[fd.xz3] * P_(3, 1))
-            +
-            (V31[fd.zx3] * V42[fd.xz1] * PT_(1, 3)
-             +
-             V31[fd.zx1] * V42[fd.xz3] * PT_(3, 1))
+            (V13[fd.zx3] * V24[fd.xz1] * P_(1, 3) + V13[fd.zx1] * V24[fd.xz3] * P_(3, 1)) + (
+                V31[fd.zx3] * V42[fd.xz1] * PT_(1, 3) +
+                V31[fd.zx1] * V42[fd.xz3] * PT_(3, 1)
+            )
         )
 
         X_sum[fd.zy3] += (
-            (V13[fd.zy3] * V24[fd.yz1] * P_(2, 3)
-             +
-             V13[fd.zy1] * V24[fd.yz3] * P_(3, 2))
-            +
-            (V31[fd.zy3] * V42[fd.yz1] * PT_(2, 3)
-             +
-             V31[fd.zy1] * V42[fd.yz3] * PT_(3, 2))
+            (V13[fd.zy3] * V24[fd.yz1] * P_(2, 3) + V13[fd.zy1] * V24[fd.yz3] * P_(3, 2)) + (
+                V31[fd.zy3] * V42[fd.yz1] * PT_(2, 3) +
+                V31[fd.zy1] * V42[fd.yz3] * PT_(3, 2)
+            )
         )
 
         (@view X[22:end, Rij, is, it, iu]) .+= X_sum
@@ -695,29 +756,34 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
     (; N, lenIntw) = Par.NumericalParams
     (; NUnique) = Par.System
 
-    iG = SVector{3}(let iSigma = Workspace.State.iSigma
-        [(x, nw) -> iG_(iSigma_i, x, nw, T)
-         for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)]
-    end)
+    iG = SVector{3}(
+        let iSigma = Workspace.State.iSigma
+            [(x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)]
+        end,
+    )
 
-    iSKat = SVector{3}(let iSigma = Workspace.State.iSigma, DiSigma = Workspace.Deriv.iSigma
-        [(x, nw) -> iSKat_(iSigma_i, DeriviSigma_i, x, nw, T)
-         for (iSigma_i, DeriviSigma_i) in zip((iSigma.x, iSigma.y, iSigma.z),
-            (DiSigma.x, DiSigma.y, DiSigma.z))]
-    end)
+    iSKat = SVector{3}(
+        let iSigma = Workspace.State.iSigma, DiSigma = Workspace.Deriv.iSigma
+            [
+                (x, nw) -> iSKat_(iSigma_i, DeriviSigma_i, x, nw, T) for
+                (iSigma_i, DeriviSigma_i) in
+                zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
+            ]
+        end,
+    )
 
-    function getKataninPropX!(spropX::Array{T,3}, nw1::Int64, nw2::Int64) where T
-        for Rij in 1:Par.System.NUnique
-            for j in 1:3, i in 1:3
+    function getKataninPropX!(spropX::Array{T,3}, nw1::Int64, nw2::Int64) where {T}
+        for Rij = 1:Par.System.NUnique
+            for j = 1:3, i = 1:3
                 ### Relative minus sign between paper & Nils' thesis
                 spropX[i, j, Rij] = -iSKat[i](Rij, nw1) * iG[j](Rij, nw2)
             end
         end
     end
 
-    function getKataninPropY!(spropY::Array{T,4}, nw1::Int64, nw2::Int64) where T
-        for Rij_1 in 1:NUnique, Rij_2 in 1:NUnique
-            for j in 1:3, i in 1:3
+    function getKataninPropY!(spropY::Array{T,4}, nw1::Int64, nw2::Int64) where {T}
+        for Rij_1 = 1:NUnique, Rij_2 = 1:NUnique
+            for j = 1:3, i = 1:3
                 ### Relative minus sign between paper & Nils' thesis
                 spropY[i, j, Rij_1, Rij_2] = -iSKat[i](Rij_1, nw1) * iG[j](Rij_2, nw2)
             end
@@ -726,18 +792,18 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(Par.System)
 
-    Threads.@threads :static for is_it in 1:N*N
-        is = div(is_it-1,N) + 1
-        it = (is_it-1) % N + 1
+    Threads.@threads :static for is_it = 1:N*N
+        is = div(is_it - 1, N) + 1
+        it = (is_it - 1) % N + 1
         # WARNING: 
         # This works only with :static
         Buffs = ThreadLocalBuffers[Threads.threadid()]
         ns = is - 1
         nt = it - 1
-        for nw in -lenIntw:lenIntw-1 # Matsubara sum
+        for nw = -lenIntw:lenIntw-1 # Matsubara sum
             getKataninPropX!(Buffs.spropX, nw, nw + ns)
             getKataninPropY!(Buffs.spropY, nw, nw - nt)
-            for iu in 1:N
+            for iu = 1:N
                 nu = iu - 1
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                     continue
@@ -772,12 +838,12 @@ function symmetrizeBubble!(X::Array{T,5}, Par) where {T}
         # end
     end
     #local definitions of X.Tilde vertices
-    for iu in 1:N
-        for it in 1:N, is in 1:N, R in OnsitePairs
+    for iu = 1:N
+        for it = 1:N, is = 1:N, R in OnsitePairs
             X[21+1, R, is, it, iu] = -X[1, R, it, is, iu]  ###
             X[21+2, R, is, it, iu] = -X[2, R, it, is, iu]  ### Yaa = Xaa
             X[21+3, R, is, it, iu] = -X[3, R, it, is, iu]  ###
-            for n in 1:6
+            for n = 1:6
                 X[21+3+n, R, is, it, iu] = -X[9+n, R, it, is, iu]      ### Yab1 = Xab2
                 X[21+9+n, R, is, it, iu] = -X[3+n, R, it, is, iu]      ### Yab2 = Xab1
                 X[21+15+n, R, is, it, iu] = -X[15+n, R, it, is, iu]    ### Yab3 = Xab3
@@ -789,28 +855,19 @@ end
 function addToVertexFromBubble!(Gamma::Array{T,5}, X::Array{T,5}) where {T}
     for iu in axes(Gamma, 5)
         for it in axes(Gamma, 4), is in axes(Gamma, 3), Rij in axes(Gamma, 2)
-            for n in 1:9 ### Zaa(s,t,u) = -Yaa(s,u,t) ; Zab1(s,t,u) = -Yab1(s,u,t)
+            for n = 1:9 ### Zaa(s,t,u) = -Yaa(s,u,t) ; Zab1(s,t,u) = -Yab1(s,u,t)
                 Gamma[n, Rij, is, it, iu] += (
-                    X[n, Rij, is, it, iu]
-                    +
-                    X[21+n, Rij, is, it, iu]
-                    -
+                    X[n, Rij, is, it, iu] + X[21+n, Rij, is, it, iu] -
                     X[21+n, Rij, is, iu, it]
                 )
             end
-            for n in 1:6 ### Zab2(s,t,u) = -Yab3(s,u,t) ; Zab3(s,t,u) = -Yab2(s,u,t)
+            for n = 1:6 ### Zab2(s,t,u) = -Yab3(s,u,t) ; Zab3(s,t,u) = -Yab2(s,u,t)
                 Gamma[9+n, Rij, is, it, iu] += (
-                    X[9+n, Rij, is, it, iu]
-                    +
-                    X[21+9+n, Rij, is, it, iu]
-                    -
+                    X[9+n, Rij, is, it, iu] + X[21+9+n, Rij, is, it, iu] -
                     X[21+15+n, Rij, is, iu, it]
                 )
                 Gamma[15+n, Rij, is, it, iu] += (
-                    X[15+n, Rij, is, it, iu]
-                    +
-                    X[21+15+n, Rij, is, it, iu]
-                    -
+                    X[15+n, Rij, is, it, iu] + X[21+15+n, Rij, is, it, iu] -
                     X[21+9+n, Rij, is, iu, it]
                 )
             end
@@ -821,9 +878,9 @@ end
 
 function symmetrizeVertex!(Gamma::Array{T,5}, Par) where {T}
     N = Par.NumericalParams.N
-    for iu in 1:N
-        for it in 1:N, is in 1:N, R in Par.System.OnsitePairs
-            for n in 1:6
+    for iu = 1:N
+        for it = 1:N, is = 1:N, R in Par.System.OnsitePairs
+            for n = 1:6
                 Gamma[9+n, R, is, it, iu] = -Gamma[3+n, R, it, is, iu] ### V^ii_ab2 = -V^ii_ab1
             end
         end
@@ -851,9 +908,9 @@ function getDFint!(Workspace, T::Real)
     iSy(x, nw) = iS_(State.iSigma.y, x, nw, T)
     iSz(x, nw) = iS_(State.iSigma.z, x, nw, T)
 
-    for x in 1:NUnique
+    for x = 1:NUnique
         sumres = 0.0
-        for nw in -lenIntw_acc:lenIntw_acc-1 
+        for nw = -lenIntw_acc:lenIntw_acc-1
             w = get_w(nw, T)
             sumres += iSx(x, nw) / iGx(x, nw) * iSigmax(x, nw) / w
             sumres += iSy(x, nw) / iGy(x, nw) * iSigmay(x, nw) / w
@@ -875,7 +932,8 @@ function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) w
     invpairs = Par.System.invpairs
 
     setZero!(Dgamma)
-    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) = V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
+    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
     addTo1PartBubble!(Dgamma, Gamma_, Props, Par)
 end
 
@@ -884,32 +942,37 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
     (; N, lenIntw_acc) = Par.NumericalParams
     (; siteSum, Nsum, OnsitePairs) = Par.System
 
-    Threads.@threads for iw1 in 1:N
+    Threads.@threads for iw1 = 1:N
         nw1 = iw1 - 1
         for (x, Rx) in enumerate(OnsitePairs)
-            for nw in -lenIntw_acc:lenIntw_acc-1
+            for nw = -lenIntw_acc:lenIntw_acc-1
                 jsum = zeros(3)
                 wpw1 = nw1 + nw + 1
                 wmw1 = nw - nw1
-                for k_spl in 1:Nsum[Rx]
+                for k_spl = 1:Nsum[Rx]
                     (; m, ki, xk) = siteSum[k_spl, Rx]
                     flavTransform = (wmw1 * wpw1 < 0, false, false)
-                    gam = @SVector [Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform) for n in 1:21]
-                    jsum[fd.xx] += (
-                        gam[fd.xx] * Props[1](xk, nw)
-                        + gam[fd.yx1] * Props[2](xk, nw)
-                        + gam[fd.zx1] * Props[3](xk, nw)
-                    ) * m
-                    jsum[fd.yy] += (
-                        gam[fd.xy1] * Props[1](xk, nw)
-                        + gam[fd.yy] * Props[2](xk, nw)
-                        + gam[fd.zy1] * Props[3](xk, nw)
-                    ) * m
-                    jsum[fd.zz] += (
-                        gam[fd.xz1] * Props[1](xk, nw)
-                        + gam[fd.yz1] * Props[2](xk, nw)
-                        + gam[fd.zz] * Props[3](xk, nw)
-                    ) * m
+                    gam = @SVector [
+                        Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform) for n = 1:21
+                    ]
+                    jsum[fd.xx] +=
+                        (
+                            gam[fd.xx] * Props[1](xk, nw) +
+                            gam[fd.yx1] * Props[2](xk, nw) +
+                            gam[fd.zx1] * Props[3](xk, nw)
+                        ) * m
+                    jsum[fd.yy] +=
+                        (
+                            gam[fd.xy1] * Props[1](xk, nw) +
+                            gam[fd.yy] * Props[2](xk, nw) +
+                            gam[fd.zy1] * Props[3](xk, nw)
+                        ) * m
+                    jsum[fd.zz] +=
+                        (
+                            gam[fd.xz1] * Props[1](xk, nw) +
+                            gam[fd.yz1] * Props[2](xk, nw) +
+                            gam[fd.zz] * Props[3](xk, nw)
+                        ) * m
                 end
                 Dgamma.x[x, iw1] += -jsum[1]
                 Dgamma.y[x, iw1] += -jsum[2]
@@ -920,9 +983,9 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs=true)
+function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
 
-    (;X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
+    (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
     getDFint!(Workspace, Lam)
@@ -946,8 +1009,7 @@ function AllocateSetup(Par::OneLoopParams_1)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
-    return (X= zeros(floattype, getBubbleVDims(Par)),
-            Par=Par)
+    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
 end
 
 function InitializeState(Par, isotropy)
@@ -980,10 +1042,13 @@ function gettMesh(T_min, T_max, npoints)
     return LinRange(t_min, t_max, npoints)
 end
 
-function launchPMFRG!(State, setup, Deriv!::Function;
-    method=DP5(),
-    npoints=600,
-    save_steps=false
+function launchPMFRG!(
+    State,
+    setup,
+    Deriv!::Function;
+    method = DP5(),
+    npoints = 600,
+    save_steps = false,
 )
     println("Solving FRG")
 
@@ -1005,23 +1070,29 @@ function launchPMFRG!(State, setup, Deriv!::Function;
     end
 
     ObsSaveat = gettMesh(temp_min, temp_max, npoints)
-    saveCB = SavingCallback(save_func, saved_values, save_everystep=false, saveat=ObsSaveat, tdir=-1)
+    saveCB = SavingCallback(
+        save_func,
+        saved_values,
+        save_everystep = false,
+        saveat = ObsSaveat,
+        tdir = -1,
+    )
 
     problem = ODEProblem(Deriv_subst!, State, (t0, tend), setup) # function, initial state, timespan, ??
     sol = solve(
         problem,
         method,
-        reltol=accuracy,
-        abstol=accuracy,
-        save_everystep=save_steps,
-        callback=saveCB,
-        dt=Lam_to_t(0.2 * temp_max)
+        reltol = accuracy,
+        abstol = accuracy,
+        save_everystep = save_steps,
+        callback = saveCB,
+        dt = Lam_to_t(0.2 * temp_max),
     )
 
     return sol, saved_values
 end
 
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs=false)
+function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
     Par = setup[end]
     (; temp_max, temp_min, accuracy) = Par.NumericalParams
 
@@ -1032,11 +1103,13 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs=false)
     der = copy(State)
     setZero!(der)
 
-    Deriv_subst!(der, State, setup, t0, s=false)
+    Deriv_subst!(der, State, setup, t0, s = false)
 end
 
-SolveFRG(Par, isotropy; kwargs...) = launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-TestFRG(Par, isotropy; kwargs...) = testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+SolveFRG(Par, isotropy; kwargs...) =
+    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+TestFRG(Par, isotropy; kwargs...) =
+    testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
 
 function get_t_min(Lam)
     Lam < exp(-30) && @warn "temp_min too small! Set to exp(-30) instead."
@@ -1045,16 +1118,20 @@ end
 
 function generateSubstituteDeriv(getDeriv!::Function)
 
-    function DerivSubs!(Deriv, State, setup, t; s=true)
+    function DerivSubs!(Deriv, State, setup, t; s = true)
         Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, setup, Lam, saveArgs=s)
+        a = getDeriv!(Deriv, State, setup, Lam, saveArgs = s)
         Deriv .*= Lam
         a
     end
 
 end
 
-function setToBareVertex!(Gamma::AbstractArray{T,5}, couplings::AbstractVector, isotropy::Array{T,2}) where {T}
+function setToBareVertex!(
+    Gamma::AbstractArray{T,5},
+    couplings::AbstractVector,
+    isotropy::Array{T,2},
+) where {T}
     for Rj in axes(Gamma, 2)
         Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
         Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
@@ -1078,27 +1155,37 @@ end
 ######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
 #############################################################
 
-getChi_z(State::ArrayPartition, T::Real, Par) = getChi_z(State.x[2], State.x[3], State.x[5], T, Par)
-getChi_x(State::ArrayPartition, T::Real, Par) = getChi_x(State.x[3], State.x[4], State.x[5], T, Par)
-getChi_y(State::ArrayPartition, T::Real, Par) = getChi_y(State.x[4], State.x[2], State.x[5], T, Par)
+getChi_z(State::ArrayPartition, T::Real, Par) =
+    getChi_z(State.x[2], State.x[3], State.x[5], T, Par)
+getChi_x(State::ArrayPartition, T::Real, Par) =
+    getChi_x(State.x[3], State.x[4], State.x[5], T, Par)
+getChi_y(State::ArrayPartition, T::Real, Par) =
+    getChi_y(State.x[4], State.x[2], State.x[5], T, Par)
 
-function getChi_z(iSigmaX::AbstractArray, iSigmaY::AbstractArray, Gamma::AbstractArray, T::Real, Par)
+function getChi_z(
+    iSigmaX::AbstractArray,
+    iSigmaY::AbstractArray,
+    Gamma::AbstractArray,
+    T::Real,
+    Par,
+)
     (; N, lenIntw_acc) = Par.NumericalParams
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
     iGx(x, w) = iG_(iSigmaX, x, w, T)
     iGy(x, w) = iG_(iSigmaY, x, w, T)
-    Vxy2(Rij, s, t, u, isFlavorTransform) = V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vxy2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
-    for Rij in 1:Npairs
+    for Rij = 1:Npairs
         (; xi, xj) = PairTypes[Rij]
-        for nK in -lenIntw_acc:lenIntw_acc-1
+        for nK = -lenIntw_acc:lenIntw_acc-1
             if Rij in OnsitePairs
                 Chi[Rij, 1] += iGx(xi, nK) * iGy(xi, nK)
             end
-            for nK2 in -lenIntw_acc:lenIntw_acc-1
+            for nK2 = -lenIntw_acc:lenIntw_acc-1
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
@@ -1111,23 +1198,30 @@ function getChi_z(iSigmaX::AbstractArray, iSigmaY::AbstractArray, Gamma::Abstrac
     return (Chi)
 end
 
-function getChi_x(iSigmaY::AbstractArray, iSigmaZ::AbstractArray, Gamma::AbstractArray, T::Real, Par)
+function getChi_x(
+    iSigmaY::AbstractArray,
+    iSigmaZ::AbstractArray,
+    Gamma::AbstractArray,
+    T::Real,
+    Par,
+)
     (; N, lenIntw_acc) = Par.NumericalParams
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
     iGy(x, w) = iG_(iSigmaY, x, w, T)
     iGz(x, w) = iG_(iSigmaZ, x, w, T)
-    Vyz2(Rij, s, t, u, isFlavorTransform) = V_(Gamma, fd.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vyz2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
-    for Rij in 1:Npairs
+    for Rij = 1:Npairs
         (; xi, xj) = PairTypes[Rij]
-        for nK in -lenIntw_acc:lenIntw_acc-1
+        for nK = -lenIntw_acc:lenIntw_acc-1
             if Rij in OnsitePairs
                 Chi[Rij, 1] += iGy(xi, nK) * iGz(xi, nK)
             end
-            for nK2 in -lenIntw_acc:lenIntw_acc-1
+            for nK2 = -lenIntw_acc:lenIntw_acc-1
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
@@ -1140,23 +1234,30 @@ function getChi_x(iSigmaY::AbstractArray, iSigmaZ::AbstractArray, Gamma::Abstrac
     return (Chi)
 end
 
-function getChi_y(iSigmaZ::AbstractArray, iSigmaX::AbstractArray, Gamma::AbstractArray, T::Real, Par)
+function getChi_y(
+    iSigmaZ::AbstractArray,
+    iSigmaX::AbstractArray,
+    Gamma::AbstractArray,
+    T::Real,
+    Par,
+)
     (; N, lenIntw_acc) = Par.NumericalParams
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
     iGz(x, w) = iG_(iSigmaZ, x, w, T)
     iGx(x, w) = iG_(iSigmaX, x, w, T)
-    Vzx2(Rij, s, t, u, isFlavorTransform) = V_(Gamma, fd.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    Vzx2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
-    for Rij in 1:Npairs
+    for Rij = 1:Npairs
         (; xi, xj) = PairTypes[Rij]
-        for nK in -lenIntw_acc:lenIntw_acc-1
+        for nK = -lenIntw_acc:lenIntw_acc-1
             if Rij in OnsitePairs
                 Chi[Rij, 1] += iGz(xi, nK) * iGx(xi, nK)
             end
-            for nK2 in -lenIntw_acc:lenIntw_acc-1
+            for nK2 = -lenIntw_acc:lenIntw_acc-1
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb

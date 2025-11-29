@@ -20,26 +20,25 @@ function add_data_to_db(data)
     end
     push!(existing_data, data)
     open(fname, "w") do f
-        JSON.json(f, existing_data; pretty=true)
+        JSON.json(f, existing_data; pretty = true)
     end
 
 end
 
 function get_metadata(comment, threadpinning, N, lattice_size)
-    Dict("commit" => GitUtils.get_git_commit_short(),
+    Dict(
+        "commit" => GitUtils.get_git_commit_short(),
         "comment" => comment,
         "nthreads" => Threads.nthreads(),
         "threadpinning" => threadpinning,
-        "physics" => Dict(
-            "type" => "square lattice",
-            "N" => N,
-            "lattice_size" => lattice_size,
-        ),
+        "physics" =>
+            Dict("type" => "square lattice", "N" => N, "lattice_size" => lattice_size),
         "cpu_info" => CPUInfo.get_cpu_info(),
-        "julia_opt_level" => Base.JLOptions().opt_level)
+        "julia_opt_level" => Base.JLOptions().opt_level,
+    )
 end
 
-function getXBubble_test_and_benchmark(record::Bool, comment="")
+function getXBubble_test_and_benchmark(record::Bool, comment = "")
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
@@ -52,17 +51,22 @@ function getXBubble_test_and_benchmark(record::Bool, comment="")
         ThreadPinning.pinthreads(:cores)
         ThreadPinning.threadinfo()
     end
-    bench_result, allocations = benchmark_synthetic_square(N=N, lattice_size=lattice_size)
+    bench_result, allocations =
+        benchmark_synthetic_square(N = N, lattice_size = lattice_size)
 
     funcnames = ["mean", "minimum", "maximum"]
     quantities = ["times", "gctimes"]
     metadata = get_metadata(comment, threadpinning, N, lattice_size)
 
-    data = Dict("benchmark_data" => Dict("$(q)_$(fn)" => eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))"))
-                                         for q in quantities
-                                         for fn in funcnames),
+    data = Dict(
+        "benchmark_data" => Dict(
+            "$(q)_$(fn)" =>
+                eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))")) for
+            q in quantities for fn in funcnames
+        ),
         "allocations" => allocations,
-        "metadata" => metadata)
+        "metadata" => metadata,
+    )
     if record
         add_data_to_db(data)
     end

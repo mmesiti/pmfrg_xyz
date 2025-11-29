@@ -22,10 +22,12 @@ function main()::Int
     # benchmark_synthetic_dimer(N=8)
 
     # Benchmark with synthetic data (square lattice, N=8)
-    N=10
-    lattice_size=8
-    println("\n3. Benchmarking with synthetic data (square lattice, N=$N, lattice_size=$lattice_size)...")
-    benchmark_synthetic_square(N=N, lattice_size=lattice_size)
+    N = 10
+    lattice_size = 8
+    println(
+        "\n3. Benchmarking with synthetic data (square lattice, N=$N, lattice_size=$lattice_size)...",
+    )
+    benchmark_synthetic_square(N = N, lattice_size = lattice_size)
 
     return 0
 end
@@ -33,33 +35,35 @@ end
 # level 1
 function check_addXY_allocations()
 
-    workspace, _ = create_synthetic_workspace_square(N=10, lattice_size=5)
+    workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
 
     Par = workspace.Par
     (; NUnique, Npairs) = Par.System
 
 
-    buffs = ThreadLocalBuffersT( zeros((21, Npairs)),
-              zeros((21, Npairs)),
-              zeros(21),
-              zeros(3, 3, NUnique),
-              zeros(3, 3, NUnique, NUnique),
-              zeros(3,3),
-              zeros(21),
-              zeros(21),
-              zeros(21),
-              zeros(21))
+    buffs = ThreadLocalBuffersT(
+        zeros((21, Npairs)),
+        zeros((21, Npairs)),
+        zeros(21),
+        zeros(3, 3, NUnique),
+        zeros(3, 3, NUnique, NUnique),
+        zeros(3, 3),
+        zeros(21),
+        zeros(21),
+        zeros(21),
+        zeros(21),
+    )
 
 
 
 
-    addX!(workspace,1,1,2,1,buffs.spropX,buffs)
-    addY!(workspace,1,1,2,1,buffs.spropY,buffs)
+    addX!(workspace, 1, 1, 2, 1, buffs.spropX, buffs)
+    addY!(workspace, 1, 1, 2, 1, buffs.spropY, buffs)
 
-    addXallocations = @allocations addX!(workspace,1,1,2,1,buffs.spropX,buffs)
+    addXallocations = @allocations addX!(workspace, 1, 1, 2, 1, buffs.spropX, buffs)
     @assert addXallocations <= 1 "$addXallocations in addX!"
 
-    addYallocations = @allocations addY!(workspace,1,1,2,1,buffs.spropY,buffs)
+    addYallocations = @allocations addY!(workspace, 1, 1, 2, 1, buffs.spropY, buffs)
     @assert addYallocations <= 1 "$addYallocations in addY!"
 end
 
@@ -67,7 +71,10 @@ end
 function benchmark_from_regression_data()
     script_dir = @__DIR__
     project_root = dirname(script_dir)
-    data_file = joinpath(project_root, "test/regression/dimer_anisotropy/regression_tests_dimer-PMFRG_xyz.getXBubble!.data")
+    data_file = joinpath(
+        project_root,
+        "test/regression/dimer_anisotropy/regression_tests_dimer-PMFRG_xyz.getXBubble!.data",
+    )
     data = load_object(data_file)
 
     args_first = data["arguments"][1]
@@ -82,8 +89,8 @@ function benchmark_from_regression_data()
     result
 end
 
-function benchmark_synthetic_dimer(; N::Int=8)
-    workspace, lam = create_synthetic_workspace_dimer(N=N)
+function benchmark_synthetic_dimer(; N::Int = 8)
+    workspace, lam = create_synthetic_workspace_dimer(N = N)
 
     println("  N = $N")
     println("  Lam = $lam")
@@ -93,8 +100,8 @@ function benchmark_synthetic_dimer(; N::Int=8)
     result
 end
 
-function benchmark_synthetic_square(; N::Int=8, lattice_size::Int=4)
-    workspace, lam = create_synthetic_workspace_square(N=N, lattice_size=lattice_size)
+function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4)
+    workspace, lam = create_synthetic_workspace_square(N = N, lattice_size = lattice_size)
 
     println("  N = $N, lattice_size = $lattice_size")
     println("  Lam = $lam")
