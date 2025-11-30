@@ -28,7 +28,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
                 @test 1 <= iu <= N
 
                 # Check validity condition
-                @test is_valid_multi_index(n, Rij, is, it, iu)
+                @test is_valid_multi_index(is, it, iu)
             end
         end
 
@@ -44,7 +44,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
         # Test 3: Round-trip multi -> linear -> multi for all valid combinations
         @testset "Round-trip: multi -> linear -> multi" begin
             for iu in 1:N, it in 1:N, is in 1:N
-                if !is_valid_multi_index(1, 1, is, it, iu)
+                if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
@@ -66,7 +66,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
             seen_indices = Set{Int}()
 
             for iu in 1:N, it in 1:N, is in 1:N
-                if !is_valid_multi_index(1, 1, is, it, iu)
+                if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
@@ -91,7 +91,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
             # Count valid (is, it, iu) combinations
             num_valid_freq = 0
             for iu in 1:N, it in 1:N, is in 1:N
-                if is_valid_multi_index(1, 1, is, it, iu)
+                if is_valid_multi_index(is, it, iu)
                     num_valid_freq += 1
                 end
             end
@@ -125,7 +125,7 @@ function test_xvector_operations(mapping::AbstractXIndexMapping)
         @testset "Multi-index access" begin
             # Set some values
             for iu in 1:N, it in 1:N, is in 1:N
-                if !is_valid_multi_index(1, 1, is, it, iu)
+                if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
@@ -137,7 +137,7 @@ function test_xvector_operations(mapping::AbstractXIndexMapping)
 
             # Check values
             for iu in 1:N, it in 1:N, is in 1:N
-                if !is_valid_multi_index(1, 1, is, it, iu)
+                if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
@@ -153,7 +153,7 @@ function test_xvector_operations(mapping::AbstractXIndexMapping)
             @test all(xvec.data .== 42.0)
 
             for iu in 1:N, it in 1:N, is in 1:N
-                if !is_valid_multi_index(1, 1, is, it, iu)
+                if !is_valid_multi_index(is, it, iu)
                     continue
                 end
                 @test xvec[1, 1, is, it, iu] == 42.0
@@ -179,14 +179,14 @@ Test the is_valid_multi_index function.
 function test_validity_condition()
     @testset "Validity condition" begin
         # Valid cases: (is-1) + (it-1) + (iu-1) is odd
-        @test is_valid_multi_index(1, 1, 1, 1, 2)  # 0+0+1 = 1 (odd)
-        @test is_valid_multi_index(1, 1, 2, 2, 2)  # 1+1+1 = 3 (odd)
-        @test is_valid_multi_index(1, 1, 1, 2, 1)  # 0+1+0 = 1 (odd)
+        @test is_valid_multi_index(1, 1, 2)  # 0+0+1 = 1 (odd)
+        @test is_valid_multi_index(2, 2, 2)  # 1+1+1 = 3 (odd)
+        @test is_valid_multi_index(1, 2, 1)  # 0+1+0 = 1 (odd)
 
         # Invalid cases: (is-1) + (it-1) + (iu-1) is even
-        @test !is_valid_multi_index(1, 1, 1, 1, 1)  # 0+0+0 = 0 (even)
-        @test !is_valid_multi_index(1, 1, 2, 3, 4)  # 1+2+3 = 6 (even)
-        @test !is_valid_multi_index(1, 1, 1, 2, 2)  # 0+1+1 = 2 (even)
+        @test !is_valid_multi_index(1, 1, 1)  # 0+0+0 = 0 (even)
+        @test !is_valid_multi_index(2, 3, 4)  # 1+2+3 = 6 (even)
+        @test !is_valid_multi_index(1, 2, 2)  # 0+1+1 = 2 (even)
     end
 end
 

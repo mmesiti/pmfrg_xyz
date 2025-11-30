@@ -40,12 +40,12 @@ Return the total number of valid elements in the mapping.
 function total_length end
 
 """
-    is_valid_multi_index(n::Int, Rij::Int, is::Int, it::Int, iu::Int) -> Bool
+    is_valid_multi_index(is::Int, it::Int, iu::Int) -> Bool
 
 Check if a multi-index corresponds to a valid element.
 Elements with (is-1) + (it-1) + (iu-1) even are invalid.
 """
-@inline function is_valid_multi_index(n::Int, Rij::Int, is::Int, it::Int, iu::Int)
+@inline function is_valid_multi_index(is::Int, it::Int, iu::Int)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
@@ -164,7 +164,7 @@ end
         @assert 1 <= is <= m.N "is must be in 1:$(m.N)"
         @assert 1 <= it <= m.N "it must be in 1:$(m.N)"
         @assert 1 <= iu <= m.N "iu must be in 1:$(m.N)"
-        @assert is_valid_multi_index(n, Rij, is, it, iu) "Invalid: (is-1)+(it-1)+(iu-1) must be odd"
+        @assert is_valid_multi_index(is, it, iu) "Invalid: (is-1)+(it-1)+(iu-1) must be odd"
     end
 
     # Number of valid (is, it, iu) blocks before this one

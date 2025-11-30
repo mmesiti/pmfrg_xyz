@@ -22,7 +22,7 @@ function array_to_xvector(X_array::Array{T,5}, Par) where {T}
 
     # Copy valid elements from Array to XVector
     for iu in 1:N, it in 1:N, is in 1:N
-        if !PMFRG_xyz.is_valid_multi_index(1, 1, is, it, iu)
+        if !PMFRG_xyz.is_valid_multi_index(is, it, iu)
             continue
         end
         for Rij in 1:n_pairs, n in 1:n_flavors
@@ -50,7 +50,7 @@ function xvector_to_array(X_xvec::PMFRG_xyz.XVector{T,MType}, Par) where {T,MTyp
 
     # Copy valid elements from XVector to Array
     for iu in 1:N, it in 1:N, is in 1:N
-        if !PMFRG_xyz.is_valid_multi_index(1, 1, is, it, iu)
+        if !PMFRG_xyz.is_valid_multi_index(is, it, iu)
             continue
         end
         for Rij in 1:n_pairs, n in 1:n_flavors
