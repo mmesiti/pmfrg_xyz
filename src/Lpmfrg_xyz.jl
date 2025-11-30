@@ -59,7 +59,7 @@ struct OptionParams
     minimal_output::Bool
 end
 
-struct OneLoopParams_1{T,SType}
+struct OneLoopParams{T,SType}
     System::SType
     NumericalParams::NumericalParams{T}
     Options::OptionParams
@@ -117,7 +117,7 @@ end
 OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
 Params(System; kwargs...) =
-    OneLoopParams_1(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+    OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
 
 #############################################################
 ######### PROPAGATORS ## PROPAGATORS ## PROPAGATORS #########
@@ -887,7 +887,7 @@ end
 t_to_Lam(t) = exp(t)
 Lam_to_t(t) = log(t)
 
-function AllocateSetup(Par::OneLoopParams_1)
+function AllocateSetup(Par::OneLoopParams)
     println("One Loop: T= ", Par.NumericalParams.T)
     ## Allocate Memory:
     floattype = _getFloatType(Par)

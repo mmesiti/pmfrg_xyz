@@ -10,7 +10,7 @@ function print_usage()
         "1. Apply the patch: git apply test-utils/patches/add_recorder_getxbubble.patch",
     )
     println(
-        "2. Add Recorder.jl to PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.add(\"Recorder\")'",
+        "2. Add Recorder.jl to PMFRG_xyz: julia --project=. -e 'using Pkg; Pkg.dev(\"path-to-recorder.jl\")'",
     )
     println(
         "3. Run this script: julia --project=test-utils test-utils/regression/dimer_anisotropy/record_data.jl",
