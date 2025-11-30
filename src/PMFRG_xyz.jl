@@ -72,7 +72,7 @@ end
 
 # The code doesnt work for some reason if I name this struct
 # OneLoopParams
-struct OneLoopParams_1{T,SType}
+struct OneLoopParams{T,SType}
     System::SType
     NumericalParams::NumericalParams{T}
     Options::OptionParams
@@ -153,7 +153,7 @@ end
 OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
 Params(System; kwargs...) =
-    OneLoopParams_1(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+    OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
 
 #############################################################
 ######### PROPAGATORS ## PROPAGATORS ## PROPAGATORS #########
@@ -993,7 +993,7 @@ end
 t_to_Lam(t) = exp(t)
 Lam_to_t(t) = log(t)
 
-function AllocateSetup(Par::OneLoopParams_1)
+function AllocateSetup(Par::OneLoopParams)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
