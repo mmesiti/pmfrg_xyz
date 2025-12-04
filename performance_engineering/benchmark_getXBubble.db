@@ -1260,5 +1260,98 @@
       "comment": ""
     },
     "allocations": 132
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 9.9041346e7,
+      "times_mean": 7.83102493125e7,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 6.0717657e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "2855df",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 68
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 9.5831404e7,
+      "times_mean": 7.735351243076923e7,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 6.7083908e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 8,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "2855df",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 132
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 1.03175995e8,
+      "times_mean": 7.8472349796875e7,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 6.7126862e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 8,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "2855df",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 132
   }
 ]
