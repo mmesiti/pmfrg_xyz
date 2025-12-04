@@ -245,25 +245,27 @@ function V_(
     N::Integer,
 )
 
-    # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
-    block = div(n + 2, 6)
+    @inbounds begin
+        # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
+        block = div(n + 2, 6)
 
-    if (block != 0 && isFlavorTransform[block])
-        # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
-        # The layout of the fd-module is hence *very* important
+        if (block != 0 && isFlavorTransform[block])
+            # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
+            # The layout of the fd-module is hence *very* important
 
-        block_start = 4 + (block - 1) * 6
-        offset = n - block_start
-        new_offset = (offset + 3) % 6 # cyclic permutation, right shift by 3
+            block_start = 4 + (block - 1) * 6
+            offset = n - block_start
+            new_offset = (offset + 3) % 6 # cyclic permutation, right shift by 3
 
-        n_transf = block_start + new_offset
-    else
-        n_transf = n
+            n_transf = block_start + new_offset
+        else
+            n_transf = n
+        end
+
+        ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
+        Rij = ifelse(isFlavorTransform[1], Rji, Rij)
+        return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
     end
-
-    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-    Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-    return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
 end
 
 
