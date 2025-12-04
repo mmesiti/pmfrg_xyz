@@ -350,7 +350,10 @@ end
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
 function addX!(
-    Workspace::OneLoopWorkspace,
+    X::Array{T,5},
+    Gamma::Array{T,5},
+    System::Geometry,
+    N::Int64,
     is::Integer,
     it::Integer,
     iu::Integer,
@@ -358,12 +361,10 @@ function addX!(
     Props::Array{T,3},
     Buffers::ThreadLocalBuffersT,
 ) where {T}
-    (; State, X, Par) = Workspace
-    N = Par.NumericalParams.N
-    (; Npairs, Nsum, siteSum, invpairs) = Par.System
+    (; Npairs, Nsum, siteSum, invpairs) = System
 
     Vert(n, Rij, s, t, u, isFlavorTransform) =
-        V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     ns = is - 1
     nt = it - 1
@@ -488,7 +489,10 @@ function addX!(
 end
 
 function addY!(
-    Workspace::OneLoopWorkspace,
+    X::Array{T,5},
+    Gamma::Array{T,5},
+    System::Geometry,
+    N::Int64,
     is::Integer,
     it::Integer,
     iu::Integer,
@@ -496,12 +500,10 @@ function addY!(
     Props::Array{T,4},
     Buffers::ThreadLocalBuffersT,
 ) where {T}
-    (; State, X, Par) = Workspace
-    N = Par.NumericalParams.N
-    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+    (; Npairs, invpairs, PairTypes, OnsitePairs) = System
 
     Vert(n, Rij, s, t, u, isFlavorTransform) =
-        V_(State.Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
@@ -796,12 +798,20 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                     continue
                 end
-                addY!(Workspace, is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
+                addY!(Workspace.X,
+                      Workspace.State.Gamma,
+                      Workspace.Par.System,
+                      N,
+                      is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
 
                 ### If no u--t symmetry, then add all the bubbles
                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                 # if(!Par.Options.use_symmetry || nu<=nt)
-                addX!(Workspace, is, it, iu, nw, Buffs.spropX, Buffs)
+                addX!(Workspace.X,
+                      Workspace.State.Gamma,
+                      Workspace.Par.System,
+                      N,
+                      is, it, iu, nw, Buffs.spropX, Buffs)
                 # end
             end
         end

@@ -23,14 +23,19 @@ function check_addXY_allocations()
     )
 
 
+    X = workspace.X
+    Gamma = workspace.State.Gamma
+    System = Par.System
+    N = Par.NumericalParams.N
+    
 
 
-    addX!(workspace, 1, 1, 2, 1, buffs.spropX, buffs)
-    addY!(workspace, 1, 1, 2, 1, buffs.spropY, buffs)
+    addX!(X,Gamma,System,N, 1, 1, 2, 1, buffs.spropX, buffs)
+    addY!(X,Gamma,System,N, 1, 1, 2, 1, buffs.spropY, buffs)
 
-    addXallocations = @allocations addX!(workspace, 1, 1, 2, 1, buffs.spropX, buffs)
+    addXallocations = @allocations addX!(X,Gamma,System,N, 1, 1, 2, 1, buffs.spropX, buffs)
     @test addXallocations <= 1
 
-    addYallocations = @allocations addY!(workspace, 1, 1, 2, 1, buffs.spropY, buffs)
+    addYallocations = @allocations addY!(X,Gamma,System,N, 1, 1, 2, 1, buffs.spropY, buffs)
     @test addYallocations <= 1
 end
