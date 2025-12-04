@@ -387,7 +387,7 @@ function addX!(
     V12 = V12_addX
     V34 = V34_addX
     @inbounds for ki = 1:Npairs
-        @inbounds for n = 1:21
+        for n = 1:21
             V12[n, ki] = Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
             V34[n, ki] = Vert(n, ki, ns, -wmw3, -wmw4, flavTransf34)
         end
@@ -398,7 +398,7 @@ function addX!(
     @inbounds for Rij = 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
-        @inbounds for k_spl = 1:Nsum[Rij]
+        for k_spl = 1:Nsum[Rij]
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
             ki, kj, m, xk =
                 S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
@@ -531,7 +531,7 @@ function addY!(
         (; xi, xj) = PairTypes[Rij]
 
 
-        @inbounds for n = 1:21
+        for n = 1:21
             V13[n] = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
             V24[n] = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
             V31[n] = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
@@ -764,57 +764,59 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
     ThreadLocalBuffers = get_ThreadLocalBuffers(Par.System)
 
     Threads.@threads :static for is_it = 1:N*N
-        is = div(is_it - 1, N) + 1
-        it = (is_it - 1) % N + 1
-        # WARNING: 
-        # This works only with :static
-        Buffs = ThreadLocalBuffers[Threads.threadid()]
-        ns = is - 1
-        nt = it - 1
+        @inbounds begin
+            is = div(is_it - 1, N) + 1
+            it = (is_it - 1) % N + 1
+            # WARNING: 
+            # This works only with :static
+            Buffs = ThreadLocalBuffers[Threads.threadid()]
+            ns = is - 1
+            nt = it - 1
 
-        # Precompute Katanin propagators
-        @inbounds for Rij = 1:NUnique
-            @inbounds for j=1:3, i=1:3
-                Buffs.spropX[i,j,Rij] = -iSKat[i](Rij, 0) * iG[j](Rij, 0)  # nw will be updated later
-            end
-        end
-
-        @inbounds for nw = -lenIntw:lenIntw-1 # Matsubara sum
-            nw_ns = nw + ns;
-            nw_nt = nw - nt;
-            # Update Katanin propagators for current nw
-            @inbounds for Rij=1:NUnique
-                @inbounds for j=1:3, i=1:3
-                    Buffs.spropX[i,j,Rij] = -iSKat[i](Rij, nw) * iG[j](Rij, nw_ns)
+            # Precompute Katanin propagators
+            for Rij = 1:NUnique
+                for j = 1:3, i = 1:3
+                    Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, 0) * iG[j](Rij, 0)  # nw will be updated later
                 end
             end
 
-            @inbounds for Rij1=1:NUnique, Rij2=1:NUnique
-                @inbounds for j=1:3, i=1:3
-                    Buffs.spropY[i,j,Rij1,Rij2] = -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
+            for nw = -lenIntw:lenIntw-1 # Matsubara sum
+                nw_ns = nw + ns
+                nw_nt = nw - nt
+                # Update Katanin propagators for current nw
+                for Rij = 1:NUnique
+                    for j = 1:3, i = 1:3
+                        Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, nw) * iG[j](Rij, nw_ns)
+                    end
                 end
-            end
 
-            @inbounds for iu = 1:N
-                nu = iu - 1
-                if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
-                    continue
+                for Rij1 = 1:NUnique, Rij2 = 1:NUnique
+                    for j = 1:3, i = 1:3
+                        Buffs.spropY[i, j, Rij1, Rij2] = -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
+                    end
                 end
-                addY!(Workspace.X,
-                      Workspace.State.Gamma,
-                      Workspace.Par.System,
-                      N,
-                      is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
 
-                ### If no u--t symmetry, then add all the bubbles
-                ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
-                # if(!Par.Options.use_symmetry || nu<=nt)
-                addX!(Workspace.X,
-                      Workspace.State.Gamma,
-                      Workspace.Par.System,
-                      N,
-                      is, it, iu, nw, Buffs.spropX, Buffs)
-                # end
+                for iu = 1:N
+                    nu = iu - 1
+                    if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
+                        continue
+                    end
+                    addY!(Workspace.X,
+                        Workspace.State.Gamma,
+                        Workspace.Par.System,
+                        N,
+                        is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
+
+                    ### If no u--t symmetry, then add all the bubbles
+                    ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
+                    # if(!Par.Options.use_symmetry || nu<=nt)
+                    addX!(Workspace.X,
+                        Workspace.State.Gamma,
+                        Workspace.Par.System,
+                        N,
+                        is, it, iu, nw, Buffs.spropX, Buffs)
+                    # end
+                end
             end
         end
     end
