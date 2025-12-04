@@ -75,24 +75,39 @@ xvec[n, Rij, is, it, iu] = new_val
 val = xvec.data[i]
 ```
 """
-struct XVector{T, M <: AbstractXIndexMapping}
+struct XVector{T,M<:AbstractXIndexMapping}
     data::Vector{T}
     mapping::M
 
-    function XVector{T}(mapping::M) where {T, M <: AbstractXIndexMapping}
+    function XVector{T}(mapping::M) where {T,M<:AbstractXIndexMapping}
         len = total_length(mapping)
         data = zeros(T, len)
-        new{T, M}(data, mapping)
+        new{T,M}(data, mapping)
     end
 end
 
 # Multi-index access
-Base.@propagate_inbounds function Base.getindex(xv::XVector, n::Int, Rij::Int, is::Int, it::Int, iu::Int)
+Base.@propagate_inbounds function Base.getindex(
+    xv::XVector,
+    n::Int,
+    Rij::Int,
+    is::Int,
+    it::Int,
+    iu::Int,
+)
     i = linear_index(xv.mapping, n, Rij, is, it, iu)
     return xv.data[i]
 end
 
-Base.@propagate_inbounds function Base.setindex!(xv::XVector, val, n::Int, Rij::Int, is::Int, it::Int, iu::Int)
+Base.@propagate_inbounds function Base.setindex!(
+    xv::XVector,
+    val,
+    n::Int,
+    Rij::Int,
+    is::Int,
+    it::Int,
+    iu::Int,
+)
     i = linear_index(xv.mapping, n, Rij, is, it, iu)
     xv.data[i] = val
     return val
@@ -101,12 +116,12 @@ end
 # Standard array interface
 Base.size(xv::XVector) = size(xv.data)
 Base.length(xv::XVector) = length(xv.data)
-Base.eltype(::Type{XVector{T, M}}) where {T, M} = T
-Base.similar(xv::XVector{T, M}) where {T, M} = XVector{T}(xv.mapping)
+Base.eltype(::Type{XVector{T,M}}) where {T,M} = T
+Base.similar(xv::XVector{T,M}) where {T,M} = XVector{T}(xv.mapping)
 
 # Fill operations
 Base.fill!(xv::XVector, val) = (fill!(xv.data, val); xv)
-Base.zero(xv::XVector{T, M}) where {T, M} = XVector{T}(xv.mapping)
+Base.zero(xv::XVector{T,M}) where {T,M} = XVector{T}(xv.mapping)
 
 """
     DefaultXIndexMapping
@@ -157,7 +172,14 @@ For N even, this uses arithmetic based on parity arguments.
     return count
 end
 
-@inline function linear_index(m::DefaultXIndexMapping, n::Int, Rij::Int, is::Int, it::Int, iu::Int)
+@inline function linear_index(
+    m::DefaultXIndexMapping,
+    n::Int,
+    Rij::Int,
+    is::Int,
+    it::Int,
+    iu::Int,
+)
     @boundscheck begin
         @assert 1 <= n <= m.n_flavors "n must be in 1:$(m.n_flavors)"
         @assert 1 <= Rij <= m.n_pairs "Rij must be in 1:$(m.n_pairs)"

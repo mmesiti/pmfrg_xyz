@@ -402,8 +402,8 @@ function addX!(
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
             ki, kj, m, xk =
                 S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
-            
-            Ptm = @SMatrix [m * Props[i,j,xk] for i=1:3, j=1:3]
+
+            Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
             X_sum[fd.yy] +=
                 -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
@@ -540,8 +540,8 @@ function addY!(
 
         fill!(X_sum, 0.0)
 
-        P = @SMatrix [Props[i,j,xi,xj] for i=1:3, j=1:3]
-        PT = @SMatrix [Props[j,i,xj,xi] for i=1:3, j=1:3]
+        P = @SMatrix [Props[i, j, xi, xj] for i = 1:3, j = 1:3]
+        PT = @SMatrix [Props[j, i, xj, xi] for i = 1:3, j = 1:3]
 
         ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
@@ -585,43 +585,37 @@ function addY!(
 
         X_sum[fd.xy1] += (
             (V13[fd.xy3] * V24[fd.xy3] * P[2, 1] + V13[fd.xy1] * V24[fd.xy1] * P[1, 2]) + (
-                V31[fd.xy3] * V42[fd.xy3] * PT[2, 1] +
-                V31[fd.xy1] * V42[fd.xy1] * PT[1, 2]
+                V31[fd.xy3] * V42[fd.xy3] * PT[2, 1] + V31[fd.xy1] * V42[fd.xy1] * PT[1, 2]
             )
         )
 
         X_sum[fd.xz1] += (
             (V13[fd.xz3] * V24[fd.xz3] * P[3, 1] + V13[fd.xz1] * V24[fd.xz1] * P[1, 3]) + (
-                V31[fd.xz3] * V42[fd.xz3] * PT[3, 1] +
-                V31[fd.xz1] * V42[fd.xz1] * PT[1, 3]
+                V31[fd.xz3] * V42[fd.xz3] * PT[3, 1] + V31[fd.xz1] * V42[fd.xz1] * PT[1, 3]
             )
         )
 
         X_sum[fd.yx1] += (
             (V13[fd.yx3] * V24[fd.yx3] * P[1, 2] + V13[fd.yx1] * V24[fd.yx1] * P[2, 1]) + (
-                V31[fd.yx3] * V42[fd.yx3] * PT[1, 2] +
-                V31[fd.yx1] * V42[fd.yx1] * PT[2, 1]
+                V31[fd.yx3] * V42[fd.yx3] * PT[1, 2] + V31[fd.yx1] * V42[fd.yx1] * PT[2, 1]
             )
         )
 
         X_sum[fd.yz1] += (
             (V13[fd.yz3] * V24[fd.yz3] * P[3, 2] + V13[fd.yz1] * V24[fd.yz1] * P[2, 3]) + (
-                V31[fd.yz3] * V42[fd.yz3] * PT[3, 2] +
-                V31[fd.yz1] * V42[fd.yz1] * PT[2, 3]
+                V31[fd.yz3] * V42[fd.yz3] * PT[3, 2] + V31[fd.yz1] * V42[fd.yz1] * PT[2, 3]
             )
         )
 
         X_sum[fd.zx1] += (
             (V13[fd.zx3] * V24[fd.zx3] * P[1, 3] + V13[fd.zx1] * V24[fd.zx1] * P[3, 1]) + (
-                V31[fd.zx3] * V42[fd.zx3] * PT[1, 3] +
-                V31[fd.zx1] * V42[fd.zx1] * PT[3, 1]
+                V31[fd.zx3] * V42[fd.zx3] * PT[1, 3] + V31[fd.zx1] * V42[fd.zx1] * PT[3, 1]
             )
         )
 
         X_sum[fd.zy1] += (
             (V13[fd.zy3] * V24[fd.zy3] * P[2, 3] + V13[fd.zy1] * V24[fd.zy1] * P[3, 2]) + (
-                V31[fd.zy3] * V42[fd.zy3] * PT[2, 3] +
-                V31[fd.zy1] * V42[fd.zy1] * PT[3, 2]
+                V31[fd.zy3] * V42[fd.zy3] * PT[2, 3] + V31[fd.zy1] * V42[fd.zy1] * PT[3, 2]
             )
         )
 
@@ -664,8 +658,8 @@ function addY!(
         )
 
         X_sum[fd.yz2] += (
-         (
-             V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
+            (
+                V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
                 V13[fd.yz2] * V24[fd.zz] * P[3, 3] +
                 V13[fd.yx2] * V24[fd.zx2] * P[1, 1]
             ) + (
@@ -677,12 +671,12 @@ function addY!(
 
         X_sum[fd.zx2] += (
             (
-               V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
-              V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
+                V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
+                V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
                 V13[fd.zy2] * V24[fd.xy2] * P[2, 2]
             ) + (
-               V31[fd.zz] * V42[fd.xz2] * PT[3, 3] +
-              V31[fd.zx2] * V42[fd.xx] * PT[1, 1] +
+                V31[fd.zz] * V42[fd.xz2] * PT[3, 3] +
+                V31[fd.zx2] * V42[fd.xx] * PT[1, 1] +
                 V31[fd.zy2] * V42[fd.xy2] * PT[2, 2]
             )
         )
@@ -703,43 +697,37 @@ function addY!(
 
         X_sum[fd.xy3] += (
             (V13[fd.xy3] * V24[fd.yx1] * P[2, 1] + V13[fd.xy1] * V24[fd.yx3] * P[1, 2]) + (
-                V31[fd.xy3] * V42[fd.yx1] * PT[2, 1] +
-                V31[fd.xy1] * V42[fd.yx3] * PT[1, 2]
+                V31[fd.xy3] * V42[fd.yx1] * PT[2, 1] + V31[fd.xy1] * V42[fd.yx3] * PT[1, 2]
             )
         )
 
         X_sum[fd.xz3] += (
             (V13[fd.xz3] * V24[fd.zx1] * P[3, 1] + V13[fd.xz1] * V24[fd.zx3] * P[1, 3]) + (
-                V31[fd.xz3] * V42[fd.zx1] * PT[3, 1] +
-                V31[fd.xz1] * V42[fd.zx3] * PT[1, 3]
+                V31[fd.xz3] * V42[fd.zx1] * PT[3, 1] + V31[fd.xz1] * V42[fd.zx3] * PT[1, 3]
             )
         )
 
         X_sum[fd.yx3] += (
             (V13[fd.yx3] * V24[fd.xy1] * P[1, 2] + V13[fd.yx1] * V24[fd.xy3] * P[2, 1]) + (
-                V31[fd.yx3] * V42[fd.xy1] * PT[1, 2] +
-                V31[fd.yx1] * V42[fd.xy3] * PT[2, 1]
+                V31[fd.yx3] * V42[fd.xy1] * PT[1, 2] + V31[fd.yx1] * V42[fd.xy3] * PT[2, 1]
             )
         )
 
         X_sum[fd.yz3] += (
             (V13[fd.yz3] * V24[fd.zy1] * P[3, 2] + V13[fd.yz1] * V24[fd.zy3] * P[2, 3]) + (
-                V31[fd.yz3] * V42[fd.zy1] * PT[3, 2] +
-                V31[fd.yz1] * V42[fd.zy3] * PT[2, 3]
+                V31[fd.yz3] * V42[fd.zy1] * PT[3, 2] + V31[fd.yz1] * V42[fd.zy3] * PT[2, 3]
             )
         )
 
         X_sum[fd.zx3] += (
             (V13[fd.zx3] * V24[fd.xz1] * P[1, 3] + V13[fd.zx1] * V24[fd.xz3] * P[3, 1]) + (
-                V31[fd.zx3] * V42[fd.xz1] * PT[1, 3] +
-                V31[fd.zx1] * V42[fd.xz3] * PT[3, 1]
+                V31[fd.zx3] * V42[fd.xz1] * PT[1, 3] + V31[fd.zx1] * V42[fd.xz3] * PT[3, 1]
             )
         )
 
         X_sum[fd.zy3] += (
             (V13[fd.zy3] * V24[fd.yz1] * P[2, 3] + V13[fd.zy1] * V24[fd.yz3] * P[3, 2]) + (
-                V31[fd.zy3] * V42[fd.yz1] * PT[2, 3] +
-                V31[fd.zy1] * V42[fd.yz3] * PT[3, 2]
+                V31[fd.zy3] * V42[fd.yz1] * PT[2, 3] + V31[fd.zy1] * V42[fd.yz3] * PT[3, 2]
             )
         )
 
@@ -756,10 +744,13 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
     iSigma = Workspace.State.iSigma
     DiSigma = Workspace.Deriv.iSigma
 
-    iG = SVector{3}([(x,nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)])
-    iSKat = SVector{3}([(x,nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T)
-                         for (iSigma_i, DiSigma_i) in zip((iSigma.x,iSigma.y,iSigma.z),
-                                                          (DiSigma.x,DiSigma.y,DiSigma.z))])
+    iG = SVector{3}([
+        (x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)
+    ])
+    iSKat = SVector{3}([
+        (x, nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T) for (iSigma_i, DiSigma_i) in
+        zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
+    ])
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(Par.System)
 
@@ -792,7 +783,8 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
 
                 for Rij1 = 1:NUnique, Rij2 = 1:NUnique
                     for j = 1:3, i = 1:3
-                        Buffs.spropY[i, j, Rij1, Rij2] = -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
+                        Buffs.spropY[i, j, Rij1, Rij2] =
+                            -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
                     end
                 end
 
@@ -801,20 +793,34 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                     if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                         continue
                     end
-                    addY!(Workspace.X,
+                    addY!(
+                        Workspace.X,
                         Workspace.State.Gamma,
                         Workspace.Par.System,
                         N,
-                        is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
+                        is,
+                        it,
+                        iu,
+                        nw,
+                        Buffs.spropY,
+                        Buffs,
+                    ) # add to XTilde-type bubble functions
 
                     ### If no u--t symmetry, then add all the bubbles
                     ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                     # if(!Par.Options.use_symmetry || nu<=nt)
-                    addX!(Workspace.X,
+                    addX!(
+                        Workspace.X,
                         Workspace.State.Gamma,
                         Workspace.Par.System,
                         N,
-                        is, it, iu, nw, Buffs.spropX, Buffs)
+                        is,
+                        it,
+                        iu,
+                        nw,
+                        Buffs.spropX,
+                        Buffs,
+                    )
                     # end
                 end
             end
