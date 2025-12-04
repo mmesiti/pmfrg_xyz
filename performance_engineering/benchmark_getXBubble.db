@@ -1198,5 +1198,67 @@
       "comment": ""
     },
     "allocations": 68
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 1.39173288e8,
+      "times_mean": 7.9182139375e7,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 6.0188922e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "c7d0a5",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 68
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 9.9599373e7,
+      "times_mean": 7.784199798461539e7,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 6.8003226e7,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 8,
+      "physics": {
+        "lattice_size": 5,
+        "N": 10,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": false,
+      "commit": "c7d0a5",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 132
   }
 ]
