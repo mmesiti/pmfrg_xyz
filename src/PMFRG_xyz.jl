@@ -262,7 +262,7 @@ function V_(
 
     ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
     Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-    return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
+    return Vertex[n_transf, Rij, nu+1, nt+1, ns+1]
 end
 
 
@@ -483,7 +483,7 @@ function addX!(
                 V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
         end
 
-        (@view X[1:21, Rij, is, it, iu]) .+= X_sum
+        (@view X[1:21, Rij, iu, it, is]) .+= X_sum
     end
     return
 end
@@ -748,7 +748,7 @@ function addY!(
             )
         )
 
-        (@view X[22:end, Rij, is, it, iu]) .+= X_sum
+        (@view X[22:end, Rij, iu, it, is]) .+= X_sum
     end
 end
 
@@ -810,20 +810,34 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                     continue
                 end
-                addY!(Workspace.X,
-                      Workspace.State.Gamma,
-                      Workspace.Par.System,
-                      N,
-                      is, it, iu, nw, Buffs.spropY, Buffs) # add to XTilde-type bubble functions
+                addY!(
+                    Workspace.X,
+                    Workspace.State.Gamma,
+                    Workspace.Par.System,
+                    N,
+                    is,
+                    it,
+                    iu,
+                    nw,
+                    Buffs.spropY,
+                    Buffs,
+                ) # add to XTilde-type bubble functions
 
                 ### If no u--t symmetry, then add all the bubbles
                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                 # if(!Par.Options.use_symmetry || nu<=nt)
-                addX!(Workspace.X,
-                      Workspace.State.Gamma,
-                      Workspace.Par.System,
-                      N,
-                      is, it, iu, nw, Buffs.spropX, Buffs)
+                addX!(
+                    Workspace.X,
+                    Workspace.State.Gamma,
+                    Workspace.Par.System,
+                    N,
+                    is,
+                    it,
+                    iu,
+                    nw,
+                    Buffs.spropX,
+                    Buffs,
+                )
                 # end
             end
         end
@@ -850,13 +864,13 @@ function symmetrizeBubble!(X::Array{T,5}, Par) where {T}
     #local definitions of X.Tilde vertices
     for iu = 1:N
         for it = 1:N, is = 1:N, R in OnsitePairs
-            X[21+1, R, is, it, iu] = -X[1, R, it, is, iu]  ###
-            X[21+2, R, is, it, iu] = -X[2, R, it, is, iu]  ### Yaa = Xaa
-            X[21+3, R, is, it, iu] = -X[3, R, it, is, iu]  ###
+            X[21+1, R, iu, it, is] = -X[1, R, iu, is, it]  ###
+            X[21+2, R, iu, it, is] = -X[2, R, iu, is, it]  ### Yaa = Xaa
+            X[21+3, R, iu, it, is] = -X[3, R, iu, is, it]  ###
             for n = 1:6
-                X[21+3+n, R, is, it, iu] = -X[9+n, R, it, is, iu]      ### Yab1 = Xab2
-                X[21+9+n, R, is, it, iu] = -X[3+n, R, it, is, iu]      ### Yab2 = Xab1
-                X[21+15+n, R, is, it, iu] = -X[15+n, R, it, is, iu]    ### Yab3 = Xab3
+                X[21+3+n, R, iu, it, is] = -X[9+n, R, iu, is, it]      ### Yab1 = Xab2
+                X[21+9+n, R, iu, it, is] = -X[3+n, R, iu, is, it]      ### Yab2 = Xab1
+                X[21+15+n, R, iu, it, is] = -X[15+n, R, iu, is, it]    ### Yab3 = Xab3
             end
         end
     end
@@ -866,19 +880,19 @@ function addToVertexFromBubble!(Gamma::Array{T,5}, X::Array{T,5}) where {T}
     for iu in axes(Gamma, 5)
         for it in axes(Gamma, 4), is in axes(Gamma, 3), Rij in axes(Gamma, 2)
             for n = 1:9 ### Zaa(s,t,u) = -Yaa(s,u,t) ; Zab1(s,t,u) = -Yab1(s,u,t)
-                Gamma[n, Rij, is, it, iu] += (
-                    X[n, Rij, is, it, iu] + X[21+n, Rij, is, it, iu] -
-                    X[21+n, Rij, is, iu, it]
+                Gamma[n, Rij, iu, it, is] += (
+                    X[n, Rij, iu, it, is] + X[21+n, Rij, iu, it, is] -
+                    X[21+n, Rij, it, iu, is]
                 )
             end
             for n = 1:6 ### Zab2(s,t,u) = -Yab3(s,u,t) ; Zab3(s,t,u) = -Yab2(s,u,t)
-                Gamma[9+n, Rij, is, it, iu] += (
-                    X[9+n, Rij, is, it, iu] + X[21+9+n, Rij, is, it, iu] -
-                    X[21+15+n, Rij, is, iu, it]
+                Gamma[9+n, Rij, iu, it, is] += (
+                    X[9+n, Rij, iu, it, is] + X[21+9+n, Rij, iu, it, is] -
+                    X[21+15+n, Rij, it, iu, is]
                 )
-                Gamma[15+n, Rij, is, it, iu] += (
-                    X[15+n, Rij, is, it, iu] + X[21+15+n, Rij, is, it, iu] -
-                    X[21+9+n, Rij, is, iu, it]
+                Gamma[15+n, Rij, iu, it, is] += (
+                    X[15+n, Rij, iu, it, is] + X[21+15+n, Rij, iu, it, is] -
+                    X[21+9+n, Rij, it, iu, is]
                 )
             end
         end
@@ -891,7 +905,7 @@ function symmetrizeVertex!(Gamma::Array{T,5}, Par) where {T}
     for iu = 1:N
         for it = 1:N, is = 1:N, R in Par.System.OnsitePairs
             for n = 1:6
-                Gamma[9+n, R, is, it, iu] = -Gamma[3+n, R, it, is, iu] ### V^ii_ab2 = -V^ii_ab1
+                Gamma[9+n, R, iu, it, is] = -Gamma[3+n, R, iu, is, it] ### V^ii_ab2 = -V^ii_ab1
             end
         end
     end

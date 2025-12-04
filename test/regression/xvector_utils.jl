@@ -21,11 +21,11 @@ function array_to_xvector(X_array::Array{T,5}, Par) where {T}
     X_xvec = PMFRG_xyz.XVector{T}(mapping)
 
     # Copy valid elements from Array to XVector
-    for iu in 1:N, it in 1:N, is in 1:N
+    for iu = 1:N, it = 1:N, is = 1:N
         if !PMFRG_xyz.is_valid_multi_index(is, it, iu)
             continue
         end
-        for Rij in 1:n_pairs, n in 1:n_flavors
+        for Rij = 1:n_pairs, n = 1:n_flavors
             X_xvec[n, Rij, is, it, iu] = X_array[n, Rij, is, it, iu]
         end
     end
@@ -49,11 +49,11 @@ function xvector_to_array(X_xvec::PMFRG_xyz.XVector{T,MType}, Par) where {T,MTyp
     X_array = zeros(T, n_flavors, n_pairs, N, N, N)
 
     # Copy valid elements from XVector to Array
-    for iu in 1:N, it in 1:N, is in 1:N
+    for iu = 1:N, it = 1:N, is = 1:N
         if !PMFRG_xyz.is_valid_multi_index(is, it, iu)
             continue
         end
-        for Rij in 1:n_pairs, n in 1:n_flavors
+        for Rij = 1:n_pairs, n = 1:n_flavors
             X_array[n, Rij, is, it, iu] = X_xvec[n, Rij, is, it, iu]
         end
     end

@@ -17,7 +17,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
         # Test 1: All linear indices map to valid multi-indices
         total_len = total_length(mapping)
         @testset "All linear indices valid" begin
-            for i in 1:total_len
+            for i = 1:total_len
                 n, Rij, is, it, iu = multi_index(mapping, i)
 
                 # Check bounds
@@ -34,7 +34,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
 
         # Test 2: Round-trip linear -> multi -> linear
         @testset "Round-trip: linear -> multi -> linear" begin
-            for i in 1:total_len
+            for i = 1:total_len
                 n, Rij, is, it, iu = multi_index(mapping, i)
                 i_roundtrip = linear_index(mapping, n, Rij, is, it, iu)
                 @test i_roundtrip == i
@@ -43,12 +43,12 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
 
         # Test 3: Round-trip multi -> linear -> multi for all valid combinations
         @testset "Round-trip: multi -> linear -> multi" begin
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
-                for Rij in 1:n_pairs, n in 1:n_flavors
+                for Rij = 1:n_pairs, n = 1:n_flavors
                     i = linear_index(mapping, n, Rij, is, it, iu)
                     n_rt, Rij_rt, is_rt, it_rt, iu_rt = multi_index(mapping, i)
 
@@ -65,12 +65,12 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
         @testset "All linear indices unique" begin
             seen_indices = Set{Int}()
 
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
-                for Rij in 1:n_pairs, n in 1:n_flavors
+                for Rij = 1:n_pairs, n = 1:n_flavors
                     i = linear_index(mapping, n, Rij, is, it, iu)
 
                     # Check uniqueness
@@ -90,7 +90,7 @@ function test_mapping_bijectivity(mapping::AbstractXIndexMapping)
         @testset "Total length correct" begin
             # Count valid (is, it, iu) combinations
             num_valid_freq = 0
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if is_valid_multi_index(is, it, iu)
                     num_valid_freq += 1
                 end
@@ -124,25 +124,25 @@ function test_xvector_operations(mapping::AbstractXIndexMapping)
 
         @testset "Multi-index access" begin
             # Set some values
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
-                for Rij in 1:min(2, n_pairs), n in 1:min(3, n_flavors)
-                    val = Float64(n + 10*Rij + 100*is + 1000*it + 10000*iu)
+                for Rij = 1:min(2, n_pairs), n = 1:min(3, n_flavors)
+                    val = Float64(n + 10 * Rij + 100 * is + 1000 * it + 10000 * iu)
                     xvec[n, Rij, is, it, iu] = val
                 end
             end
 
             # Check values
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if !is_valid_multi_index(is, it, iu)
                     continue
                 end
 
-                for Rij in 1:min(2, n_pairs), n in 1:min(3, n_flavors)
-                    expected = Float64(n + 10*Rij + 100*is + 1000*it + 10000*iu)
+                for Rij = 1:min(2, n_pairs), n = 1:min(3, n_flavors)
+                    expected = Float64(n + 10 * Rij + 100 * is + 1000 * it + 10000 * iu)
                     @test xvec[n, Rij, is, it, iu] == expected
                 end
             end
@@ -152,7 +152,7 @@ function test_xvector_operations(mapping::AbstractXIndexMapping)
             fill!(xvec, 42.0)
             @test all(xvec.data .== 42.0)
 
-            for iu in 1:N, it in 1:N, is in 1:N
+            for iu = 1:N, it = 1:N, is = 1:N
                 if !is_valid_multi_index(is, it, iu)
                     continue
                 end
@@ -204,4 +204,5 @@ function run_all_tests(mapping::AbstractXIndexMapping)
 end
 
 # Export test functions
-export test_mapping_bijectivity, test_xvector_operations, test_validity_condition, run_all_tests
+export test_mapping_bijectivity,
+    test_xvector_operations, test_validity_condition, run_all_tests
