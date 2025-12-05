@@ -3,6 +3,7 @@
 #SBATCH --cpus-per-task=76
 #SBATCH --partition cpuonly
 #SBATCH --time 25
+#SBATCH --cpu-freq=3000000
 
 set -eu
 
