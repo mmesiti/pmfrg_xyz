@@ -5,6 +5,7 @@ using Pkg
 Pkg.activate(@__DIR__)
 
 using PProf, Profile, PMFRG_xyz
+import ThreadPinning
 
 include("example_configs.jl")
 using .ExampleSetups: example_setups
@@ -48,6 +49,8 @@ end
 
 function run_profiling(par, isotropy)
     println("\nStarting profiling run...")
+    ThreadPinning.pinthreads(:cores)
+    ThreadPinning.threadinfo()
     Profile.clear()
     @profile SolveFRG(par, isotropy)
 end
