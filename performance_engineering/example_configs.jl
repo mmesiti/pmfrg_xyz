@@ -29,7 +29,7 @@ function dimer(; N = 8)
 end
 
 """
-    setup_square_lattice_example(; lattice_size=6, N=8)
+    square_lattice(; lattice_size=6, N=8)
 
 Set up the square lattice anisotropy example system and parameters.
 
@@ -50,6 +50,33 @@ function square_lattice(; lattice_size = 6, N = 8)
     return par, isotropy
 end
 
-example_setups = Dict("dimer" => dimer, "square_lattice" => square_lattice)
+"""
+    square_lattice_large(; lattice_size=10, N=20)
+
+Set up the square lattice anisotropy example system and parameters.
+
+Returns: (system, params, isotropy_matrix)
+"""
+function square_lattice_large(; lattice_size = 10, N = 20)
+    J1 = 1.0
+    J2 = 0.5
+
+    system = getSquareLattice(lattice_size, [J1, J2])
+    par = Params(system, N = N, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
+
+    isotropy = zeros(system.Npairs, 3)
+    for n = 1:system.Npairs
+        isotropy[n, :] = [1.0, 0.5, 0.2]
+    end
+
+    return par, isotropy
+end
+
+
+example_setups = Dict("dimer" => dimer, 
+                      "square_lattice" => square_lattice,
+                      "square_lattice_large" => square_lattice_large)
 
 end
+
+
