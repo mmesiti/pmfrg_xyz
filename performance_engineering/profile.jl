@@ -72,14 +72,14 @@ end
 
 # level 2
 function get_profile_filename(example_name, git_commit, pprof_version)
-    slurm_job_id=get(ENV,"SLURM_JOB_ID","noslurm")
-    slurm_cpu_freq_req=get(ENV,"SLURM_CPU_FREQ_REQ","nofreq")
+    slurm_job_id = get(ENV, "SLURM_JOB_ID", "noslurm")
+    slurm_cpu_freq_req = get(ENV, "SLURM_CPU_FREQ_REQ", "nofreq")
     joinpath(
         @__DIR__,
         "profile_data",
         "profile_$(example_name)_" *
-        "$(git_commit)_" * 
-        "pprof$(pprof_version)_" * 
+        "$(git_commit)_" *
+        "pprof$(pprof_version)_" *
         "$(slur_job_id)_" *
         "$(slurm_cpu_freq_req).pb.gz",
     )

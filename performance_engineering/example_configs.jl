@@ -73,10 +73,10 @@ function square_lattice_large(; lattice_size = 10, N = 20)
 end
 
 
-example_setups = Dict("dimer" => dimer, 
-                      "square_lattice" => square_lattice,
-                      "square_lattice_large" => square_lattice_large)
+example_setups = Dict(
+    "dimer" => dimer,
+    "square_lattice" => square_lattice,
+    "square_lattice_large" => square_lattice_large,
+)
 
 end
-
-
