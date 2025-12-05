@@ -5,6 +5,7 @@ using Pkg
 Pkg.activate(@__DIR__)
 
 using PProf, Profile, PMFRG_xyz
+import ThreadPinning
 
 include("example_configs.jl")
 using .ExampleSetups: example_setups
@@ -48,6 +49,8 @@ end
 
 function run_profiling(par, isotropy)
     println("\nStarting profiling run...")
+    ThreadPinning.pinthreads(:cores)
+    ThreadPinning.threadinfo()
     Profile.clear()
     @profile SolveFRG(par, isotropy)
 end
@@ -69,10 +72,16 @@ end
 
 # level 2
 function get_profile_filename(example_name, git_commit, pprof_version)
+    slurm_job_id=get(ENV,"SLURM_JOB_ID","noslurm")
+    slurm_cpu_freq_req=get(ENV,"SLURM_CPU_FREQ_REQ","nofreq")
     joinpath(
         @__DIR__,
         "profile_data",
-        "profile_$(example_name)_$(git_commit)_pprof$(pprof_version).pb.gz",
+        "profile_$(example_name)_" *
+        "$(git_commit)_" * 
+        "pprof$(pprof_version)_" * 
+        "$(slur_job_id)_" *
+        "$(slurm_cpu_freq_req).pb.gz",
     )
 end
 
