@@ -1,4 +1,5 @@
 using JSON
+using Test
 
 
 include("benchmark_getXBubble.jl")

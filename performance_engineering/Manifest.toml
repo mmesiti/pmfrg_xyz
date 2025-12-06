@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.10"
+julia_version = "1.10.6"
 manifest_format = "2.0"
-project_hash = "e6fefc0e5a5e7116219d71232e7e9b3d9ac1f5ba"
+project_hash = "23d4e40ad484110788209e110fa7e3892fb51ca1"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "27cecae79e5cc9935255f90c53bb831cc3c870d7"
@@ -1122,7 +1122,7 @@ version = "0.3.23+4"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.5+0"
+version = "0.8.1+2"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
@@ -1673,7 +1673,7 @@ weakdeps = ["ChainRulesCore"]
 deps = ["StaticArrays", "StructArrays", "Test"]
 path = "../../SpinFRGLattices.jl"
 uuid = "053fb7f8-31b7-4f68-aef8-4452b415dd8c"
-version = "0.4.2"
+version = "0.5.5"
 
 [[deps.StableTasks]]
 git-tree-sha1 = "c4f6610f85cb965bee5bfafa64cbeeda55a4e0b2"

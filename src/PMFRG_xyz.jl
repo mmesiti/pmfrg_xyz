@@ -109,7 +109,7 @@ getBubbleVDims(Par) = (
 )
 _getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
 
-function SigmaType(NUnique::Int, N::Int, type = Float64)
+function SigmaType(NUnique::Int, N::Int, type=Float64)
     return SigmaType(
         zeros(type, NUnique, N),
         zeros(type, NUnique, N),
@@ -118,7 +118,7 @@ function SigmaType(NUnique::Int, N::Int, type = Float64)
 end
 SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
 
-function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
+function StateType(NUnique::Int, N::Int, VDims::Tuple, type=Float64)
     return StateType(zeros(type, NUnique), SigmaType(tpye, NUnique, N), zeros(type, VDims))
 end
 StateType(Par) =
@@ -132,12 +132,12 @@ StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 # The constructor of this is just blind-copied. To this day I dont really understand
 # the purpose of lenIntw and lenIntw_acc
 function NumericalParams(;
-    N::Integer = 24,
-    accuracy = 1e-6,
-    temp_min = exp(-10.0),
-    temp_max = exp(10.0),
-    lenIntw::Int = N,
-    lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
+    N::Integer=24,
+    accuracy=1e-6,
+    temp_min=exp(-10.0),
+    temp_max=exp(10.0),
+    lenIntw::Int=N,
+    lenIntw_acc::Int=2 * maximum((N, lenIntw)),
 )
 
     return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
@@ -150,7 +150,7 @@ function OneLoopWorkspace(State, Deriv, X, Par)
     return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
 end
 
-OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
+OptionParams(; use_symmetry::Bool=true, MinimalOutput::Bool=false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
 Params(System; kwargs...) =
     OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
@@ -233,6 +233,7 @@ end
 using LinearAlgebra
 using SparseArrays
 
+
 function V_(
     Vertex::AbstractArray,
     n::Int,
@@ -265,6 +266,54 @@ function V_(
         ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
         Rij = ifelse(isFlavorTransform[1], Rji, Rij)
         return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
+    end
+end
+
+"Optimized, in-place version of V_ to be used in addX! and addY!"
+@inline function Vert!(V, Gamma, s,t,u, flavTransf, R)
+    G = @view Gamma[:, R, s+1, t+1, u+1]
+
+    @unroll for i in 1:3
+        V[i] = G[i]
+    end
+
+    if flavTransf[1]
+        @unroll for i in 4:6
+            V[i] = G[i+3]
+        end
+        @unroll for i in 7:9
+            V[i] = G[i-3]
+        end
+    else
+        @unroll for i in 4:9
+            V[i] = G[i]
+        end
+    end
+
+    if flavTransf[2]
+        @unroll for i in 10:12
+            V[i] = G[i+3]
+        end
+        @unroll for i in 13:15
+            V[i] = G[i-3]
+        end
+    else
+        @unroll for i in 10:15
+            V[i] = G[i]
+        end
+    end
+
+    if flavTransf[3]
+        @unroll for i in 16:18
+            V[i] = G[i+3]
+        end
+        @unroll for i in 19:21
+            V[i] = G[i-3]
+        end
+    else
+        @unroll for i in 16:21
+            V[i] = G[i]
+        end
     end
 end
 
@@ -345,25 +394,6 @@ function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
     ]
 end
 
-
-@inline function get_flavor_perm(flags::Tuple{Bool,Bool,Bool})
-    # Base permutation (identity)
-    # The logic below matches: block = div(n + 2, 6); if flags[block] -> shift 3
-    
-    # Block 1 (Indices 4-9) - Controlled by flags[1]
-    p1 = flags[1] ? (7, 8, 9, 4, 5, 6) : (4, 5, 6, 7, 8, 9)
-    
-    # Block 2 (Indices 10-15) - Controlled by flags[2]
-    p2 = flags[2] ? (13, 14, 15, 10, 11, 12) : (10, 11, 12, 13, 14, 15)
-    
-    # Block 3 (Indices 16-21) - Controlled by flags[3]
-    p3 = flags[3] ? (19, 20, 21, 16, 17, 18) : (16, 17, 18, 19, 20, 21)
-    
-    # Combine into full tuple (1, 2, 3 are never permuted as div(n+2,6)=0)
-    return (1, 2, 3, p1..., p2..., p3...)
-end
-
-
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
 function addX!(
@@ -398,30 +428,21 @@ function addX!(
     (; V12_addX, V34_addX, X_sum, Ptm) = Buffers
     V12 = V12_addX
     V34 = V34_addX
-    
-    s1, t1, u1 = ConvertFreqArgs(ns,  wpw1, -wpw2, N); f1_args = (s1+1, t1+1, u1+1)
-    s2, t2, u2 = ConvertFreqArgs(ns, -wmw3, -wmw4, N); f2_args = (s2+1, t2+1, u2+1)
 
-    perm12 = get_flavor_perm(flavTransf12)
-    perm34 = get_flavor_perm(flavTransf34)
+    s1, t1, u1 = ConvertFreqArgs(ns, wpw1, -wpw2, N)
+    s2, t2, u2 = ConvertFreqArgs(ns, -wmw3, -wmw4, N)
 
     swap_R12 = flavTransf12[1]
     swap_R34 = flavTransf34[1]
 
+
     @inbounds for ki = 1:Npairs
-        # Resolve the correct geometric index (Rij vs Rji)
+
         R12 = swap_R12 ? invpairs[ki] : ki
         R34 = swap_R34 ? invpairs[ki] : ki
-
-        G12 = @view Gamma[:, R12, f1_args...]
-        G34 = @view Gamma[:, R34, f2_args...]
-
-        @inbounds for n = 1:21
-            V12[n, ki] = G12[perm12[n]]
-            V34[n, ki] = G34[perm34[n]]
-        end
+        Vert!((@view V12[:, ki]), Gamma, s1, t1, u1, flavTransf12, R12)
+        Vert!((@view V34[:, ki]), Gamma, s2, t2, u2, flavTransf34, R34)
     end
-
 
 
     @inbounds for Rij = 1:Npairs
@@ -551,15 +572,10 @@ function addY!(
     V42 = V42_addY
 
 
-   s13, t13, u13 = ConvertFreqArgs(wmw1, nt,  wmw3, N); args13 = (s13+1, t13+1, u13+1)
-    s24, t24, u24 = ConvertFreqArgs(wpw2, -nt, -wpw4, N); args24 = (s24+1, t24+1, u24+1)
-    s31, t31, u31 = ConvertFreqArgs(wmw3, nt, -wmw1, N); args31 = (s31+1, t31+1, u31+1)
-    s42, t42, u42 = ConvertFreqArgs(-wpw4, -nt, wpw2, N); args42 = (s42+1, t42+1, u42+1)
-
-    perm13 = get_flavor_perm(flavTransf13)
-    perm24 = get_flavor_perm(flavTransf24)
-    perm31 = get_flavor_perm(flavTransf31)
-    perm42 = get_flavor_perm(flavTransf42)
+    s13, t13, u13 = ConvertFreqArgs(wmw1, nt, wmw3, N)
+    s24, t24, u24 = ConvertFreqArgs(wpw2, -nt, -wpw4, N)
+    s31, t31, u31 = ConvertFreqArgs(wmw3, nt, -wmw1, N)
+    s42, t42, u42 = ConvertFreqArgs(-wpw4, -nt, wpw2, N)
 
     swap13 = flavTransf13[1]
     swap24 = flavTransf24[1]
@@ -570,27 +586,19 @@ function addY!(
     @inbounds for Rij = 1:Npairs
         Rij in OnsitePairs && continue
         # loop over all left hand side inequivalent pairs Rij
-        Rij_inv = invpairs[Rij]
         # loop over all left hand side inequivalent pairs Rij
         #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
         (; xi, xj) = PairTypes[Rij]
 
-        R13 = swap13 ? Rij_inv : Rij
-        R24 = swap24 ? Rij_inv : Rij
-        R31 = swap31 ? Rij_inv : Rij
-        R42 = swap42 ? Rij_inv : Rij
+        R13 = swap13 ? invpairs[Rij] : Rij
+        R24 = swap24 ? invpairs[Rij] : Rij
+        R31 = swap31 ? invpairs[Rij] : Rij
+        R42 = swap42 ? invpairs[Rij] : Rij
 
-        G12 = @view Gamma[:, R13, args13...]
-        G24 = @view Gamma[:, R24, args24...]
-        G31 = @view Gamma[:, R31, args31...]
-        G42 = @view Gamma[:, R42, args42...]
-
-        for n = 1:21
-            V13[n] = G12[ perm13[n]]
-            V24[n] = G24[ perm24[n]]
-            V31[n] = G31[ perm31[n]]
-            V42[n] = G42[ perm42[n]]
-        end
+        Vert!(V13, Gamma, s13, t13, u13, flavTransf13, R13)
+        Vert!(V24, Gamma, s24, t24, u24, flavTransf24, R24)
+        Vert!(V31, Gamma, s31, t31, u31, flavTransf31, R31)
+        Vert!(V42, Gamma, s42, t42, u42, flavTransf42, R42)
 
         fill!(X_sum, 0.0)
 
@@ -1045,7 +1053,7 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+function getDeriv!(Deriv, State, setup, Lam; saveArgs=true)
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
@@ -1071,7 +1079,7 @@ function AllocateSetup(Par::OneLoopParams)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
-    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
+    return (X=zeros(floattype, getBubbleVDims(Par)), Par=Par)
 end
 
 function InitializeState(Par, isotropy)
@@ -1108,9 +1116,9 @@ function launchPMFRG!(
     State,
     setup,
     Deriv!::Function;
-    method = DP5(),
-    npoints = 600,
-    save_steps = false,
+    method=DP5(),
+    npoints=600,
+    save_steps=false,
 )
     println("Solving FRG")
 
@@ -1135,26 +1143,26 @@ function launchPMFRG!(
     saveCB = SavingCallback(
         save_func,
         saved_values,
-        save_everystep = false,
-        saveat = ObsSaveat,
-        tdir = -1,
+        save_everystep=false,
+        saveat=ObsSaveat,
+        tdir=-1,
     )
 
     problem = ODEProblem(Deriv_subst!, State, (t0, tend), setup) # function, initial state, timespan, ??
     sol = solve(
         problem,
         method,
-        reltol = accuracy,
-        abstol = accuracy,
-        save_everystep = save_steps,
-        callback = saveCB,
-        dt = Lam_to_t(0.2 * temp_max),
+        reltol=accuracy,
+        abstol=accuracy,
+        save_everystep=save_steps,
+        callback=saveCB,
+        dt=Lam_to_t(0.2 * temp_max),
     )
 
     return sol, saved_values
 end
 
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
+function testPMFRG!(State, setup, Deriv!::Function; loadArgs=false)
     Par = setup[end]
     (; temp_max, temp_min, accuracy) = Par.NumericalParams
 
@@ -1165,7 +1173,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
     der = copy(State)
     setZero!(der)
 
-    Deriv_subst!(der, State, setup, t0, s = false)
+    Deriv_subst!(der, State, setup, t0, s=false)
 end
 
 SolveFRG(Par, isotropy; kwargs...) =
@@ -1180,9 +1188,9 @@ end
 
 function generateSubstituteDeriv(getDeriv!::Function)
 
-    function DerivSubs!(Deriv, State, setup, t; s = true)
+    function DerivSubs!(Deriv, State, setup, t; s=true)
         Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, setup, Lam, saveArgs = s)
+        a = getDeriv!(Deriv, State, setup, Lam, saveArgs=s)
         Deriv .*= Lam
         a
     end
