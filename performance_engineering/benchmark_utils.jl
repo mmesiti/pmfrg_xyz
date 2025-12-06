@@ -1,8 +1,57 @@
 
 using SpinFRGLattices
 using SpinFRGLattices.SquareLattice
-import PMFRG_xyz: Params, AllocateSetup, InitializeState, OneLoopWorkspace
-# level 2
+import PMFRG_xyz:
+    Params,
+    AllocateSetup,
+    InitializeState,
+    OneLoopWorkspace,
+    addX!,
+    addY!,
+    ThreadLocalBuffersT
+
+function check_addXY_allocations()
+
+    workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
+
+    Par = workspace.Par
+    (; NUnique, Npairs) = Par.System
+
+
+    buffs = ThreadLocalBuffersT(
+        zeros((21, Npairs)),
+        zeros((21, Npairs)),
+        zeros(21),
+        zeros(3, 3, NUnique),
+        zeros(3, 3, NUnique, NUnique),
+        zeros(3, 3),
+        zeros(21),
+        zeros(21),
+        zeros(21),
+        zeros(21),
+    )
+
+
+    X = workspace.X
+    Gamma = workspace.State.Gamma
+    System = Par.System
+    N = Par.NumericalParams.N
+
+
+
+    addX!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropX, buffs)
+    addY!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropY, buffs)
+
+    addXallocations =
+        @allocations addX!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropX, buffs)
+    @test addXallocations <= 1
+
+    addYallocations =
+        @allocations addY!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropY, buffs)
+    @test addYallocations <= 1
+end
+
+
 function create_synthetic_workspace_dimer(; N::Int = 8)
     System = SpinFRGLattices.getPolymer(2)
     par = Params(System, N = N, temp_max = 10.0, temp_min = 1.0)
