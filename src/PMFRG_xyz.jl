@@ -346,7 +346,22 @@ function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
 end
 
 
-
+@inline function get_flavor_perm(flags::Tuple{Bool,Bool,Bool})
+    # Base permutation (identity)
+    # The logic below matches: block = div(n + 2, 6); if flags[block] -> shift 3
+    
+    # Block 1 (Indices 4-9) - Controlled by flags[1]
+    p1 = flags[1] ? (7, 8, 9, 4, 5, 6) : (4, 5, 6, 7, 8, 9)
+    
+    # Block 2 (Indices 10-15) - Controlled by flags[2]
+    p2 = flags[2] ? (13, 14, 15, 10, 11, 12) : (10, 11, 12, 13, 14, 15)
+    
+    # Block 3 (Indices 16-21) - Controlled by flags[3]
+    p3 = flags[3] ? (19, 20, 21, 16, 17, 18) : (16, 17, 18, 19, 20, 21)
+    
+    # Combine into full tuple (1, 2, 3 are never permuted as div(n+2,6)=0)
+    return (1, 2, 3, p1..., p2..., p3...)
+end
 
 
 # The main bottleneck seems to me to be located in the creation of large
@@ -364,9 +379,6 @@ function addX!(
     Buffers::ThreadLocalBuffersT,
 ) where {T}
     (; Npairs, Nsum, siteSum, invpairs) = System
-
-    Vert(n, Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     ns = is - 1
     nt = it - 1
@@ -386,10 +398,27 @@ function addX!(
     (; V12_addX, V34_addX, X_sum, Ptm) = Buffers
     V12 = V12_addX
     V34 = V34_addX
+    
+    s1, t1, u1 = ConvertFreqArgs(ns,  wpw1, -wpw2, N); f1_args = (s1+1, t1+1, u1+1)
+    s2, t2, u2 = ConvertFreqArgs(ns, -wmw3, -wmw4, N); f2_args = (s2+1, t2+1, u2+1)
+
+    perm12 = get_flavor_perm(flavTransf12)
+    perm34 = get_flavor_perm(flavTransf34)
+
+    swap_R12 = flavTransf12[1]
+    swap_R34 = flavTransf34[1]
+
     @inbounds for ki = 1:Npairs
-        for n = 1:21
-            V12[n, ki] = Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
-            V34[n, ki] = Vert(n, ki, ns, -wmw3, -wmw4, flavTransf34)
+        # Resolve the correct geometric index (Rij vs Rji)
+        R12 = swap_R12 ? invpairs[ki] : ki
+        R34 = swap_R34 ? invpairs[ki] : ki
+
+        G12 = @view Gamma[:, R12, f1_args...]
+        G34 = @view Gamma[:, R34, f2_args...]
+
+        @inbounds for n = 1:21
+            V12[n, ki] = G12[perm12[n]]
+            V34[n, ki] = G34[perm34[n]]
         end
     end
 
@@ -504,8 +533,7 @@ function addY!(
 ) where {T}
     (; Npairs, invpairs, PairTypes, OnsitePairs) = System
 
-    Vert(n, Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
     ns = is - 1
     nt = it - 1
     nu = iu - 1
@@ -523,19 +551,45 @@ function addY!(
     V42 = V42_addY
 
 
+   s13, t13, u13 = ConvertFreqArgs(wmw1, nt,  wmw3, N); args13 = (s13+1, t13+1, u13+1)
+    s24, t24, u24 = ConvertFreqArgs(wpw2, -nt, -wpw4, N); args24 = (s24+1, t24+1, u24+1)
+    s31, t31, u31 = ConvertFreqArgs(wmw3, nt, -wmw1, N); args31 = (s31+1, t31+1, u31+1)
+    s42, t42, u42 = ConvertFreqArgs(-wpw4, -nt, wpw2, N); args42 = (s42+1, t42+1, u42+1)
+
+    perm13 = get_flavor_perm(flavTransf13)
+    perm24 = get_flavor_perm(flavTransf24)
+    perm31 = get_flavor_perm(flavTransf31)
+    perm42 = get_flavor_perm(flavTransf42)
+
+    swap13 = flavTransf13[1]
+    swap24 = flavTransf24[1]
+    swap31 = flavTransf31[1]
+    swap42 = flavTransf42[1]
+
     # Xtilde only defined for nonlocal pairs Rij != Rii
     @inbounds for Rij = 1:Npairs
         Rij in OnsitePairs && continue
         # loop over all left hand side inequivalent pairs Rij
+        Rij_inv = invpairs[Rij]
+        # loop over all left hand side inequivalent pairs Rij
         #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
         (; xi, xj) = PairTypes[Rij]
 
+        R13 = swap13 ? Rij_inv : Rij
+        R24 = swap24 ? Rij_inv : Rij
+        R31 = swap31 ? Rij_inv : Rij
+        R42 = swap42 ? Rij_inv : Rij
+
+        G12 = @view Gamma[:, R13, args13...]
+        G24 = @view Gamma[:, R24, args24...]
+        G31 = @view Gamma[:, R31, args31...]
+        G42 = @view Gamma[:, R42, args42...]
 
         for n = 1:21
-            V13[n] = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
-            V24[n] = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
-            V31[n] = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
-            V42[n] = Vert(n, Rij, -wpw4, -nt, wpw2, flavTransf42)
+            V13[n] = G12[ perm13[n]]
+            V24[n] = G24[ perm24[n]]
+            V31[n] = G31[ perm31[n]]
+            V42[n] = G42[ perm42[n]]
         end
 
         fill!(X_sum, 0.0)
