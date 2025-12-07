@@ -109,7 +109,7 @@ getBubbleVDims(Par) = (
 )
 _getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
 
-function SigmaType(NUnique::Int, N::Int, type=Float64)
+function SigmaType(NUnique::Int, N::Int, type = Float64)
     return SigmaType(
         zeros(type, NUnique, N),
         zeros(type, NUnique, N),
@@ -118,7 +118,7 @@ function SigmaType(NUnique::Int, N::Int, type=Float64)
 end
 SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
 
-function StateType(NUnique::Int, N::Int, VDims::Tuple, type=Float64)
+function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
     return StateType(zeros(type, NUnique), SigmaType(tpye, NUnique, N), zeros(type, VDims))
 end
 StateType(Par) =
@@ -132,12 +132,12 @@ StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 # The constructor of this is just blind-copied. To this day I dont really understand
 # the purpose of lenIntw and lenIntw_acc
 function NumericalParams(;
-    N::Integer=24,
-    accuracy=1e-6,
-    temp_min=exp(-10.0),
-    temp_max=exp(10.0),
-    lenIntw::Int=N,
-    lenIntw_acc::Int=2 * maximum((N, lenIntw)),
+    N::Integer = 24,
+    accuracy = 1e-6,
+    temp_min = exp(-10.0),
+    temp_max = exp(10.0),
+    lenIntw::Int = N,
+    lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
 )
 
     return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
@@ -150,7 +150,7 @@ function OneLoopWorkspace(State, Deriv, X, Par)
     return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
 end
 
-OptionParams(; use_symmetry::Bool=true, MinimalOutput::Bool=false, kwargs...) =
+OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
 Params(System; kwargs...) =
     OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
@@ -270,48 +270,48 @@ function V_(
 end
 
 "Optimized, in-place version of V_ to be used in addX! and addY!"
-@inline function Vert!(V, Gamma, s,t,u, flavTransf, R)
+@inline function Vert!(V, Gamma, s, t, u, flavTransf, R)
     G = @view Gamma[:, R, s+1, t+1, u+1]
 
-    @unroll for i in 1:3
+    @unroll for i = 1:3
         V[i] = G[i]
     end
 
     if flavTransf[1]
-        @unroll for i in 4:6
+        @unroll for i = 4:6
             V[i] = G[i+3]
         end
-        @unroll for i in 7:9
+        @unroll for i = 7:9
             V[i] = G[i-3]
         end
     else
-        @unroll for i in 4:9
+        @unroll for i = 4:9
             V[i] = G[i]
         end
     end
 
     if flavTransf[2]
-        @unroll for i in 10:12
+        @unroll for i = 10:12
             V[i] = G[i+3]
         end
-        @unroll for i in 13:15
+        @unroll for i = 13:15
             V[i] = G[i-3]
         end
     else
-        @unroll for i in 10:15
+        @unroll for i = 10:15
             V[i] = G[i]
         end
     end
 
     if flavTransf[3]
-        @unroll for i in 16:18
+        @unroll for i = 16:18
             V[i] = G[i+3]
         end
-        @unroll for i in 19:21
+        @unroll for i = 19:21
             V[i] = G[i-3]
         end
     else
-        @unroll for i in 16:21
+        @unroll for i = 16:21
             V[i] = G[i]
         end
     end
@@ -1053,7 +1053,7 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs=true)
+function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
@@ -1079,7 +1079,7 @@ function AllocateSetup(Par::OneLoopParams)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
-    return (X=zeros(floattype, getBubbleVDims(Par)), Par=Par)
+    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
 end
 
 function InitializeState(Par, isotropy)
@@ -1116,9 +1116,9 @@ function launchPMFRG!(
     State,
     setup,
     Deriv!::Function;
-    method=DP5(),
-    npoints=600,
-    save_steps=false,
+    method = DP5(),
+    npoints = 600,
+    save_steps = false,
 )
     println("Solving FRG")
 
@@ -1143,26 +1143,26 @@ function launchPMFRG!(
     saveCB = SavingCallback(
         save_func,
         saved_values,
-        save_everystep=false,
-        saveat=ObsSaveat,
-        tdir=-1,
+        save_everystep = false,
+        saveat = ObsSaveat,
+        tdir = -1,
     )
 
     problem = ODEProblem(Deriv_subst!, State, (t0, tend), setup) # function, initial state, timespan, ??
     sol = solve(
         problem,
         method,
-        reltol=accuracy,
-        abstol=accuracy,
-        save_everystep=save_steps,
-        callback=saveCB,
-        dt=Lam_to_t(0.2 * temp_max),
+        reltol = accuracy,
+        abstol = accuracy,
+        save_everystep = save_steps,
+        callback = saveCB,
+        dt = Lam_to_t(0.2 * temp_max),
     )
 
     return sol, saved_values
 end
 
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs=false)
+function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
     Par = setup[end]
     (; temp_max, temp_min, accuracy) = Par.NumericalParams
 
@@ -1173,7 +1173,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs=false)
     der = copy(State)
     setZero!(der)
 
-    Deriv_subst!(der, State, setup, t0, s=false)
+    Deriv_subst!(der, State, setup, t0, s = false)
 end
 
 SolveFRG(Par, isotropy; kwargs...) =
@@ -1188,9 +1188,9 @@ end
 
 function generateSubstituteDeriv(getDeriv!::Function)
 
-    function DerivSubs!(Deriv, State, setup, t; s=true)
+    function DerivSubs!(Deriv, State, setup, t; s = true)
         Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, setup, Lam, saveArgs=s)
+        a = getDeriv!(Deriv, State, setup, Lam, saveArgs = s)
         Deriv .*= Lam
         a
     end
