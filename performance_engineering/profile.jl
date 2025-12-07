@@ -80,7 +80,7 @@ function get_profile_filename(example_name, git_commit, pprof_version)
         "profile_$(example_name)_" *
         "$(git_commit)_" *
         "pprof$(pprof_version)_" *
-        "$(slur_job_id)_" *
+        "$(slurm_job_id)_" *
         "$(slurm_cpu_freq_req).pb.gz",
     )
 end
