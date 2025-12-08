@@ -43,8 +43,8 @@ function getXBubble_test_and_benchmark(record::Bool, comment = "")
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
-    N = 10
-    lattice_size = 5
+    N = 6
+    lattice_size = 16
 
     threadpinning = false
 
