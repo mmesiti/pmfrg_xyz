@@ -1,6 +1,7 @@
 using PMFRG_xyz
 using Test
 using JLD2
+import SciMLBase
 function recursive_value_test(strA, strB, name, verbose)::Nothing
     @testset verbose = verbose "$name" begin
         if strA == strB
@@ -31,6 +32,10 @@ function recursive_value_test(strA, strB, name, verbose)::Nothing
 end
 
 recursive_value_test(::Nothing, ::Nothing, _, _)::Nothing = nothing
+
+# There are some data members in the results of SolveFRG
+# that we do not care about.
+recursive_value_test(_, ::SciMLBase.ODEFunction, _, _)::Nothing = nothing
 
 function recursive_value_test(strA::Array, strB::Array, name, verbose)::Nothing
     @testset verbose = verbose "$name" begin

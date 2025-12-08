@@ -17,6 +17,7 @@ Unroll = "36e64239-2ab9-4580-84fb-56737a503d36"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [targets]
-test = ["Test"]
+test = ["Test","SciMLBase"]
