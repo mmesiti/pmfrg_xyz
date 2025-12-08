@@ -8,6 +8,7 @@ using RecursiveArrayTools
 using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, StructArrays
 using SpinFRGLattices.StaticArrays
 using Unroll
+using MuladdMacro
 # using LoopVectorization
 
 setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
@@ -445,7 +446,7 @@ function addX!(
     end
 
 
-    @inbounds for Rij = 1:Npairs
+    @inbounds @muladd for Rij = 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
         fill!(X_sum, 0.0)
         for k_spl = 1:Nsum[Rij]
@@ -455,83 +456,83 @@ function addX!(
 
             Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
-            X_sum[fd.yy] +=
-                -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
+            X_sum[fd.yy] =
+                X_sum[fd.yy] + -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
                 V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
                 V12[fd.yx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
-            X_sum[fd.zz] +=
-                -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
+            X_sum[fd.zz] =
+                X_sum[fd.zz] + -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
                 V12[fd.zx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
                 V12[fd.zy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.xx] +=
-                -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
+            X_sum[fd.xx] =
+                X_sum[fd.xx] + -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
                 V12[fd.xy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
                 V12[fd.xz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
 
             ### Xab1 = -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-            X_sum[fd.xy1] +=
-                -V12[fd.xx, ki] * V34[fd.xy1, kj] * Ptm[1, 1] -
+            X_sum[fd.xy1] =
+                X_sum[fd.xy1] + -V12[fd.xx, ki] * V34[fd.xy1, kj] * Ptm[1, 1] -
                 V12[fd.xy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
                 V12[fd.xz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3]
-            X_sum[fd.xz1] +=
-                -V12[fd.xx, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
+            X_sum[fd.xz1] =
+                X_sum[fd.xz1] + -V12[fd.xx, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
                 V12[fd.xz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
                 V12[fd.xy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.yx1] +=
-                -V12[fd.yy, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
+            X_sum[fd.yx1] =
+                X_sum[fd.yx1] + -V12[fd.yy, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
                 V12[fd.yx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
                 V12[fd.yz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
-            X_sum[fd.yz1] +=
-                -V12[fd.yy, ki] * V34[fd.yz1, kj] * Ptm[2, 2] -
+            X_sum[fd.yz1] =
+                X_sum[fd.yz1] + -V12[fd.yy, ki] * V34[fd.yz1, kj] * Ptm[2, 2] -
                 V12[fd.yz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
                 V12[fd.yx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1]
-            X_sum[fd.zx1] +=
-                -V12[fd.zz, ki] * V34[fd.zx1, kj] * Ptm[3, 3] -
+            X_sum[fd.zx1] =
+                X_sum[fd.zx1] + -V12[fd.zz, ki] * V34[fd.zx1, kj] * Ptm[3, 3] -
                 V12[fd.zx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
                 V12[fd.zy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2]
-            X_sum[fd.zy1] +=
-                -V12[fd.zz, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
+            X_sum[fd.zy1] =
+                X_sum[fd.zy1] + -V12[fd.zz, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
                 V12[fd.zy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
                 V12[fd.zx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
 
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
-            X_sum[fd.xy2] +=
-                -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] -
+            X_sum[fd.xy2] =
+                X_sum[fd.xy2] + -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] -
                 V12[fd.xy3, ki] * V34[fd.yx3, kj] * Ptm[2, 1]
-            X_sum[fd.xz2] +=
-                -V12[fd.xz2, ki] * V34[fd.xz2, kj] * Ptm[1, 3] -
+            X_sum[fd.xz2] =
+                X_sum[fd.xz2] + -V12[fd.xz2, ki] * V34[fd.xz2, kj] * Ptm[1, 3] -
                 V12[fd.xz3, ki] * V34[fd.zx3, kj] * Ptm[3, 1]
-            X_sum[fd.yx2] +=
-                -V12[fd.yx2, ki] * V34[fd.yx2, kj] * Ptm[2, 1] -
+            X_sum[fd.yx2] =
+                X_sum[fd.yx2] + -V12[fd.yx2, ki] * V34[fd.yx2, kj] * Ptm[2, 1] -
                 V12[fd.yx3, ki] * V34[fd.xy3, kj] * Ptm[1, 2]
-            X_sum[fd.yz2] +=
-                -V12[fd.yz2, ki] * V34[fd.yz2, kj] * Ptm[2, 3] -
+            X_sum[fd.yz2] =
+                X_sum[fd.yz2] + -V12[fd.yz2, ki] * V34[fd.yz2, kj] * Ptm[2, 3] -
                 V12[fd.yz3, ki] * V34[fd.zy3, kj] * Ptm[3, 2]
-            X_sum[fd.zx2] +=
-                -V12[fd.zx2, ki] * V34[fd.zx2, kj] * Ptm[3, 1] -
+            X_sum[fd.zx2] =
+                X_sum[fd.zx2] + -V12[fd.zx2, ki] * V34[fd.zx2, kj] * Ptm[3, 1] -
                 V12[fd.zx3, ki] * V34[fd.xz3, kj] * Ptm[1, 3]
-            X_sum[fd.zy2] +=
-                -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] -
+            X_sum[fd.zy2] =
+                X_sum[fd.zy2] + -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] -
                 V12[fd.zy3, ki] * V34[fd.yz3, kj] * Ptm[2, 3]
 
             ### Xab3 = -Vab2 Vab3 - Vab3 Vba2
-            X_sum[fd.xy3] +=
-                -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] -
+            X_sum[fd.xy3] =
+                X_sum[fd.xy3] + -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] -
                 V12[fd.xy3, ki] * V34[fd.yx2, kj] * Ptm[2, 1]
-            X_sum[fd.xz3] +=
-                -V12[fd.xz2, ki] * V34[fd.xz3, kj] * Ptm[1, 3] -
+            X_sum[fd.xz3] =
+                X_sum[fd.xz3] + -V12[fd.xz2, ki] * V34[fd.xz3, kj] * Ptm[1, 3] -
                 V12[fd.xz3, ki] * V34[fd.zx2, kj] * Ptm[3, 1]
-            X_sum[fd.yx3] +=
-                -V12[fd.yx2, ki] * V34[fd.yx3, kj] * Ptm[2, 1] -
+            X_sum[fd.yx3] =
+                X_sum[fd.yx3] + -V12[fd.yx2, ki] * V34[fd.yx3, kj] * Ptm[2, 1] -
                 V12[fd.yx3, ki] * V34[fd.xy2, kj] * Ptm[1, 2]
-            X_sum[fd.yz3] +=
-                -V12[fd.yz2, ki] * V34[fd.yz3, kj] * Ptm[2, 3] -
+            X_sum[fd.yz3] =
+                X_sum[fd.yz3] + -V12[fd.yz2, ki] * V34[fd.yz3, kj] * Ptm[2, 3] -
                 V12[fd.yz3, ki] * V34[fd.zy2, kj] * Ptm[3, 2]
-            X_sum[fd.zx3] +=
-                -V12[fd.zx2, ki] * V34[fd.zx3, kj] * Ptm[3, 1] -
+            X_sum[fd.zx3] =
+                X_sum[fd.zx3] + -V12[fd.zx2, ki] * V34[fd.zx3, kj] * Ptm[3, 1] -
                 V12[fd.zx3, ki] * V34[fd.xz2, kj] * Ptm[1, 3]
-            X_sum[fd.zy3] +=
-                -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] -
+            X_sum[fd.zy3] =
+                X_sum[fd.zy3] + -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] -
                 V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
         end
 
@@ -583,7 +584,7 @@ function addY!(
     swap42 = flavTransf42[1]
 
     # Xtilde only defined for nonlocal pairs Rij != Rii
-    @inbounds for Rij = 1:Npairs
+    @inbounds @muladd for Rij = 1:Npairs
         Rij in OnsitePairs && continue
         # loop over all left hand side inequivalent pairs Rij
         # loop over all left hand side inequivalent pairs Rij
@@ -607,191 +608,260 @@ function addY!(
 
         ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
-        X_sum[fd.xx] += (
-            (
-                V13[fd.xx] * V24[fd.xx] * P[1, 1] +
-                V13[fd.xy2] * V24[fd.xy2] * P[2, 2] +
-                V13[fd.xz2] * V24[fd.xz2] * P[3, 3]
-            ) + (
-                V31[fd.xx] * V42[fd.xx] * PT[1, 1] +
-                V31[fd.xy2] * V42[fd.xy2] * PT[2, 2] +
-                V31[fd.xz2] * V42[fd.xz2] * PT[3, 3]
+        X_sum[fd.xx] =
+            X_sum[fd.xx] + (
+                (
+                    V13[fd.xx] * V24[fd.xx] * P[1, 1] +
+                    V13[fd.xy2] * V24[fd.xy2] * P[2, 2] +
+                    V13[fd.xz2] * V24[fd.xz2] * P[3, 3]
+                ) + (
+                    V31[fd.xx] * V42[fd.xx] * PT[1, 1] +
+                    V31[fd.xy2] * V42[fd.xy2] * PT[2, 2] +
+                    V31[fd.xz2] * V42[fd.xz2] * PT[3, 3]
+                )
             )
-        )
 
-        X_sum[fd.yy] += (
-            (
-                V13[fd.yy] * V24[fd.yy] * P[2, 2] +
-                V13[fd.yx2] * V24[fd.yx2] * P[1, 1] +
-                V13[fd.yz2] * V24[fd.yz2] * P[3, 3]
-            ) + (
-                V31[fd.yy] * V42[fd.yy] * PT[2, 2] +
-                V31[fd.yx2] * V42[fd.yx2] * PT[1, 1] +
-                V31[fd.yz2] * V42[fd.yz2] * PT[3, 3]
+        X_sum[fd.yy] =
+            X_sum[fd.yy] + (
+                (
+                    V13[fd.yy] * V24[fd.yy] * P[2, 2] +
+                    V13[fd.yx2] * V24[fd.yx2] * P[1, 1] +
+                    V13[fd.yz2] * V24[fd.yz2] * P[3, 3]
+                ) + (
+                    V31[fd.yy] * V42[fd.yy] * PT[2, 2] +
+                    V31[fd.yx2] * V42[fd.yx2] * PT[1, 1] +
+                    V31[fd.yz2] * V42[fd.yz2] * PT[3, 3]
+                )
             )
-        )
 
-        X_sum[fd.zz] += (
-            (
-                V13[fd.zz] * V24[fd.zz] * P[3, 3] +
-                V13[fd.zx2] * V24[fd.zx2] * P[1, 1] +
-                V13[fd.zy2] * V24[fd.zy2] * P[2, 2]
-            ) + (
-                V31[fd.zz] * V42[fd.zz] * PT[3, 3] +
-                V31[fd.zx2] * V42[fd.zx2] * PT[1, 1] +
-                V31[fd.zy2] * V42[fd.zy2] * PT[2, 2]
+        X_sum[fd.zz] =
+            X_sum[fd.zz] + (
+                (
+                    V13[fd.zz] * V24[fd.zz] * P[3, 3] +
+                    V13[fd.zx2] * V24[fd.zx2] * P[1, 1] +
+                    V13[fd.zy2] * V24[fd.zy2] * P[2, 2]
+                ) + (
+                    V31[fd.zz] * V42[fd.zz] * PT[3, 3] +
+                    V31[fd.zx2] * V42[fd.zx2] * PT[1, 1] +
+                    V31[fd.zy2] * V42[fd.zy2] * PT[2, 2]
+                )
             )
-        )
 
         ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
 
-        X_sum[fd.xy1] += (
-            (V13[fd.xy3] * V24[fd.xy3] * P[2, 1] + V13[fd.xy1] * V24[fd.xy1] * P[1, 2]) + (
-                V31[fd.xy3] * V42[fd.xy3] * PT[2, 1] + V31[fd.xy1] * V42[fd.xy1] * PT[1, 2]
+        X_sum[fd.xy1] =
+            X_sum[fd.xy1] + (
+                (
+                    V13[fd.xy3] * V24[fd.xy3] * P[2, 1] +
+                    V13[fd.xy1] * V24[fd.xy1] * P[1, 2]
+                ) + (
+                    V31[fd.xy3] * V42[fd.xy3] * PT[2, 1] +
+                    V31[fd.xy1] * V42[fd.xy1] * PT[1, 2]
+                )
             )
-        )
 
-        X_sum[fd.xz1] += (
-            (V13[fd.xz3] * V24[fd.xz3] * P[3, 1] + V13[fd.xz1] * V24[fd.xz1] * P[1, 3]) + (
-                V31[fd.xz3] * V42[fd.xz3] * PT[3, 1] + V31[fd.xz1] * V42[fd.xz1] * PT[1, 3]
+        X_sum[fd.xz1] =
+            X_sum[fd.xz1] + (
+                (
+                    V13[fd.xz3] * V24[fd.xz3] * P[3, 1] +
+                    V13[fd.xz1] * V24[fd.xz1] * P[1, 3]
+                ) + (
+                    V31[fd.xz3] * V42[fd.xz3] * PT[3, 1] +
+                    V31[fd.xz1] * V42[fd.xz1] * PT[1, 3]
+                )
             )
-        )
 
-        X_sum[fd.yx1] += (
-            (V13[fd.yx3] * V24[fd.yx3] * P[1, 2] + V13[fd.yx1] * V24[fd.yx1] * P[2, 1]) + (
-                V31[fd.yx3] * V42[fd.yx3] * PT[1, 2] + V31[fd.yx1] * V42[fd.yx1] * PT[2, 1]
+        X_sum[fd.yx1] =
+            X_sum[fd.yx1] + (
+                (
+                    V13[fd.yx3] * V24[fd.yx3] * P[1, 2] +
+                    V13[fd.yx1] * V24[fd.yx1] * P[2, 1]
+                ) + (
+                    V31[fd.yx3] * V42[fd.yx3] * PT[1, 2] +
+                    V31[fd.yx1] * V42[fd.yx1] * PT[2, 1]
+                )
             )
-        )
 
-        X_sum[fd.yz1] += (
-            (V13[fd.yz3] * V24[fd.yz3] * P[3, 2] + V13[fd.yz1] * V24[fd.yz1] * P[2, 3]) + (
-                V31[fd.yz3] * V42[fd.yz3] * PT[3, 2] + V31[fd.yz1] * V42[fd.yz1] * PT[2, 3]
+        X_sum[fd.yz1] =
+            X_sum[fd.yz1] + (
+                (
+                    V13[fd.yz3] * V24[fd.yz3] * P[3, 2] +
+                    V13[fd.yz1] * V24[fd.yz1] * P[2, 3]
+                ) + (
+                    V31[fd.yz3] * V42[fd.yz3] * PT[3, 2] +
+                    V31[fd.yz1] * V42[fd.yz1] * PT[2, 3]
+                )
             )
-        )
 
-        X_sum[fd.zx1] += (
-            (V13[fd.zx3] * V24[fd.zx3] * P[1, 3] + V13[fd.zx1] * V24[fd.zx1] * P[3, 1]) + (
-                V31[fd.zx3] * V42[fd.zx3] * PT[1, 3] + V31[fd.zx1] * V42[fd.zx1] * PT[3, 1]
+        X_sum[fd.zx1] =
+            X_sum[fd.zx1] + (
+                (
+                    V13[fd.zx3] * V24[fd.zx3] * P[1, 3] +
+                    V13[fd.zx1] * V24[fd.zx1] * P[3, 1]
+                ) + (
+                    V31[fd.zx3] * V42[fd.zx3] * PT[1, 3] +
+                    V31[fd.zx1] * V42[fd.zx1] * PT[3, 1]
+                )
             )
-        )
 
-        X_sum[fd.zy1] += (
-            (V13[fd.zy3] * V24[fd.zy3] * P[2, 3] + V13[fd.zy1] * V24[fd.zy1] * P[3, 2]) + (
-                V31[fd.zy3] * V42[fd.zy3] * PT[2, 3] + V31[fd.zy1] * V42[fd.zy1] * PT[3, 2]
+        X_sum[fd.zy1] =
+            X_sum[fd.zy1] + (
+                (
+                    V13[fd.zy3] * V24[fd.zy3] * P[2, 3] +
+                    V13[fd.zy1] * V24[fd.zy1] * P[3, 2]
+                ) + (
+                    V31[fd.zy3] * V42[fd.zy3] * PT[2, 3] +
+                    V31[fd.zy1] * V42[fd.zy1] * PT[3, 2]
+                )
             )
-        )
 
         ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
 
-        X_sum[fd.xy2] += (
-            (
-                V13[fd.xx] * V24[fd.yx2] * P[1, 1] +
-                V13[fd.xy2] * V24[fd.yy] * P[2, 2] +
-                V13[fd.xz2] * V24[fd.yz2] * P[3, 3]
-            ) + (
-                V31[fd.xx] * V42[fd.yx2] * PT[1, 1] +
-                V31[fd.xy2] * V42[fd.yy] * PT[2, 2] +
-                V31[fd.xz2] * V42[fd.yz2] * PT[3, 3]
+        X_sum[fd.xy2] =
+            X_sum[fd.xy2] + (
+                (
+                    V13[fd.xx] * V24[fd.yx2] * P[1, 1] +
+                    V13[fd.xy2] * V24[fd.yy] * P[2, 2] +
+                    V13[fd.xz2] * V24[fd.yz2] * P[3, 3]
+                ) + (
+                    V31[fd.xx] * V42[fd.yx2] * PT[1, 1] +
+                    V31[fd.xy2] * V42[fd.yy] * PT[2, 2] +
+                    V31[fd.xz2] * V42[fd.yz2] * PT[3, 3]
+                )
             )
-        )
 
-        X_sum[fd.xz2] += (
-            (
-                V13[fd.xx] * V24[fd.zx2] * P[1, 1] +
-                V13[fd.xz2] * V24[fd.zz] * P[3, 3] +
-                V13[fd.xy2] * V24[fd.zy2] * P[2, 2]
-            ) + (
-                V31[fd.xx] * V42[fd.zx2] * PT[1, 1] +
-                V31[fd.xz2] * V42[fd.zz] * PT[3, 3] +
-                V31[fd.xy2] * V42[fd.zy2] * PT[2, 2]
+        X_sum[fd.xz2] =
+            X_sum[fd.xz2] + (
+                (
+                    V13[fd.xx] * V24[fd.zx2] * P[1, 1] +
+                    V13[fd.xz2] * V24[fd.zz] * P[3, 3] +
+                    V13[fd.xy2] * V24[fd.zy2] * P[2, 2]
+                ) + (
+                    V31[fd.xx] * V42[fd.zx2] * PT[1, 1] +
+                    V31[fd.xz2] * V42[fd.zz] * PT[3, 3] +
+                    V31[fd.xy2] * V42[fd.zy2] * PT[2, 2]
+                )
             )
-        )
 
-        X_sum[fd.yx2] += (
-            (
-                V13[fd.yy] * V24[fd.xy2] * P[2, 2] +
-                V13[fd.yx2] * V24[fd.xx] * P[1, 1] +
-                V13[fd.yz2] * V24[fd.xz2] * P[3, 3]
-            ) + (
-                V31[fd.yy] * V42[fd.xy2] * PT[2, 2] +
-                V31[fd.yx2] * V42[fd.xx] * PT[1, 1] +
-                V31[fd.yz2] * V42[fd.xz2] * PT[3, 3]
+        X_sum[fd.yx2] =
+            X_sum[fd.yx2] + (
+                (
+                    V13[fd.yy] * V24[fd.xy2] * P[2, 2] +
+                    V13[fd.yx2] * V24[fd.xx] * P[1, 1] +
+                    V13[fd.yz2] * V24[fd.xz2] * P[3, 3]
+                ) + (
+                    V31[fd.yy] * V42[fd.xy2] * PT[2, 2] +
+                    V31[fd.yx2] * V42[fd.xx] * PT[1, 1] +
+                    V31[fd.yz2] * V42[fd.xz2] * PT[3, 3]
+                )
             )
-        )
 
-        X_sum[fd.yz2] += (
-            (
-                V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
-                V13[fd.yz2] * V24[fd.zz] * P[3, 3] +
-                V13[fd.yx2] * V24[fd.zx2] * P[1, 1]
-            ) + (
-                V31[fd.yy] * V42[fd.zy2] * PT[2, 2] +
-                V31[fd.yz2] * V42[fd.zz] * PT[3, 3] +
-                V31[fd.yx2] * V42[fd.zx2] * PT[1, 1]
+        X_sum[fd.yz2] =
+            X_sum[fd.yz2] + (
+                (
+                    V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
+                    V13[fd.yz2] * V24[fd.zz] * P[3, 3] +
+                    V13[fd.yx2] * V24[fd.zx2] * P[1, 1]
+                ) + (
+                    V31[fd.yy] * V42[fd.zy2] * PT[2, 2] +
+                    V31[fd.yz2] * V42[fd.zz] * PT[3, 3] +
+                    V31[fd.yx2] * V42[fd.zx2] * PT[1, 1]
+                )
             )
-        )
 
-        X_sum[fd.zx2] += (
-            (
-                V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
-                V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
-                V13[fd.zy2] * V24[fd.xy2] * P[2, 2]
-            ) + (
-                V31[fd.zz] * V42[fd.xz2] * PT[3, 3] +
-                V31[fd.zx2] * V42[fd.xx] * PT[1, 1] +
-                V31[fd.zy2] * V42[fd.xy2] * PT[2, 2]
+        X_sum[fd.zx2] =
+            X_sum[fd.zx2] + (
+                (
+                    V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
+                    V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
+                    V13[fd.zy2] * V24[fd.xy2] * P[2, 2]
+                ) + (
+                    V31[fd.zz] * V42[fd.xz2] * PT[3, 3] +
+                    V31[fd.zx2] * V42[fd.xx] * PT[1, 1] +
+                    V31[fd.zy2] * V42[fd.xy2] * PT[2, 2]
+                )
             )
-        )
 
-        X_sum[fd.zy2] += (
-            (
-                V13[fd.zz] * V24[fd.yz2] * P[3, 3] +
-                V13[fd.zy2] * V24[fd.yy] * P[2, 2] +
-                V13[fd.zx2] * V24[fd.yx2] * P[1, 1]
-            ) + (
-                V31[fd.zz] * V42[fd.yz2] * PT[3, 3] +
-                V31[fd.zy2] * V42[fd.yy] * PT[2, 2] +
-                V31[fd.zx2] * V42[fd.yx2] * PT[1, 1]
+        X_sum[fd.zy2] =
+            X_sum[fd.zy2] + (
+                (
+                    V13[fd.zz] * V24[fd.yz2] * P[3, 3] +
+                    V13[fd.zy2] * V24[fd.yy] * P[2, 2] +
+                    V13[fd.zx2] * V24[fd.yx2] * P[1, 1]
+                ) + (
+                    V31[fd.zz] * V42[fd.yz2] * PT[3, 3] +
+                    V31[fd.zy2] * V42[fd.yy] * PT[2, 2] +
+                    V31[fd.zx2] * V42[fd.yx2] * PT[1, 1]
+                )
             )
-        )
 
         ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
 
-        X_sum[fd.xy3] += (
-            (V13[fd.xy3] * V24[fd.yx1] * P[2, 1] + V13[fd.xy1] * V24[fd.yx3] * P[1, 2]) + (
-                V31[fd.xy3] * V42[fd.yx1] * PT[2, 1] + V31[fd.xy1] * V42[fd.yx3] * PT[1, 2]
+        X_sum[fd.xy3] =
+            X_sum[fd.xy3] + (
+                (
+                    V13[fd.xy3] * V24[fd.yx1] * P[2, 1] +
+                    V13[fd.xy1] * V24[fd.yx3] * P[1, 2]
+                ) + (
+                    V31[fd.xy3] * V42[fd.yx1] * PT[2, 1] +
+                    V31[fd.xy1] * V42[fd.yx3] * PT[1, 2]
+                )
             )
-        )
 
-        X_sum[fd.xz3] += (
-            (V13[fd.xz3] * V24[fd.zx1] * P[3, 1] + V13[fd.xz1] * V24[fd.zx3] * P[1, 3]) + (
-                V31[fd.xz3] * V42[fd.zx1] * PT[3, 1] + V31[fd.xz1] * V42[fd.zx3] * PT[1, 3]
+        X_sum[fd.xz3] =
+            X_sum[fd.xz3] + (
+                (
+                    V13[fd.xz3] * V24[fd.zx1] * P[3, 1] +
+                    V13[fd.xz1] * V24[fd.zx3] * P[1, 3]
+                ) + (
+                    V31[fd.xz3] * V42[fd.zx1] * PT[3, 1] +
+                    V31[fd.xz1] * V42[fd.zx3] * PT[1, 3]
+                )
             )
-        )
 
-        X_sum[fd.yx3] += (
-            (V13[fd.yx3] * V24[fd.xy1] * P[1, 2] + V13[fd.yx1] * V24[fd.xy3] * P[2, 1]) + (
-                V31[fd.yx3] * V42[fd.xy1] * PT[1, 2] + V31[fd.yx1] * V42[fd.xy3] * PT[2, 1]
+        X_sum[fd.yx3] =
+            X_sum[fd.yx3] + (
+                (
+                    V13[fd.yx3] * V24[fd.xy1] * P[1, 2] +
+                    V13[fd.yx1] * V24[fd.xy3] * P[2, 1]
+                ) + (
+                    V31[fd.yx3] * V42[fd.xy1] * PT[1, 2] +
+                    V31[fd.yx1] * V42[fd.xy3] * PT[2, 1]
+                )
             )
-        )
 
-        X_sum[fd.yz3] += (
-            (V13[fd.yz3] * V24[fd.zy1] * P[3, 2] + V13[fd.yz1] * V24[fd.zy3] * P[2, 3]) + (
-                V31[fd.yz3] * V42[fd.zy1] * PT[3, 2] + V31[fd.yz1] * V42[fd.zy3] * PT[2, 3]
+        X_sum[fd.yz3] =
+            X_sum[fd.yz3] + (
+                (
+                    V13[fd.yz3] * V24[fd.zy1] * P[3, 2] +
+                    V13[fd.yz1] * V24[fd.zy3] * P[2, 3]
+                ) + (
+                    V31[fd.yz3] * V42[fd.zy1] * PT[3, 2] +
+                    V31[fd.yz1] * V42[fd.zy3] * PT[2, 3]
+                )
             )
-        )
 
-        X_sum[fd.zx3] += (
-            (V13[fd.zx3] * V24[fd.xz1] * P[1, 3] + V13[fd.zx1] * V24[fd.xz3] * P[3, 1]) + (
-                V31[fd.zx3] * V42[fd.xz1] * PT[1, 3] + V31[fd.zx1] * V42[fd.xz3] * PT[3, 1]
+        X_sum[fd.zx3] =
+            X_sum[fd.zx3] + (
+                (
+                    V13[fd.zx3] * V24[fd.xz1] * P[1, 3] +
+                    V13[fd.zx1] * V24[fd.xz3] * P[3, 1]
+                ) + (
+                    V31[fd.zx3] * V42[fd.xz1] * PT[1, 3] +
+                    V31[fd.zx1] * V42[fd.xz3] * PT[3, 1]
+                )
             )
-        )
 
-        X_sum[fd.zy3] += (
-            (V13[fd.zy3] * V24[fd.yz1] * P[2, 3] + V13[fd.zy1] * V24[fd.yz3] * P[3, 2]) + (
-                V31[fd.zy3] * V42[fd.yz1] * PT[2, 3] + V31[fd.zy1] * V42[fd.yz3] * PT[3, 2]
+        X_sum[fd.zy3] =
+            X_sum[fd.zy3] + (
+                (
+                    V13[fd.zy3] * V24[fd.yz1] * P[2, 3] +
+                    V13[fd.zy1] * V24[fd.yz3] * P[3, 2]
+                ) + (
+                    V31[fd.zy3] * V42[fd.yz1] * PT[2, 3] +
+                    V31[fd.zy1] * V42[fd.yz3] * PT[3, 2]
+                )
             )
-        )
 
         (@view X[22:end, Rij, is, it, iu]) .+= X_sum
     end
