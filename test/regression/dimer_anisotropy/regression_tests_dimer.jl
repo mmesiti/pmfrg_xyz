@@ -32,7 +32,7 @@ end
 
 recursive_value_test(::Nothing, ::Nothing, _, _)::Nothing = nothing
 
-function recursive_value_test(strA::Vector, strB::Vector, name, verbose)::Nothing
+function recursive_value_test(strA::Array, strB::Array, name, verbose)::Nothing
     @testset verbose = verbose "$name" begin
         if strA == strB
             @test strA == strB
@@ -48,13 +48,15 @@ function recursive_value_test(strA::Vector, strB::Vector, name, verbose)::Nothin
     nothing
 end
 
-function recursive_value_equality(
-    strA::Vector{T},
-    strB::Vector{U},
+function recursive_value_test(
+    strA::Array{T},
+    strB::Array{U},
     _,
     _,
 )::Nothing where {T<:Number} where {U<:Number}
-    @test length(strA) == length(strB)
+    @testset verbose = true "lengths" begin
+        @test length(strA) == length(strB)
+    end
     if length(strA) == length(strB)
         @test strA ≈ strB
     end
@@ -80,7 +82,7 @@ function run_getXbubble_regression_tests()
             )
             @testset "arguments" begin
                 for i in eachindex(arguments)
-                    recursive_value_test(arguments[i], arguments_post[i], "idx = $i", false)
+                    recursive_value_test(arguments[i], arguments_post[i], "idx = $i", true)
                 end
             end
 
