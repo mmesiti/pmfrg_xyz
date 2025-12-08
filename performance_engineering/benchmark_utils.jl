@@ -44,11 +44,11 @@ function check_addXY_allocations()
 
     addXallocations =
         @allocations addX!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropX, buffs)
-    @test addXallocations <= 1
 
     addYallocations =
         @allocations addY!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropY, buffs)
-    @test addYallocations <= 1
+
+    addXallocations, addYallocations
 end
 
 

@@ -14,7 +14,9 @@ end
 
 function run_allocation_tests()
     @testset "Checking allocations" begin
-        check_addXY_allocations()
+        addXallocations, addYallocations = check_addXY_allocations()
+        @test addXallocations <= 1
+        @test addYallocations <= 1
     end
 end
 
