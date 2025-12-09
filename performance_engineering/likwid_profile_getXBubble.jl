@@ -40,7 +40,7 @@ function run_profiling(N::Int, lattice_size::Int)
     println("Profiling getXBubble!...")
     Marker.init()
 
-    @region "getXBubble!" getXBubble!(workspace, lam)
+    @marker "getXBubble!" getXBubble!(workspace, lam)
 
     Marker.close()
     println("Done.")
