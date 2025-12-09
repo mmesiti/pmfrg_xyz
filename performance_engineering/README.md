@@ -50,7 +50,8 @@ cd performance_engineering
 ./run_likwid_profile_getXBubble.sh FLOPS_DP  
 
 # Revert instrumentation
-git restore ../src/PMFRG_xyz.jl
+cd ..
+git restore ./src/PMFRG_xyz.jl Manifest.toml Project.toml
 ```
 At the moment only performance data for the the components of the getXBubble function is collected.
 
