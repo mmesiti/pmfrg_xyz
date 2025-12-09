@@ -4,6 +4,8 @@
 
 using LIKWID
 import ThreadPinning
+using Pkg
+Pkg.instantiate()
 
 include("benchmark_utils.jl")
 import PMFRG_xyz: getXBubble!, getDeriv!, SolveFRG

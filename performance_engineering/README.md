@@ -41,9 +41,9 @@ This will:
 
 Profile specific functions with hardware performance counters:
 ```bash
+julia --project=. -e 'using Pkg; Pkg.add("LIKWID"); Pkg.instantiate()'
 # Apply instrumentation patch
 git apply performance_engineering/likwid_markers.patch
-julia --project=. -e 'using Pkg; Pkg.add("LIKWID")'
 
 # Run profiling (single-threaded, pinned to core 0)
 cd performance_engineering

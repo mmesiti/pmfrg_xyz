@@ -17,10 +17,6 @@ main() {
     echo "Project: $script_dir"
     echo 
 
-    echo "Running first without profiling, to trigger compilation"
-    julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl
-    echo "done first non-profiling run. Now profiling."
-
     likwid-perfctr -C 0 -g "$group" -m \
         julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl
 }
