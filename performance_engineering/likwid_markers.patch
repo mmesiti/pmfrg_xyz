@@ -15,7 +15,7 @@ index b1dafd1..b19963b 100644
                          continue
                      end
 -                    addY!(
-+                    @region "addY!" addY!(
++                    @marker "addY!" addY!(
                          Workspace.X,
                          Workspace.State.Gamma,
                          Workspace.Par.System,
@@ -24,7 +24,7 @@ index b1dafd1..b19963b 100644
                      ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                      # if(!Par.Options.use_symmetry || nu<=nt)
 -                    addX!(
-+                    @region "addX!" addX!(
++                    @marker "addX!" addX!(
                          Workspace.X,
                          Workspace.State.Gamma,
                          Workspace.Par.System,
@@ -40,7 +40,7 @@ index b1dafd1..b19963b 100644
      getDFint!(Workspace, Lam)
      get_Self_Energy!(Workspace, Lam)
 -    getXBubble!(Workspace, Lam)
-+    @region "getXBubble!" getXBubble!(Workspace, Lam)
++    @marker "getXBubble!" getXBubble!(Workspace, Lam)
      symmetrizeBubble!(Workspace.X, Par)
      addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
      symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
@@ -55,7 +55,7 @@ index b1dafd1..b19963b 100644
  
  SolveFRG(Par, isotropy; kwargs...) =
 -    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-+    @region "launchPMFRG!" launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
++    @marker "launchPMFRG!" launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
  TestFRG(Par, isotropy; kwargs...) =
      testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
  
