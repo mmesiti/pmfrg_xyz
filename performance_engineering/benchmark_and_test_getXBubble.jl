@@ -24,7 +24,7 @@ function main(;
     N = 6
     lattice_size = 16
 
-    threadpinning = false
+    threadpinning = true
 
     if threadpinning
         ThreadPinning.pinthreads(:cores)

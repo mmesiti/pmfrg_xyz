@@ -90,7 +90,7 @@ This script:
 **Customization:** Edit the script to modify:
 - `N` (frequency discretization, default: 6)
 - `lattice_size` (system size, default: 16)
-- `threadpinning` (enable/disable, default: false)
+- `threadpinning` (enable/disable, default: true)
 
 ## Utilities
 
