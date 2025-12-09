@@ -1,6 +1,7 @@
 using JSON
 using Test
 using BenchmarkTools
+using ArgParse
 import ThreadPinning
 import PMFRG_xyz: getXBubble!
 
@@ -11,7 +12,12 @@ import .GitUtils
 include("cpu_info.jl")
 import .CPUInfo
 
-function main(record::Bool, comment = "")
+function main(;
+    record::Bool,
+    commit::Union{String,Nothing} = nothing,
+    dbfile::String,
+    comment::String,
+)
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
@@ -29,7 +35,7 @@ function main(record::Bool, comment = "")
 
     funcnames = ["mean", "minimum", "maximum"]
     quantities = ["times", "gctimes"]
-    metadata = get_metadata(comment, threadpinning, N, lattice_size)
+    metadata = get_metadata(comment, threadpinning, N, lattice_size, commit)
 
     data = Dict(
         "benchmark_data" => Dict(
@@ -41,7 +47,7 @@ function main(record::Bool, comment = "")
         "metadata" => metadata,
     )
     if record
-        add_data_to_db(data)
+        add_data_to_db(data, dbfile)
     end
     println(data)
     data
@@ -65,9 +71,16 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4)
     timing_results, allocations
 end
 
-function get_metadata(comment, threadpinning, N, lattice_size)
+function get_metadata(
+    comment,
+    threadpinning,
+    N,
+    lattice_size,
+    commit::Union{String,Nothing} = nothing,
+)
+    commit_hash = isnothing(commit) ? GitUtils.get_git_commit_short() : commit
     Dict(
-        "commit" => GitUtils.get_git_commit_short(),
+        "commit" => commit_hash,
         "comment" => comment,
         "nthreads" => Threads.nthreads(),
         "threadpinning" => threadpinning,
@@ -78,8 +91,8 @@ function get_metadata(comment, threadpinning, N, lattice_size)
     )
 end
 
-function add_data_to_db(data)
-    fname = joinpath(@__DIR__, "benchmark_getXBubble.db")
+function add_data_to_db(data, dbfilename)
+    fname = dbfilename
     if isfile(fname)
         existing_data = open(fname, "r") do f
             JSON.parse(read(f))
@@ -95,6 +108,35 @@ function add_data_to_db(data)
 end
 
 
+function parse_commandline()
+    s = ArgParseSettings()
+
+    @add_arg_table! s begin
+        "--no-save"
+        help = "do not save results to database"
+        action = :store_true
+        "--commit"
+        help = "git commit hash (default: auto-detect current commit)"
+        arg_type = String
+        default = nothing
+        "--comment"
+        help = "comment to add to the recording"
+        arg_type = String
+        default = ""
+        "--dbfile"
+        help = "file where to save the benchmark results and metadata"
+        arg_type = String
+        default = joinpath(@__DIR__, "benchmark_getXBubble.db")
+    end
+
+    return parse_args(s)
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(true)
+    args = parse_commandline()
+    save_to_db = !args["no-save"]
+    commit = args["commit"]
+    comment = args["comment"]
+    dbfilename = args["dbfile"]
+    main(; record = save_to_db, commit = commit, dbfile = dbfilename, comment = comment)
 end

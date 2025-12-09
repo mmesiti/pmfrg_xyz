@@ -5,7 +5,8 @@ module PMFRG_xyz
 #################################################
 
 using RecursiveArrayTools
-using SpinFRGLattices, OrdinaryDiffEqLowOrderRK, DiffEqCallbacks, RecursiveArrayTools, StructArrays
+using SpinFRGLattices,
+    OrdinaryDiffEqLowOrderRK, DiffEqCallbacks, RecursiveArrayTools, StructArrays
 using SpinFRGLattices.StaticArrays
 using Unroll
 using MuladdMacro
