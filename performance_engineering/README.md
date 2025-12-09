@@ -39,6 +39,12 @@ This will:
 
 ### LIKWID Hardware Counter Profiling
 
+The script `instrument-and-profile-with-likwid.sh` 
+should be able to do everything.
+
+If that is not the case or need more information, 
+read along.
+
 Profile specific functions with hardware performance counters:
 ```bash
 julia --project=. -e 'using Pkg; Pkg.add("LIKWID"); Pkg.instantiate()'
