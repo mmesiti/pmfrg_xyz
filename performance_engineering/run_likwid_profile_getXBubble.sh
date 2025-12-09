@@ -17,10 +17,14 @@ main() {
     echo "=== LIKWID Profiling ==="
     echo "Group: $group"
     echo "Project: $project_root"
-    echo ""
+    echo 
+
+    echo "Running first without profiling, to trigger compilation"
+    julia --project="$project_root" -O3 -t 1 likwid_profile_getXBubble.jl
+    echo "done first non-profiling run. Now profiling."
 
     likwid-perfctr -C 0 -g "$group" -m \
-        julia --project="$project_root" -O3 -t 1 likwid_profile_getXBubble.jl "$group"
+        julia --project="$project_root" -O3 -t 1 likwid_profile_getXBubble.jl
 }
 
 main "$@"

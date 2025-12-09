@@ -9,12 +9,11 @@ include("benchmark_utils.jl")
 import PMFRG_xyz: getXBubble!, getDeriv!, SolveFRG
 
 function main()
-    group = length(ARGS) >= 1 ? ARGS[1] : "FLOPS_DP"
     N = 10
     lattice_size = 16
 
     setup_threads()
-    run_profiling(group, N, lattice_size)
+    run_profiling(N, lattice_size)
     return 0
 end
 
@@ -26,9 +25,8 @@ function setup_threads()
     ThreadPinning.threadinfo()
 end
 
-function run_profiling(group::String, N::Int, lattice_size::Int)
+function run_profiling(N::Int, lattice_size::Int)
     println("\n=== LIKWID Profiling ===")
-    println("Performance group: $group")
     println("N=$N, lattice_size=$lattice_size")
     println("Threads: $(Threads.nthreads())")
 
