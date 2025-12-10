@@ -9,7 +9,8 @@ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, Str
 using SpinFRGLattices.StaticArrays
 using Unroll
 using MuladdMacro
-# using LoopVectorization
+using LIKWID
+using LoopVectorization
 
 setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
 
@@ -445,96 +446,146 @@ function addX!(
         Vert!((@view V34[:, ki]), Gamma, s2, t2, u2, flavTransf34, R34)
     end
 
+    
+    fd_xx = 1
+    fd_yy = 2
+    fd_zz = 3
+    fd_xy1 = 4
+    fd_xz1 = 5
+    fd_yz1 = 6
+    fd_yx1 = 7
+    fd_zx1 = 8
+    fd_zy1 = 9
+    fd_xy2 = 10
+    fd_xz2 = 11
+    fd_yz2 = 12
+    fd_yx2 = 13
+    fd_zx2 = 14
+    fd_zy2 = 15
+    fd_xy3 = 16
+    fd_xz3 = 17
+    fd_yz3 = 18
+    fd_yx3 = 19
+    fd_zx3 = 20
+    fd_zy3 = 21
 
-    @inbounds @muladd for Rij = 1:Npairs
+
+    @inbounds for Rij = 1:Npairs
         #loop over all left hand side inequivalent pairs Rij
-        fill!(X_sum, 0.0)
-        for k_spl = 1:Nsum[Rij]
+        # scalar accumulators for the 21 components
+        xx  = zero(T); yy  = zero(T); zz  = zero(T)
+        xy1 = zero(T); xz1 = zero(T); yz1 = zero(T)
+        yx1 = zero(T); zx1 = zero(T); zy1 = zero(T)
+        xy2 = zero(T); xz2 = zero(T); yz2 = zero(T)
+        yx2 = zero(T); zx2 = zero(T); zy2 = zero(T)
+        xy3 = zero(T); xz3 = zero(T); yz3 = zero(T)
+        yx3 = zero(T); zx3 = zero(T); zy3 = zero(T)
+        nsum = Nsum[Rij]
+        
+        @avx for k_spl = 1:nsum
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
             ki, kj, m, xk =
                 S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
 
-            Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
+            Ptm11 = m * Props[1,1,xk]
+            Ptm22 = m * Props[2,2,xk]
+            Ptm33 = m * Props[3,3,xk]
 
-            X_sum[fd.yy] =
-                X_sum[fd.yy] + -V12[fd.yy, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
-                V12[fd.yz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
-                V12[fd.yx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
-            X_sum[fd.zz] =
-                X_sum[fd.zz] + -V12[fd.zz, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
-                V12[fd.zx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
-                V12[fd.zy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.xx] =
-                X_sum[fd.xx] + -V12[fd.xx, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
-                V12[fd.xy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
-                V12[fd.xz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
+            yy += -V12[fd_yy, ki] * V34[fd_yy, kj] * Ptm22 -
+                V12[fd_yz1, ki] * V34[fd_zy1, kj] * Ptm33 -
+                V12[fd_yx1, ki] * V34[fd_xy1, kj] * Ptm11
+            zz += -V12[fd_zz, ki] * V34[fd_zz, kj] * Ptm33 -
+                V12[fd_zx1, ki] * V34[fd_xz1, kj] * Ptm11 -
+                V12[fd_zy1, ki] * V34[fd_yz1, kj] * Ptm22
+            xx += -V12[fd_xx, ki] * V34[fd_xx, kj] * Ptm11 -
+                V12[fd_xy1, ki] * V34[fd_yx1, kj] * Ptm22 -
+                V12[fd_xz1, ki] * V34[fd_zx1, kj] * Ptm33
 
             ### Xab1 = -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-            X_sum[fd.xy1] =
-                X_sum[fd.xy1] + -V12[fd.xx, ki] * V34[fd.xy1, kj] * Ptm[1, 1] -
-                V12[fd.xy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
-                V12[fd.xz1, ki] * V34[fd.zy1, kj] * Ptm[3, 3]
-            X_sum[fd.xz1] =
-                X_sum[fd.xz1] + -V12[fd.xx, ki] * V34[fd.xz1, kj] * Ptm[1, 1] -
-                V12[fd.xz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
-                V12[fd.xy1, ki] * V34[fd.yz1, kj] * Ptm[2, 2]
-            X_sum[fd.yx1] =
-                X_sum[fd.yx1] + -V12[fd.yy, ki] * V34[fd.yx1, kj] * Ptm[2, 2] -
-                V12[fd.yx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
-                V12[fd.yz1, ki] * V34[fd.zx1, kj] * Ptm[3, 3]
-            X_sum[fd.yz1] =
-                X_sum[fd.yz1] + -V12[fd.yy, ki] * V34[fd.yz1, kj] * Ptm[2, 2] -
-                V12[fd.yz1, ki] * V34[fd.zz, kj] * Ptm[3, 3] -
-                V12[fd.yx1, ki] * V34[fd.xz1, kj] * Ptm[1, 1]
-            X_sum[fd.zx1] =
-                X_sum[fd.zx1] + -V12[fd.zz, ki] * V34[fd.zx1, kj] * Ptm[3, 3] -
-                V12[fd.zx1, ki] * V34[fd.xx, kj] * Ptm[1, 1] -
-                V12[fd.zy1, ki] * V34[fd.yx1, kj] * Ptm[2, 2]
-            X_sum[fd.zy1] =
-                X_sum[fd.zy1] + -V12[fd.zz, ki] * V34[fd.zy1, kj] * Ptm[3, 3] -
-                V12[fd.zy1, ki] * V34[fd.yy, kj] * Ptm[2, 2] -
-                V12[fd.zx1, ki] * V34[fd.xy1, kj] * Ptm[1, 1]
+            xy1 += -V12[fd_xx, ki] * V34[fd_xy1, kj] * Ptm11 -
+                V12[fd_xy1, ki] * V34[fd_yy, kj] * Ptm22 -
+                V12[fd_xz1, ki] * V34[fd_zy1, kj] * Ptm33
+            xz1 += -V12[fd_xx, ki] * V34[fd_xz1, kj] * Ptm11 -
+                V12[fd_xz1, ki] * V34[fd_zz, kj] * Ptm33 -
+                V12[fd_xy1, ki] * V34[fd_yz1, kj] * Ptm22
+            yx1 += -V12[fd_yy, ki] * V34[fd_yx1, kj] * Ptm22 -
+                V12[fd_yx1, ki] * V34[fd_xx, kj] * Ptm11 -
+                V12[fd_yz1, ki] * V34[fd_zx1, kj] * Ptm33
+            yz1 += -V12[fd_yy, ki] * V34[fd_yz1, kj] * Ptm22 -
+                V12[fd_yz1, ki] * V34[fd_zz, kj] * Ptm33 -
+                V12[fd_yx1, ki] * V34[fd_xz1, kj] * Ptm11
+            zx1 += -V12[fd_zz, ki] * V34[fd_zx1, kj] * Ptm33 -
+                V12[fd_zx1, ki] * V34[fd_xx, kj] * Ptm11 -
+                V12[fd_zy1, ki] * V34[fd_yx1, kj] * Ptm22
+            zy1 += -V12[fd_zz, ki] * V34[fd_zy1, kj] * Ptm33 -
+                V12[fd_zy1, ki] * V34[fd_yy, kj] * Ptm22 -
+                V12[fd_zx1, ki] * V34[fd_xy1, kj] * Ptm11
+        end
+
+        @avx for k_spl = 1:nsum
+            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
+            ki, kj, m, xk =
+                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+
+            Ptm12 = m * Props[1,2,xk]
+            Ptm13 = m * Props[1,3,xk]
+
+            Ptm21 = m * Props[2,1,xk]
+            Ptm23 = m * Props[2,3,xk]
+            
+            Ptm31 = m * Props[3,1,xk]
+            Ptm32 = m * Props[3,2,xk]
+            Ptm33 = m * Props[3,3,xk]
 
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
-            X_sum[fd.xy2] =
-                X_sum[fd.xy2] + -V12[fd.xy2, ki] * V34[fd.xy2, kj] * Ptm[1, 2] -
-                V12[fd.xy3, ki] * V34[fd.yx3, kj] * Ptm[2, 1]
-            X_sum[fd.xz2] =
-                X_sum[fd.xz2] + -V12[fd.xz2, ki] * V34[fd.xz2, kj] * Ptm[1, 3] -
-                V12[fd.xz3, ki] * V34[fd.zx3, kj] * Ptm[3, 1]
-            X_sum[fd.yx2] =
-                X_sum[fd.yx2] + -V12[fd.yx2, ki] * V34[fd.yx2, kj] * Ptm[2, 1] -
-                V12[fd.yx3, ki] * V34[fd.xy3, kj] * Ptm[1, 2]
-            X_sum[fd.yz2] =
-                X_sum[fd.yz2] + -V12[fd.yz2, ki] * V34[fd.yz2, kj] * Ptm[2, 3] -
-                V12[fd.yz3, ki] * V34[fd.zy3, kj] * Ptm[3, 2]
-            X_sum[fd.zx2] =
-                X_sum[fd.zx2] + -V12[fd.zx2, ki] * V34[fd.zx2, kj] * Ptm[3, 1] -
-                V12[fd.zx3, ki] * V34[fd.xz3, kj] * Ptm[1, 3]
-            X_sum[fd.zy2] =
-                X_sum[fd.zy2] + -V12[fd.zy2, ki] * V34[fd.zy2, kj] * Ptm[3, 2] -
-                V12[fd.zy3, ki] * V34[fd.yz3, kj] * Ptm[2, 3]
+            xy2 += -V12[fd_xy2, ki] * V34[fd_xy2, kj] * Ptm12 -
+                V12[fd_xy3, ki] * V34[fd_yx3, kj] * Ptm21
+            xz2 += -V12[fd_xz2, ki] * V34[fd_xz2, kj] * Ptm13 -
+                V12[fd_xz3, ki] * V34[fd_zx3, kj] * Ptm31
+            yx2 += -V12[fd_yx2, ki] * V34[fd_yx2, kj] * Ptm21 -
+                V12[fd_yx3, ki] * V34[fd_xy3, kj] * Ptm12
+            yz2 += -V12[fd_yz2, ki] * V34[fd_yz2, kj] * Ptm23 -
+                V12[fd_yz3, ki] * V34[fd_zy3, kj] * Ptm32
+            zx2 += -V12[fd_zx2, ki] * V34[fd_zx2, kj] * Ptm31 -
+                V12[fd_zx3, ki] * V34[fd_xz3, kj] * Ptm13
+            zy2 += -V12[fd_zy2, ki] * V34[fd_zy2, kj] * Ptm32 -
+                V12[fd_zy3, ki] * V34[fd_yz3, kj] * Ptm23
 
             ### Xab3 = -Vab2 Vab3 - Vab3 Vba2
-            X_sum[fd.xy3] =
-                X_sum[fd.xy3] + -V12[fd.xy2, ki] * V34[fd.xy3, kj] * Ptm[1, 2] -
-                V12[fd.xy3, ki] * V34[fd.yx2, kj] * Ptm[2, 1]
-            X_sum[fd.xz3] =
-                X_sum[fd.xz3] + -V12[fd.xz2, ki] * V34[fd.xz3, kj] * Ptm[1, 3] -
-                V12[fd.xz3, ki] * V34[fd.zx2, kj] * Ptm[3, 1]
-            X_sum[fd.yx3] =
-                X_sum[fd.yx3] + -V12[fd.yx2, ki] * V34[fd.yx3, kj] * Ptm[2, 1] -
-                V12[fd.yx3, ki] * V34[fd.xy2, kj] * Ptm[1, 2]
-            X_sum[fd.yz3] =
-                X_sum[fd.yz3] + -V12[fd.yz2, ki] * V34[fd.yz3, kj] * Ptm[2, 3] -
-                V12[fd.yz3, ki] * V34[fd.zy2, kj] * Ptm[3, 2]
-            X_sum[fd.zx3] =
-                X_sum[fd.zx3] + -V12[fd.zx2, ki] * V34[fd.zx3, kj] * Ptm[3, 1] -
-                V12[fd.zx3, ki] * V34[fd.xz2, kj] * Ptm[1, 3]
-            X_sum[fd.zy3] =
-                X_sum[fd.zy3] + -V12[fd.zy2, ki] * V34[fd.zy3, kj] * Ptm[3, 2] -
-                V12[fd.zy3, ki] * V34[fd.yz2, kj] * Ptm[2, 3]
+            xy3 += -V12[fd_xy2, ki] * V34[fd_xy3, kj] * Ptm12 -
+                V12[fd_xy3, ki] * V34[fd_yx2, kj] * Ptm21
+            xz3 += -V12[fd_xz2, ki] * V34[fd_xz3, kj] * Ptm13 -
+                V12[fd_xz3, ki] * V34[fd_zx2, kj] * Ptm31
+            yx3 += -V12[fd_yx2, ki] * V34[fd_yx3, kj] * Ptm21 -
+                V12[fd_yx3, ki] * V34[fd_xy2, kj] * Ptm12
+            yz3 += -V12[fd_yz2, ki] * V34[fd_yz3, kj] * Ptm23 -
+                V12[fd_yz3, ki] * V34[fd_zy2, kj] * Ptm32
+            zx3 += -V12[fd_zx2, ki] * V34[fd_zx3, kj] * Ptm31 -
+                V12[fd_zx3, ki] * V34[fd_xz2, kj] * Ptm13
+            zy3 += -V12[fd_zy2, ki] * V34[fd_zy3, kj] * Ptm32 -
+                V12[fd_zy3, ki] * V34[fd_yz2, kj] * Ptm23
         end
+        X_sum[fd_xx]  = xx
+        X_sum[fd_yy]  = yy
+        X_sum[fd_zz]  = zz
+        X_sum[fd_xy1] = xy1
+        X_sum[fd_xz1] = xz1
+        X_sum[fd_yz1] = yz1
+        X_sum[fd_yx1] = yx1
+        X_sum[fd_zx1] = zx1
+        X_sum[fd_zy1] = zy1
+        X_sum[fd_xy2] = xy2
+        X_sum[fd_xz2] = xz2
+        X_sum[fd_yz2] = yz2
+        X_sum[fd_yx2] = yx2
+        X_sum[fd_zx2] = zx2
+        X_sum[fd_zy2] = zy2
+        X_sum[fd_xy3] = xy3
+        X_sum[fd_xz3] = xz3
+        X_sum[fd_yz3] = yz3
+        X_sum[fd_yx3] = yx3
+        X_sum[fd_zx3] = zx3
+        X_sum[fd_zy3] = zy3
 
         (@view X[1:21, Rij, is, it, iu]) .+= X_sum
     end
@@ -896,13 +947,6 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
             ns = is - 1
             nt = it - 1
 
-            # Precompute Katanin propagators
-            for Rij = 1:NUnique
-                for j = 1:3, i = 1:3
-                    Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, 0) * iG[j](Rij, 0)  # nw will be updated later
-                end
-            end
-
             for nw = -lenIntw:lenIntw-1 # Matsubara sum
                 nw_ns = nw + ns
                 nw_nt = nw - nt
@@ -941,7 +985,8 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                     ### If no u--t symmetry, then add all the bubbles
                     ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                     # if(!Par.Options.use_symmetry || nu<=nt)
-                    addX!(
+                    
+                    @region "addX" addX!(
                         Workspace.X,
                         Workspace.State.Gamma,
                         Workspace.Par.System,
@@ -1124,18 +1169,20 @@ end
 
 using JLD2
 function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+    Marker.startregion("getDeriv!")
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
     getDFint!(Workspace, Lam)
     get_Self_Energy!(Workspace, Lam)
-    getXBubble!(Workspace, Lam)
+    #= @region "getXBubble!"  =#getXBubble!(Workspace, Lam)
     symmetrizeBubble!(Workspace.X, Par)
     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
 
     return
+    Marker.stopregion("getDeriv!")
 end
 
 ####################################################
@@ -1247,7 +1294,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
 end
 
 SolveFRG(Par, isotropy; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+    #= @region "launchPMFRG!" =# launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
 TestFRG(Par, isotropy; kwargs...) =
     testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
 
