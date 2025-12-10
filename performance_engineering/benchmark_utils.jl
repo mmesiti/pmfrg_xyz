@@ -8,6 +8,7 @@ import PMFRG_xyz:
     OneLoopWorkspace,
     addX!,
     addY!,
+    Xh_from_X,
     ThreadLocalBuffersT
 
 function check_addXY_allocations()
@@ -19,8 +20,9 @@ function check_addXY_allocations()
 
 
     buffs = ThreadLocalBuffersT(
-        zeros((21, Npairs)),
-        zeros((21, Npairs)),
+        zeros((10 ÷ 2, 21, Npairs)),
+        zeros((10 ÷ 2, 21, Npairs)),
+        zeros((10 ÷ 2, 21)),
         zeros(21),
         zeros(3, 3, NUnique),
         zeros(3, 3, NUnique, NUnique),
@@ -38,15 +40,14 @@ function check_addXY_allocations()
     N = Par.NumericalParams.N
 
 
+    Xh = Xh_from_X(X)
 
-    addX!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropX, buffs)
-    addY!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropY, buffs)
+    addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
+    addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
 
-    addXallocations =
-        @allocations addX!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropX, buffs)
+    addXallocations = @allocations addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
 
-    addYallocations =
-        @allocations addY!(X, Gamma, System, N, 1, 1, 2, 1, buffs.spropY, buffs)
+    addYallocations = @allocations addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
 
     addXallocations, addYallocations
 end
