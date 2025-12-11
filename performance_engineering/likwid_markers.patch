@@ -1,34 +1,100 @@
+diff --git a/performance_engineering/likwid_markers.patch b/performance_engineering/likwid_markers.patch
+index 964ac3a..e69de29 100644
+--- a/performance_engineering/likwid_markers.patch
++++ b/performance_engineering/likwid_markers.patch
+@@ -1,61 +0,0 @@
+-diff --git a/src/PMFRG_xyz.jl b/src/PMFRG_xyz.jl
+-index b1dafd1..b19963b 100644
+---- a/src/PMFRG_xyz.jl
+-+++ b/src/PMFRG_xyz.jl
+-@@ -9,6 +9,7 @@ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, Str
+- using SpinFRGLattices.StaticArrays
+- using Unroll
+- using MuladdMacro
+-+using LIKWID
+- # using LoopVectorization
+- 
+- setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
+-@@ -925,7 +926,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
+-                     if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
+-                         continue
+-                     end
+--                    addY!(
+-+                    @marker "addY!" addY!(
+-                         Workspace.X,
+-                         Workspace.State.Gamma,
+-                         Workspace.Par.System,
+-@@ -941,7 +942,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
+-                     ### If no u--t symmetry, then add all the bubbles
+-                     ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
+-                     # if(!Par.Options.use_symmetry || nu<=nt)
+--                    addX!(
+-+                    @marker "addX!" addX!(
+-                         Workspace.X,
+-                         Workspace.State.Gamma,
+-                         Workspace.Par.System,
+-@@ -1124,18 +1125,20 @@ end
+- 
+- using JLD2
+- function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+-+    Marker.startregion("getDeriv!")
+- 
+-     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
+-     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
+- 
+-     getDFint!(Workspace, Lam)
+-     get_Self_Energy!(Workspace, Lam)
+--    getXBubble!(Workspace, Lam)
+-+    @marker "getXBubble!" getXBubble!(Workspace, Lam)
+-     symmetrizeBubble!(Workspace.X, Par)
+-     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
+-     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
+- 
+-     return
+-+    Marker.stopregion("getDeriv!")
+- end
+- 
+- ####################################################
+-@@ -1247,7 +1250,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
+- end
+- 
+- SolveFRG(Par, isotropy; kwargs...) =
+--    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+-+    @marker "launchPMFRG!" launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+- TestFRG(Par, isotropy; kwargs...) =
+-     testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+- 
 diff --git a/src/PMFRG_xyz.jl b/src/PMFRG_xyz.jl
-index b1dafd1..b19963b 100644
+index d969388..90998ae 100644
 --- a/src/PMFRG_xyz.jl
 +++ b/src/PMFRG_xyz.jl
-@@ -9,6 +9,7 @@ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, Str
+@@ -10,6 +10,7 @@ using SpinFRGLattices,
  using SpinFRGLattices.StaticArrays
  using Unroll
  using MuladdMacro
 +using LIKWID
- # using LoopVectorization
+ using FastBroadcast
  
  setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
-@@ -925,7 +926,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
-                     if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
-                         continue
+@@ -954,7 +955,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                      end
--                    addY!(
-+                    @marker "addY!" addY!(
-                         Workspace.X,
-                         Workspace.State.Gamma,
-                         Workspace.Par.System,
-@@ -941,7 +942,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
-                     ### If no u--t symmetry, then add all the bubbles
-                     ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
-                     # if(!Par.Options.use_symmetry || nu<=nt)
--                    addX!(
-+                    @marker "addX!" addX!(
-                         Workspace.X,
-                         Workspace.State.Gamma,
-                         Workspace.Par.System,
-@@ -1124,18 +1125,20 @@ end
+                 end
+ 
+-                addY!(
++                @marker "addY!" addY!(
+                     Xh,
+                     Workspace.State.Gamma,
+                     Workspace.Par.System,
+@@ -968,7 +969,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
+ 
+                 ### If no u--t symmetry, then add all the bubbles
+                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
+-                addX!(
++                @marker "addX!" addX!(
+                     Xh,
+                     Workspace.State.Gamma,
+                     Workspace.Par.System,
+@@ -1149,17 +1150,19 @@ end
  
  using JLD2
  function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
@@ -45,12 +111,11 @@ index b1dafd1..b19963b 100644
      addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
      symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
  
-     return
 +    Marker.stopregion("getDeriv!")
+     return
  end
  
- ####################################################
-@@ -1247,7 +1250,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
+@@ -1272,7 +1275,7 @@ function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
  end
  
  SolveFRG(Par, isotropy; kwargs...) =
