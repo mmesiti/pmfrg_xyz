@@ -2,7 +2,7 @@
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "0a213fe32b540338f61b0d0896eacfddb8106112"
+project_hash = "380afc18518f10fc0e123c734057dec563549553"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8b2b045b22740e4be20654175cc38291d48539db"
@@ -832,9 +832,9 @@ version = "1.10.0"
 
 [[deps.SpinFRGLattices]]
 deps = ["StaticArrays", "StructArrays", "Test"]
-git-tree-sha1 = "fa58bb703ed9bcf081b1b2f62085045423f04905"
+git-tree-sha1 = "e207c7f140a69eb229efe42e5c51d8383553d7e0"
 uuid = "053fb7f8-31b7-4f68-aef8-4452b415dd8c"
-version = "0.5.5"
+version = "0.5.4"
 
 [[deps.Static]]
 deps = ["CommonWorldInvalidations", "IfElse", "PrecompileTools", "SciMLPublic"]
