@@ -21,7 +21,7 @@ function main(;
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
-    N = 6
+    N = 8
     lattice_size = 16
 
     threadpinning = true
