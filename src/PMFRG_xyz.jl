@@ -369,17 +369,28 @@ struct ThreadLocalBuffersT{T}
     X_sum::Vector{T}
     spropX::Array{T,3}
     spropY::Array{T,4}
-    Ptm::Matrix{T}
+    # Ptm::Matrix{T}
     V13_addY::Vector{T}
     V24_addY::Vector{T}
     V31_addY::Vector{T}
     V42_addY::Vector{T}
 
+    P11_loc::Vector{T}   
+    P22_loc::Vector{T}
+    P33_loc::Vector{T}
+    P12_loc::Vector{T}
+    P13_loc::Vector{T}
+    P21_loc::Vector{T}
+    P23_loc::Vector{T}
+    P31_loc::Vector{T}
+    P32_loc::Vector{T}
+
 end
 
 function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
-    (; Npairs, NUnique) = System
+    (; Npairs, NUnique, Nsum) = System
 
+    maxNsum = maximum(Nsum)
     [
         ThreadLocalBuffersT(
             zeros(21, Npairs),
@@ -387,11 +398,21 @@ function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
             zeros(21),
             zeros(3, 3, NUnique),
             zeros(3, 3, NUnique, NUnique),
-            zeros(3, 3),
+            # zeros(3, 3),
             zeros(21),
             zeros(21),
             zeros(21),
             zeros(21),
+
+            zeros(maxNsum),                    # P11_loc
+            zeros(maxNsum),                    # P22_loc
+            zeros(maxNsum),                    # P33_loc
+            zeros(maxNsum),                    # P12_loc
+            zeros(maxNsum),                    # P13_loc
+            zeros(maxNsum),                    # P21_loc
+            zeros(maxNsum),                    # P23_loc
+            zeros(maxNsum),                    # P31_loc
+            zeros(maxNsum),                    # P32_loc
         ) for _ = 1:Threads.nthreads()
     ]
 end
@@ -427,7 +448,11 @@ function addX!(
     S_xk = siteSum.xk
     S_m = siteSum.m
 
-    (; V12_addX, V34_addX, X_sum, Ptm) = Buffers
+    (; V12_addX, V34_addX, X_sum, #Ptm
+        P11_loc, P22_loc, P33_loc,
+       P12_loc, P13_loc, P21_loc,
+       P23_loc, P31_loc, P32_loc) = Buffers
+    
     V12 = V12_addX
     V34 = V34_addX
 
@@ -439,7 +464,6 @@ function addX!(
 
 
     @inbounds for ki = 1:Npairs
-
         R12 = swap_R12 ? invpairs[ki] : ki
         R34 = swap_R34 ? invpairs[ki] : ki
         Vert!((@view V12[:, ki]), Gamma, s1, t1, u1, flavTransf12, R12)
@@ -471,6 +495,12 @@ function addX!(
 
 
     @inbounds for Rij = 1:Npairs
+
+        R12 = swap_R12 ? invpairs[Rij] : Rij
+        R34 = swap_R34 ? invpairs[Rij] : Rij
+        Vert!((@view V12[:, Rij]), Gamma, s1, t1, u1, flavTransf12, R12)
+        Vert!((@view V34[:, Rij]), Gamma, s2, t2, u2, flavTransf34, R34)
+
         #loop over all left hand side inequivalent pairs Rij
         # scalar accumulators for the 21 components
         xx  = zero(T); yy  = zero(T); zz  = zero(T)
@@ -481,15 +511,32 @@ function addX!(
         xy3 = zero(T); xz3 = zero(T); yz3 = zero(T)
         yx3 = zero(T); zx3 = zero(T); zy3 = zero(T)
         nsum = Nsum[Rij]
-        
-        @avx for k_spl = 1:nsum
-            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-            ki, kj, m, xk =
-                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
 
-            Ptm11 = m * Props[1,1,xk]
-            Ptm22 = m * Props[2,2,xk]
-            Ptm33 = m * Props[3,3,xk]
+
+        for k_spl = 1:nsum
+            xk = S_xk[k_spl, Rij]
+            m = S_m[k_spl, Rij]
+            P11_loc[k_spl] = m * Props[1,1,xk]
+            P22_loc[k_spl] = m * Props[2,2,xk]
+            P33_loc[k_spl] = m * Props[3,3,xk]
+            P12_loc[k_spl] = m * Props[1,2,xk]
+            P13_loc[k_spl] = m * Props[1,3,xk]
+            P21_loc[k_spl] = m * Props[2,1,xk]
+            P23_loc[k_spl] = m * Props[2,3,xk]
+            P31_loc[k_spl] = m * Props[3,1,xk]
+            P32_loc[k_spl] = m * Props[3,2,xk]
+        end
+        
+        
+        for k_spl = 1:nsum
+            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
+            
+            ki = S_ki[k_spl, Rij]
+            kj = S_kj[k_spl, Rij]
+
+            Ptm11 = P11_loc[k_spl]
+            Ptm22 = P22_loc[k_spl]
+            Ptm33 = P33_loc[k_spl]
 
             yy += -V12[fd_yy, ki] * V34[fd_yy, kj] * Ptm22 -
                 V12[fd_yz1, ki] * V34[fd_zy1, kj] * Ptm33 -
@@ -520,22 +567,19 @@ function addX!(
             zy1 += -V12[fd_zz, ki] * V34[fd_zy1, kj] * Ptm33 -
                 V12[fd_zy1, ki] * V34[fd_yy, kj] * Ptm22 -
                 V12[fd_zx1, ki] * V34[fd_xy1, kj] * Ptm11
-        end
+        end 
 
-        @avx for k_spl = 1:nsum
-            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-            ki, kj, m, xk =
-                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+        for k_spl = 1:nsum
 
-            Ptm12 = m * Props[1,2,xk]
-            Ptm13 = m * Props[1,3,xk]
+            ki = S_ki[k_spl, Rij]
+            kj = S_kj[k_spl, Rij]
 
-            Ptm21 = m * Props[2,1,xk]
-            Ptm23 = m * Props[2,3,xk]
-            
-            Ptm31 = m * Props[3,1,xk]
-            Ptm32 = m * Props[3,2,xk]
-            Ptm33 = m * Props[3,3,xk]
+            Ptm12 = P12_loc[k_spl]
+            Ptm13 = P13_loc[k_spl]
+            Ptm21 = P21_loc[k_spl]
+            Ptm23 = P23_loc[k_spl]
+            Ptm31 = P31_loc[k_spl]
+            Ptm32 = P32_loc[k_spl]
 
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
             xy2 += -V12[fd_xy2, ki] * V34[fd_xy2, kj] * Ptm12 -
@@ -565,6 +609,7 @@ function addX!(
             zy3 += -V12[fd_zy2, ki] * V34[fd_zy3, kj] * Ptm32 -
                 V12[fd_zy3, ki] * V34[fd_yz2, kj] * Ptm23
         end
+
         X_sum[fd_xx]  = xx
         X_sum[fd_yy]  = yy
         X_sum[fd_zz]  = zz
