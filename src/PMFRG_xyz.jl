@@ -212,6 +212,14 @@ function iSKat_(
 end
 
 ####################################################
+### PURE PROPAGATOR FUNCTIONS FOR BUBBLE COMPUTATION
+####################################################
+
+# Include pure bubble functions (42 individual flavor functions)
+# These use the helper functions defined above: PropagatorContext, propX, propY, getVertex
+include("BubbleFunctions_Pure.jl")
+
+####################################################
 ######### VERTICES ## VERTICES ## VERTICES #########
 ####################################################
 
@@ -328,14 +336,15 @@ function mixedFrequencies(ns, nt, nu, nwpr)
 
     wpw1 = nwpr + nw1 + 1
     wpw2 = nwpr + nw2 + 1
-    wpw3 = nwpr + nw3 + 1
+    #wpw3 = nwpr + nw3 + 1
     wpw4 = nwpr + nw4 + 1
     wmw1 = nwpr - nw1
-    wmw2 = nwpr - nw2
+    #wmw2 = nwpr - nw2
     wmw3 = nwpr - nw3
     wmw4 = nwpr - nw4
 
-    return wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4
+    #return wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4
+    return wpw1, wpw2, wpw4, wmw1, wmw3, wmw4
 end
 
 # This defines the Vertex flavors. module was the fastest option
@@ -416,7 +425,7 @@ function addX!(
     nt = it - 1
     nu = iu - 1
 
-    wpw1, wpw2, _, _, _, _, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+    wpw1, wpw2, _, _, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
 
     flavTransf12 = (wpw1 * wpw2 > 0, ns * wpw2 > 0, ns * wpw1 < 0)
     flavTransf34 = (wmw3 * wmw4 < 0, ns * wmw4 > 0, ns * wmw3 > 0)
@@ -560,7 +569,7 @@ function addY!(
     ns = is - 1
     nt = it - 1
     nu = iu - 1
-    _, wpw2, _, wpw4, wmw1, _, wmw3, _ = mixedFrequencies(ns, nt, nu, nwpr)
+    _, wpw2, wpw4, wmw1, wmw3, _ = mixedFrequencies(ns, nt, nu, nwpr)
     flavTransf13 = (nt * wmw3 < 0, wmw1 * wmw3 > 0, wmw1 * nt > 0)
     flavTransf24 = (nt * wpw4 < 0, wpw2 * wpw4 > 0, wpw2 * nt > 0)
     flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
@@ -887,11 +896,14 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(Par.System)
 
+    # Create PropagatorContext for pure functions
+    ctx = PropagatorContext(iSigma, DiSigma, T)
+
     Threads.@threads :static for is_it = 1:N*N
         @inbounds begin
             is = div(is_it - 1, N) + 1
             it = (is_it - 1) % N + 1
-            # WARNING: 
+            # WARNING:
             # This works only with :static
             Buffs = ThreadLocalBuffers[Threads.threadid()]
             ns = is - 1
@@ -955,6 +967,27 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                         Buffs,
                     )
                     # end
+                end
+            end
+
+            # Use pure function Xyy to compute yy flavor (replaces addX! contribution for this flavor)
+            # This verifies the pure function implementation against the existing test suite
+            for iu = 1:N
+                nu = iu - 1
+                if (ns + nt + nu) % 2 == 0
+                    continue
+                end
+                for Rij = 1:NUnique
+                    Workspace.X[fd.yy, Rij, is, it, iu] = Xyy(
+                        Rij,
+                        is,
+                        it,
+                        iu,
+                        Workspace.State.Gamma,
+                        ctx,
+                        Par.System,
+                        lenIntw,
+                    )
                 end
             end
         end

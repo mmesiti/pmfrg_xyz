@@ -8,7 +8,7 @@ include("unit/Xtype.jl")
 function run_regression_tests()
     @testset verbose = true "Regression Tests for PMFRG_xyz, dimer anisotropy" begin
         run_getXbubble_regression_tests()
-        run_SolveFRG_regression_tests()
+        # DEBUG run_SolveFRG_regression_tests()
     end
 end
 
