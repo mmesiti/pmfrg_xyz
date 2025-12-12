@@ -364,9 +364,6 @@ const zy3 = 21
 end
 
 struct ThreadLocalBuffersT{T}
-    V12_addX::Array{T,3}
-    V34_addX::Array{T,3}
-    X_sum_addX::Matrix{T}
     X_sum::Vector{T}
     spropX::Array{T,3}
     spropY::Array{T,4}
@@ -383,9 +380,6 @@ function get_ThreadLocalBuffers(N, System)::Vector{ThreadLocalBuffersT{Float64}}
 
     [
         ThreadLocalBuffersT(
-            zeros(Int(N / 2), 21, Npairs),
-            zeros(Int(N / 2), 21, Npairs),
-            zeros(Int(N / 2), 21),
             zeros(21),
             zeros(3, 3, NUnique),
             zeros(3, 3, NUnique, NUnique),
@@ -398,8 +392,7 @@ function get_ThreadLocalBuffers(N, System)::Vector{ThreadLocalBuffersT{Float64}}
     ]
 end
 
-# The main bottleneck seems to me to be located in the creation of large
-# arrays of size 42 and 21 and the continued calling fo the V_ function.
+# Refactored addX! with direct Gamma access (no V12/V34 temporary arrays)
 function addX!(
     Xh::Array{T,5},
     Gamma::Array{T,5},
@@ -420,14 +413,11 @@ function addX!(
     S_xk = siteSum.xk
     S_m = siteSum.m
 
-    (; V12_addX, V34_addX, X_sum_addX, Ptm) = Buffers
-
     iuh_max = size(Xh)[1]
 
     for iuh = 1:iuh_max
         iu_parity = (is + it) % 2
         iu = (iuh - 1) * 2 + 1 + (1 - iu_parity)
-
         nu = iu - 1
 
         wpw1, wpw2, _, _, _, _, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
@@ -435,118 +425,248 @@ function addX!(
         flavTransf12 = (wpw1 * wpw2 > 0, ns * wpw2 > 0, ns * wpw1 < 0)
         flavTransf34 = (wmw3 * wmw4 < 0, ns * wmw4 > 0, ns * wmw3 > 0)
 
-        # get fields of siteSum struct as Matrices for better use of LoopVectorization
         s1, t1, u1 = ConvertFreqArgs(ns, wpw1, -wpw2, N)
         s2, t2, u2 = ConvertFreqArgs(ns, -wmw3, -wmw4, N)
 
-        swap_R12 = flavTransf12[1]
-        swap_R34 = flavTransf34[1]
+        # Precompute transformed flavor indices for V12 (block 1)
+        f12_xy1 = flavTransf12[1] ? fd.yx1 : fd.xy1
+        f12_xz1 = flavTransf12[1] ? fd.zx1 : fd.xz1
+        f12_yz1 = flavTransf12[1] ? fd.zy1 : fd.yz1
+        f12_yx1 = flavTransf12[1] ? fd.xy1 : fd.yx1
+        f12_zx1 = flavTransf12[1] ? fd.xz1 : fd.zx1
+        f12_zy1 = flavTransf12[1] ? fd.yz1 : fd.zy1
+        # Block 2
+        f12_xy2 = flavTransf12[2] ? fd.yx2 : fd.xy2
+        f12_xz2 = flavTransf12[2] ? fd.zx2 : fd.xz2
+        f12_yz2 = flavTransf12[2] ? fd.zy2 : fd.yz2
+        f12_yx2 = flavTransf12[2] ? fd.xy2 : fd.yx2
+        f12_zx2 = flavTransf12[2] ? fd.xz2 : fd.zx2
+        f12_zy2 = flavTransf12[2] ? fd.yz2 : fd.zy2
+        # Block 3
+        f12_xy3 = flavTransf12[3] ? fd.yx3 : fd.xy3
+        f12_xz3 = flavTransf12[3] ? fd.zx3 : fd.xz3
+        f12_yz3 = flavTransf12[3] ? fd.zy3 : fd.yz3
+        f12_yx3 = flavTransf12[3] ? fd.xy3 : fd.yx3
+        f12_zx3 = flavTransf12[3] ? fd.xz3 : fd.zx3
+        f12_zy3 = flavTransf12[3] ? fd.yz3 : fd.zy3
+
+        # Precompute transformed flavor indices for V34 (block 1)
+        f34_xy1 = flavTransf34[1] ? fd.yx1 : fd.xy1
+        f34_xz1 = flavTransf34[1] ? fd.zx1 : fd.xz1
+        f34_yz1 = flavTransf34[1] ? fd.zy1 : fd.yz1
+        f34_yx1 = flavTransf34[1] ? fd.xy1 : fd.yx1
+        f34_zx1 = flavTransf34[1] ? fd.xz1 : fd.zx1
+        f34_zy1 = flavTransf34[1] ? fd.yz1 : fd.zy1
+        # Block 2
+        f34_xy2 = flavTransf34[2] ? fd.yx2 : fd.xy2
+        f34_xz2 = flavTransf34[2] ? fd.zx2 : fd.xz2
+        f34_yz2 = flavTransf34[2] ? fd.zy2 : fd.yz2
+        f34_yx2 = flavTransf34[2] ? fd.xy2 : fd.yx2
+        f34_zx2 = flavTransf34[2] ? fd.xz2 : fd.zx2
+        f34_zy2 = flavTransf34[2] ? fd.yz2 : fd.zy2
+        # Block 3
+        f34_xy3 = flavTransf34[3] ? fd.yx3 : fd.xy3
+        f34_xz3 = flavTransf34[3] ? fd.zx3 : fd.xz3
+        f34_yz3 = flavTransf34[3] ? fd.zy3 : fd.yz3
+        f34_yx3 = flavTransf34[3] ? fd.xy3 : fd.yx3
+        f34_zx3 = flavTransf34[3] ? fd.xz3 : fd.zx3
+        f34_zy3 = flavTransf34[3] ? fd.yz3 : fd.zy3
+
+        @inbounds @muladd for Rij = 1:Npairs
+            for k_spl = 1:Nsum[Rij]
+                ki, kj, m, xk =
+                    S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+
+                Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
 
-        @inbounds for ki = 1:Npairs
-
-            R12 = swap_R12 ? invpairs[ki] : ki
-            R34 = swap_R34 ? invpairs[ki] : ki
-            Vert!((@view V12_addX[iuh, :, ki]), Gamma, s1, t1, u1, flavTransf12, R12)
-            Vert!((@view V34_addX[iuh, :, ki]), Gamma, s2, t2, u2, flavTransf34, R34)
-        end
-    end
+                R12 = flavTransf12[1] ? invpairs[ki] : ki
+                R34 = flavTransf34[1] ? invpairs[kj] : kj
 
 
-
-    @inbounds @muladd for Rij = 1:Npairs
-        #loop over all left hand side inequivalent pairs Rij
-        fill!(X_sum_addX, 0.0)
-        for k_spl = 1:Nsum[Rij]
-            #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-            ki, kj, m, xk =
-                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
-
-            Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
-
-            @.. @inbounds @fastmath begin
-                X_sum_addX[:, fd.yy] +=
-                    -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1]
-                X_sum_addX[:, fd.zz] +=
-                    -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2]
-                X_sum_addX[:, fd.xx] +=
-                    -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3]
+                # Diagonal terms (xx, yy, zz) - no transformation
+                Xh[iuh, fd.yy, Rij, it, is] +=
+                    -Gamma[fd.yy, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.yy, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_yz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_yx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1]
+                Xh[iuh, fd.zz, Rij, it, is] +=
+                    -Gamma[fd.zz, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.zz, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_zx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_zy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2]
+                Xh[iuh, fd.xx, Rij, it, is] +=
+                    -Gamma[fd.xx, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.xx, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_xy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_xz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3]
 
                 ### Xab1 += -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-                X_sum_addX[:, fd.xy1] +=
-                    -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3]
-                X_sum_addX[:, fd.xz1] +=
-                    -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2]
-                X_sum_addX[:, fd.yx1] +=
-                    -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3]
-                X_sum_addX[:, fd.yz1] +=
-                    -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1]
-                X_sum_addX[:, fd.zx1] +=
-                    -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                    V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2]
-                X_sum_addX[:, fd.zy1] +=
-                    -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3] -
-                    V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                    V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1]
+                Xh[iuh, fd.xy1, Rij, it, is] +=
+                    -Gamma[fd.xx, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_xy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.yy, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_xz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3]
+                Xh[iuh, fd.xz1, Rij, it, is] +=
+                    -Gamma[fd.xx, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_xz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.zz, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_xy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2]
+                Xh[iuh, fd.yx1, Rij, it, is] +=
+                    -Gamma[fd.yy, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_yx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.xx, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_yz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3]
+                Xh[iuh, fd.yz1, Rij, it, is] +=
+                    -Gamma[fd.yy, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_yz1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.zz, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_yx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1]
+                Xh[iuh, fd.zx1, Rij, it, is] +=
+                    -Gamma[fd.zz, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_zx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.xx, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1] -
+                    Gamma[f12_zy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2]
+                Xh[iuh, fd.zy1, Rij, it, is] +=
+                    -Gamma[fd.zz, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 3] -
+                    Gamma[f12_zy1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[fd.yy, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 2] -
+                    Gamma[f12_zx1, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy1, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 1]
 
                 ### Xab2 += -Vab2 Vab2 - Vab3 Vba3
-                X_sum_addX[:, fd.xy2] +=
-                    -V12_addX[:, fd.xy2, ki] * V34_addX[:, fd.xy2, kj] * Ptm[1, 2] -
-                    V12_addX[:, fd.xy3, ki] * V34_addX[:, fd.yx3, kj] * Ptm[2, 1]
-                X_sum_addX[:, fd.xz2] +=
-                    -V12_addX[:, fd.xz2, ki] * V34_addX[:, fd.xz2, kj] * Ptm[1, 3] -
-                    V12_addX[:, fd.xz3, ki] * V34_addX[:, fd.zx3, kj] * Ptm[3, 1]
-                X_sum_addX[:, fd.yx2] +=
-                    -V12_addX[:, fd.yx2, ki] * V34_addX[:, fd.yx2, kj] * Ptm[2, 1] -
-                    V12_addX[:, fd.yx3, ki] * V34_addX[:, fd.xy3, kj] * Ptm[1, 2]
-                X_sum_addX[:, fd.yz2] +=
-                    -V12_addX[:, fd.yz2, ki] * V34_addX[:, fd.yz2, kj] * Ptm[2, 3] -
-                    V12_addX[:, fd.yz3, ki] * V34_addX[:, fd.zy3, kj] * Ptm[3, 2]
-                X_sum_addX[:, fd.zx2] +=
-                    -V12_addX[:, fd.zx2, ki] * V34_addX[:, fd.zx2, kj] * Ptm[3, 1] -
-                    V12_addX[:, fd.zx3, ki] * V34_addX[:, fd.xz3, kj] * Ptm[1, 3]
-                X_sum_addX[:, fd.zy2] +=
-                    -V12_addX[:, fd.zy2, ki] * V34_addX[:, fd.zy2, kj] * Ptm[3, 2] -
-                    V12_addX[:, fd.zy3, ki] * V34_addX[:, fd.yz3, kj] * Ptm[2, 3]
+                Xh[iuh, fd.xy2, Rij, it, is] +=
+                    -Gamma[f12_xy2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 2] -
+                    Gamma[f12_xy3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 1]
+                Xh[iuh, fd.xz2, Rij, it, is] +=
+                    -Gamma[f12_xz2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 3] -
+                    Gamma[f12_xz3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 1]
+                Xh[iuh, fd.yx2, Rij, it, is] +=
+                    -Gamma[f12_yx2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 1] -
+                    Gamma[f12_yx3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 2]
+                Xh[iuh, fd.yz2, Rij, it, is] +=
+                    -Gamma[f12_yz2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 3] -
+                    Gamma[f12_yz3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 2]
+                Xh[iuh, fd.zx2, Rij, it, is] +=
+                    -Gamma[f12_zx2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 1] -
+                    Gamma[f12_zx3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 3]
+                Xh[iuh, fd.zy2, Rij, it, is] +=
+                    -Gamma[f12_zy2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 2] -
+                    Gamma[f12_zy3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 3]
 
                 ### Xab3 += -Vab2 Vab3 - Vab3 Vba2
-                X_sum_addX[:, fd.xy3] +=
-                    -V12_addX[:, fd.xy2, ki] * V34_addX[:, fd.xy3, kj] * Ptm[1, 2] -
-                    V12_addX[:, fd.xy3, ki] * V34_addX[:, fd.yx2, kj] * Ptm[2, 1]
-                X_sum_addX[:, fd.xz3] +=
-                    -V12_addX[:, fd.xz2, ki] * V34_addX[:, fd.xz3, kj] * Ptm[1, 3] -
-                    V12_addX[:, fd.xz3, ki] * V34_addX[:, fd.zx2, kj] * Ptm[3, 1]
-                X_sum_addX[:, fd.yx3] +=
-                    -V12_addX[:, fd.yx2, ki] * V34_addX[:, fd.yx3, kj] * Ptm[2, 1] -
-                    V12_addX[:, fd.yx3, ki] * V34_addX[:, fd.xy2, kj] * Ptm[1, 2]
-                X_sum_addX[:, fd.yz3] +=
-                    -V12_addX[:, fd.yz2, ki] * V34_addX[:, fd.yz3, kj] * Ptm[2, 3] -
-                    V12_addX[:, fd.yz3, ki] * V34_addX[:, fd.zy2, kj] * Ptm[3, 2]
-                X_sum_addX[:, fd.zx3] +=
-                    -V12_addX[:, fd.zx2, ki] * V34_addX[:, fd.zx3, kj] * Ptm[3, 1] -
-                    V12_addX[:, fd.zx3, ki] * V34_addX[:, fd.xz2, kj] * Ptm[1, 3]
-                X_sum_addX[:, fd.zy3] +=
-                    -V12_addX[:, fd.zy2, ki] * V34_addX[:, fd.zy3, kj] * Ptm[3, 2] -
-                    V12_addX[:, fd.zy3, ki] * V34_addX[:, fd.yz2, kj] * Ptm[2, 3]
+                Xh[iuh, fd.xy3, Rij, it, is] +=
+                    -Gamma[f12_xy2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 2] -
+                    Gamma[f12_xy3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 1]
+                Xh[iuh, fd.xz3, Rij, it, is] +=
+                    -Gamma[f12_xz2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 3] -
+                    Gamma[f12_xz3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 1]
+                Xh[iuh, fd.yx3, Rij, it, is] +=
+                    -Gamma[f12_yx2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yx3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 1] -
+                    Gamma[f12_yx3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xy2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 2]
+                Xh[iuh, fd.yz3, Rij, it, is] +=
+                    -Gamma[f12_yz2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 3] -
+                    Gamma[f12_yz3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 2]
+                Xh[iuh, fd.zx3, Rij, it, is] +=
+                    -Gamma[f12_zx2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zx3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 1] -
+                    Gamma[f12_zx3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_xz2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[1, 3]
+                Xh[iuh, fd.zy3, Rij, it, is] +=
+                    -Gamma[f12_zy2, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_zy3, R34, s2+1, t2+1, u2+1] *
+                    Ptm[3, 2] -
+                    Gamma[f12_zy3, R12, s1+1, t1+1, u1+1] *
+                    Gamma[f34_yz2, R34, s2+1, t2+1, u2+1] *
+                    Ptm[2, 3]
             end
         end
-
-        (@view Xh[:, 1:21, Rij, it, is]) .+= (@view X_sum_addX[:, :])
     end
     return
 end

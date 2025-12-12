@@ -16,13 +16,10 @@ function check_addXY_allocations()
     workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
 
     Par = workspace.Par
-    (; NUnique, Npairs) = Par.System
+    (; NUnique) = Par.System
 
 
     buffs = ThreadLocalBuffersT(
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21)),
         zeros(21),
         zeros(3, 3, NUnique),
         zeros(3, 3, NUnique, NUnique),
