@@ -24,7 +24,7 @@ function test_mixedFrequenciesConverted()
 
                     for nwpr = -N:N-1
                         # Call the new combined function
-                        s, t1, u1, t2, u2, flavTransf12, flavTransf34 =
+                        t1, u1, t2, u2, flavTransf12, flavTransf34 =
                             mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
 
                         # Verify against existing code
@@ -44,8 +44,6 @@ function test_mixedFrequenciesConverted()
                         expected_s2, expected_t2, expected_u2 =
                             ConvertFreqArgs(ns, -wmw3, -wmw4, N)
 
-                        @test s == expected_s1
-                        @test s == expected_s2  # s1 == s2 always
                         @test t1 == expected_t1
                         @test u1 == expected_u1
                         @test t2 == expected_t2
@@ -59,31 +57,28 @@ end
 
 """
 Property test for mixedFrequenciesConvertedInverse.
-Tests round-trip: (ns,nt,nu,nwpr,N) -> mixedFrequenciesConverted -> mixedFrequenciesConvertedInverse -> (ns,nt,nu,nwpr,N)
+Tests round-trip: (ns,nt,nu,nwpr,N) -> mixedFrequenciesConverted -> mixedFrequenciesConvertedInverse
+The inverse returns all possible inputs that map to the same output.
 """
 function test_mixedFrequenciesConvertedInverse()
     @testset "mixedFrequenciesConvertedInverse round-trip tests" begin
-        N = 16
-        # Test with a few specific cases with ns strictly positive
-        # Note: ns+nt+nu must be odd
-        test_cases = [
-            (3, 5, 7, 2),    # 3+5+7 = 15 (odd)
-            (1, 2, 4, -5),   # 1+2+4 = 7 (odd)
-            (7, 1, 3, 3),    # 7+1+3 = 11 (odd)
-            (5, 4, 2, -2),   # 5+4+2 = 11 (odd)
-            (2, 1, 4, 1),    # 2+1+4 = 7 (odd)
-        ]
+        @testset for N in (8, 16, 24, 32)
+            # Test with full domain cases (including ns = 0)
+            # Note: ns+nt+nu must be odd
+            test_cases = [
+                (ns, nt, nu, nwpr) for ns = 0:N-1 for nt = 0:N-1 for nu = 0:N-1 for
+                nwpr = -N:N-1 if (ns + nt + nu) % 2 == 1
+            ]
 
-        @testset "N=$N" begin
-            for (ns, nt, nu, nwpr) in test_cases
-                # Forward direction
-                s, t1, u1, t2, u2, flavTransf12, flavTransf34 =
-                    mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
+            @testset "N=$N" begin
+                for (ns, nt, nu, nwpr) in test_cases
+                    # Forward direction
+                    t1, u1, t2, u2, flavTransf12, flavTransf34 =
+                        mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
 
-                # Inverse direction
-                ns_recovered, nt_recovered, nu_recovered, nwpr_recovered =
-                    mixedFrequenciesConvertedInverse(
-                        s,
+                    # Inverse direction - returns all possible inputs
+                    recovered_inputs = mixedFrequenciesConvertedInverse(
+                        ns,
                         t1,
                         u1,
                         t2,
@@ -93,11 +88,22 @@ function test_mixedFrequenciesConvertedInverse()
                         N,
                     )
 
-                # Test round-trip
-                @test ns_recovered == ns
-                @test nt_recovered == nt
-                @test nu_recovered == nu
-                @test nwpr_recovered == nwpr
+                    # Test that the original input is in the list of recovered inputs
+                    @test (nt, nu, nwpr) in recovered_inputs
+
+                    # Verify all returned inputs actually produce the same output
+                    for (nt_check, nu_check, nwpr_check) in recovered_inputs
+                        t1_check, u1_check, t2_check, u2_check, flav12_check, flav34_check =
+                            mixedFrequenciesConverted(ns, nt_check, nu_check, nwpr_check, N)
+
+                        @test t1_check == t1
+                        @test u1_check == u1
+                        @test t2_check == t2
+                        @test u2_check == u2
+                        @test flav12_check == flavTransf12
+                        @test flav34_check == flavTransf34
+                    end
+                end
             end
         end
     end

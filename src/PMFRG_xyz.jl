@@ -380,58 +380,123 @@ function mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
     flavTransf12 = (t1_sign * u1_sign > 0, ns * u1_sign > 0, ns * t1_sign < 0)
     flavTransf34 = (t2_sign * u2_sign < 0, ns * u2_sign > 0, ns * t2_sign > 0)
 
-    return ns, t1_abs, u1_abs, t2_abs, u2_abs, flavTransf12, flavTransf34
+    return t1_abs, u1_abs, t2_abs, u2_abs, flavTransf12, flavTransf34
 end
 
 """
     mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flavTransf34, N)
 
 Inverse of mixedFrequenciesConverted.
-Returns (ns, nt, nu, nwpr).
-Note: ns is already recovered (>= 0), so input ns equals output ns.
+Returns a vector of (nt, nu, nwpr) tuples - all valid inputs that produce the same output.
+Multiple inputs can map to the same output due to cutoff operations.
 """
 function mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flavTransf34, N)
-    # Recover signs from flavor transformations
-    # flavTransf12 = (t1_sign * u1_sign > 0, ns * u1_sign > 0, ns * t1_sign < 0)
-    # flavTransf34 = (t2_sign * u2_sign < 0, ns * u2_sign > 0, ns * t2_sign > 0)
-    # Since ns >= 0, we can use it directly to determine other signs
+    # Determine possible sign combinations
+    # When ns > 0, signs can be uniquely recovered from flavor transformations
+    # When ns = 0, we only know relative signs and must try multiple combinations
 
-    # From flavTransf12[2]: ns * u1_sign > 0, and ns >= 0, so u1_sign > 0 iff flavTransf12[2]
-    u1_sign = flavTransf12[2] ? 1 : -1
+    if ns > 0
+        # Unique sign recovery for ns > 0
+        sign_combinations = [(
+            flavTransf12[3] ? -1 : 1,  # t1_sign
+            flavTransf12[2] ? 1 : -1,   # u1_sign
+            flavTransf34[3] ? 1 : -1,   # t2_sign
+            flavTransf34[2] ? 1 : -1,
+        )]
+    else
+        # ns = 0: flavTransf only gives us relative signs
+        # flavTransf12[1] = (t1_sign * u1_sign > 0): true if same sign
+        # flavTransf34[1] = (t2_sign * u2_sign < 0): true if opposite sign
 
-    # From flavTransf12[3]: ns * t1_sign < 0, and ns >= 0, so t1_sign < 0 iff flavTransf12[3]
-    t1_sign = flavTransf12[3] ? -1 : 1
+        if flavTransf12[1]  # t1 and u1 have same sign
+            t1_u1_signs = [(1, 1), (-1, -1)]
+        else  # t1 and u1 have opposite signs
+            t1_u1_signs = [(1, -1), (-1, 1)]
+        end
 
-    # From flavTransf34[2]: ns * u2_sign > 0, and ns >= 0, so u2_sign > 0 iff flavTransf34[2]
-    u2_sign = flavTransf34[2] ? 1 : -1
+        if flavTransf34[1]  # t2 and u2 have opposite signs
+            t2_u2_signs = [(1, -1), (-1, 1)]
+        else  # t2 and u2 have same sign
+            t2_u2_signs = [(1, 1), (-1, -1)]
+        end
 
-    # From flavTransf34[3]: ns * t2_sign > 0, and ns >= 0, so t2_sign > 0 iff flavTransf34[3]
-    t2_sign = flavTransf34[3] ? 1 : -1
+        # Generate all combinations
+        sign_combinations = [
+            (t1_sign, u1_sign, t2_sign, u2_sign) for (t1_sign, u1_sign) in t1_u1_signs
+            for (t2_sign, u2_sign) in t2_u2_signs
+        ]
+    end
 
-    # Reconstruct signed values
-    t1_signed = t1_sign * t1
-    u1_signed = u1_sign * u1
-    t2_signed = t2_sign * t2
-    u2_signed = u2_sign * u2
+    # Helper function for getting ranges
+    function get_range(val, N, sign, max_bound, min_bound)
+        cutoff = N - 1 - (val + N - 1) % 2
+        if val < cutoff
+            return sign*val:sign*val
+        else
+            return sign > 0 ? (val:2:max_bound) : (-val:-2:min_bound)
+        end
+    end
 
-    # Invert the linear system:
-    # t1 = (2nwpr + ns + nt + nu + 1) ÷ 2
-    # u1 = (2nwpr + ns - nt - nu + 1) ÷ 2
-    # t2 = (2nwpr + ns - nt + nu + 1) ÷ 2
-    # u2 = (2nwpr + ns + nt - nu + 1) ÷ 2
+    results = Tuple{Int,Int,Int}[]
 
-    # From the equations:
-    # t1 + u1 = 2nwpr + ns + 1  ->  nwpr = (t1 + u1 - ns - 1) / 2
-    # t1 - u1 = nt + nu
-    # t2 - u2 = nu - nt
-    # Adding: (t1 - u1) + (t2 - u2) = 2nu  ->  nu = (t1 - u1 + t2 - u2) / 2
-    # Subtracting: (t1 - u1) - (t2 - u2) = 2nt  ->  nt = (t1 - u1 - t2 + u2) / 2
+    # Try each sign combination
+    for (t1_sign, u1_sign, t2_sign, u2_sign) in sign_combinations
+        # t1 = (2nwpr + ns + nt + nu + 1) ÷ 2
+        # Given: -N <= nwpr < N, 0 <= nt < N, 0 <= nu < N, ns is known
+        max_t1 = (2 * (N - 1) + ns + (N - 1) + (N - 1) + 1) ÷ 2
+        min_t1 = (2 * (-N) + ns + 0 + 0 + 1) ÷ 2
 
-    nt = (t1_signed - u1_signed - t2_signed + u2_signed) ÷ 2
-    nu = (t1_signed - u1_signed + t2_signed - u2_signed) ÷ 2
-    nwpr = (t1_signed + u1_signed - ns - 1) ÷ 2
+        possible_t1_signed = get_range(t1, N, t1_sign, max_t1, min_t1)
 
-    return ns, nt, nu, nwpr
+        # For each t1_signed, constrain u1_signed
+        for t1_signed in possible_t1_signed
+            # u1_signed = t1_signed - nt - nu, with 0 <= nt < N, 0 <= nu < N
+            max_u1_given_t1 = t1_signed
+            min_u1_given_t1 = t1_signed - 2 * N + 2
+
+            possible_u1_signed = get_range(u1, N, u1_sign, max_u1_given_t1, min_u1_given_t1)
+
+            for u1_signed in possible_u1_signed
+                # t2_signed = t1_signed - nt, with 0 <= nt < N
+                max_t2_given_t1 = t1_signed
+                min_t2_given_t1 = t1_signed - N + 1
+
+                possible_t2_signed =
+                    get_range(t2, N, t2_sign, max_t2_given_t1, min_t2_given_t1)
+
+                for t2_signed in possible_t2_signed
+                    # u2_signed is uniquely determined: t1 + u1 = t2 + u2
+                    u2_signed = t1_signed + u1_signed - t2_signed
+
+                    # Invert the linear system
+                    nt = (t1_signed - u1_signed - t2_signed + u2_signed) ÷ 2
+                    nu = (t1_signed - u1_signed + t2_signed - u2_signed) ÷ 2
+                    nwpr = (t1_signed + u1_signed - ns - 1) ÷ 2
+
+                    # Check if this is a valid input (within bounds and parity)
+                    if 0 <= nt < N &&
+                       0 <= nu < N &&
+                       -N <= nwpr < N &&
+                       (ns + nt + nu) % 2 == 1
+                        # Verify this actually produces the same output
+                        t1_check, u1_check, t2_check, u2_check, flav12_check, flav34_check =
+                            mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
+
+                        if t1_check == t1 &&
+                           u1_check == u1 &&
+                           t2_check == t2 &&
+                           u2_check == u2 &&
+                           flav12_check == flavTransf12 &&
+                           flav34_check == flavTransf34
+                            push!(results, (nt, nu, nwpr))
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return unique(results)
 end
 
 
