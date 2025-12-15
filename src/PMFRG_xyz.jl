@@ -451,18 +451,26 @@ function mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flav
         # For each t1_signed, constrain u1_signed
         for t1_signed in possible_t1_signed
             # u1_signed = t1_signed - nt - nu, with 0 <= nt < N, 0 <= nu < N
-            max_u1_given_t1 = t1_signed
-            min_u1_given_t1 = t1_signed - 2 * N + 2
+            # Additionally, from t1 + u1 = 2*nwpr + ns + 1 and -N <= nwpr < N:
+            # -2N + ns + 1 <= t1 + u1 <= 2N + ns - 1
+            u1_lower_orig = t1_signed - 2 * N + 2
+            u1_upper_orig = t1_signed
+            u1_lower_nwpr = -2 * N + ns + 1 - t1_signed
+            u1_upper_nwpr = 2 * N + ns - 1 - t1_signed
+
+            max_u1_given_t1 = min(u1_upper_orig, u1_upper_nwpr)
+            min_u1_given_t1 = max(u1_lower_orig, u1_lower_nwpr)
 
             possible_u1_signed = get_range(u1, N, u1_sign, max_u1_given_t1, min_u1_given_t1)
 
             for u1_signed in possible_u1_signed
                 # t2_signed = t1_signed - nt, with 0 <= nt < N
-                max_t2_given_t1 = t1_signed
-                min_t2_given_t1 = t1_signed - N + 1
+                # Also t2_signed = u1_signed + nu, with 0 <= nu < N
+                # Combine both constraints:
+                t2_lower = max(t1_signed - N + 1, u1_signed)
+                t2_upper = min(t1_signed, u1_signed + N - 1)
 
-                possible_t2_signed =
-                    get_range(t2, N, t2_sign, max_t2_given_t1, min_t2_given_t1)
+                possible_t2_signed = get_range(t2, N, t2_sign, t2_upper, t2_lower)
 
                 for t2_signed in possible_t2_signed
                     # u2_signed is uniquely determined: t1 + u1 = t2 + u2
