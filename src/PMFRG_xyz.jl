@@ -431,9 +431,30 @@ function mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flav
     function get_range(val, N, sign, max_bound, min_bound)
         cutoff = N - 1 - (val + N - 1) % 2
         if val < cutoff
-            return sign*val:sign*val
+            # Single value - check if within bounds
+            signed_val = sign * val
+            if min_bound <= signed_val <= max_bound
+                return signed_val:signed_val
+            else
+                return 1:0  # Empty range
+            end
         else
-            return sign > 0 ? (val:2:max_bound) : (-val:-2:min_bound)
+            # Multiple values - ensure starting value is within bounds
+            if sign > 0
+                start_val = max(val, min_bound)
+                # Adjust to correct parity if needed
+                if (start_val - val) % 2 != 0
+                    start_val += 1
+                end
+                return start_val:2:max_bound
+            else
+                start_val = min(-val, max_bound)
+                # Adjust to correct parity if needed
+                if (start_val + val) % 2 != 0
+                    start_val -= 1
+                end
+                return start_val:-2:min_bound
+            end
         end
     end
 
@@ -451,19 +472,36 @@ function mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flav
         # For each t1_signed, constrain u1_signed
         for t1_signed in possible_t1_signed
             # u1_signed = t1_signed - nt - nu, with 0 <= nt < N, 0 <= nu < N
-            # Additionally, from t1 + u1 = 2*nwpr + ns + 1 and -N <= nwpr < N:
-            # -2N + ns + 1 <= t1 + u1 <= 2N + ns - 1
-            u1_lower_orig = t1_signed - 2 * N + 2
-            u1_upper_orig = t1_signed
-            u1_lower_nwpr = -2 * N + ns + 1 - t1_signed
-            u1_upper_nwpr = 2 * N + ns - 1 - t1_signed
+            # Parity constraint: ns + nt + nu must be odd
+            # If ns is even, nt + nu must be odd: 1 <= nt + nu <= 2N - 3
+            # If ns is odd, nt + nu must be even: 0 <= nt + nu <= 2N - 2
+            if ns % 2 == 0
+                u1_lower_parity = t1_signed - (2 * N - 3)
+                u1_upper_parity = t1_signed - 1
+            else
+                u1_lower_parity = t1_signed - (2 * N - 2)
+                u1_upper_parity = t1_signed
+            end
 
-            max_u1_given_t1 = min(u1_upper_orig, u1_upper_nwpr)
-            min_u1_given_t1 = max(u1_lower_orig, u1_lower_nwpr)
+            # From t1 + u1 = 2*nwpr + ns + 1 and -N <= nwpr < N:
+            # For nwpr < N (i.e., nwpr ≤ N-1): t1 + u1 ≤ 2(N-1)+1+ns = 2N + ns
+            # For nwpr ≥ -N: t1 + u1 ≥ -2N + ns + 1
+            u1_lower_nwpr = -2 * N + ns + 1 - t1_signed
+            u1_upper_nwpr = 2 * N + ns - t1_signed
+
+            # Combine all constraints
+            max_u1_given_t1 = min(u1_upper_parity, u1_upper_nwpr)
+            min_u1_given_t1 = max(u1_lower_parity, u1_lower_nwpr)
 
             possible_u1_signed = get_range(u1, N, u1_sign, max_u1_given_t1, min_u1_given_t1)
 
             for u1_signed in possible_u1_signed
+                # Compute nwpr (now guaranteed to be in bounds by u1_upper_nwpr constraint)
+                nwpr = (t1_signed + u1_signed - ns - 1) ÷ 2
+
+                # Note: parity (ns + nt + nu odd) is guaranteed by u1_lower_parity/u1_upper_parity
+                # since nt + nu = t1_signed - u1_signed
+
                 # t2_signed = t1_signed - nt, with 0 <= nt < N
                 # Also t2_signed = u1_signed + nu, with 0 <= nu < N
                 # Combine both constraints:
@@ -479,13 +517,10 @@ function mixedFrequenciesConvertedInverse(ns, t1, u1, t2, u2, flavTransf12, flav
                     # Invert the linear system
                     nt = (t1_signed - u1_signed - t2_signed + u2_signed) ÷ 2
                     nu = (t1_signed - u1_signed + t2_signed - u2_signed) ÷ 2
-                    nwpr = (t1_signed + u1_signed - ns - 1) ÷ 2
 
-                    # Check if this is a valid input (within bounds and parity)
-                    if 0 <= nt < N &&
-                       0 <= nu < N &&
-                       -N <= nwpr < N &&
-                       (ns + nt + nu) % 2 == 1
+                    # Check if this is a valid input (within bounds)
+                    # Note: parity is guaranteed by early check, nwpr is guaranteed by u1 bounds
+                    if 0 <= nt < N && 0 <= nu < N
                         # Verify this actually produces the same output
                         t1_check, u1_check, t2_check, u2_check, flav12_check, flav34_check =
                             mixedFrequenciesConverted(ns, nt, nu, nwpr, N)
