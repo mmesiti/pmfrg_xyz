@@ -9,8 +9,8 @@ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, Str
 using SpinFRGLattices.StaticArrays
 using Unroll
 using MuladdMacro
-using LIKWID
 using LoopVectorization
+using LIKWID
 
 setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
 
@@ -404,15 +404,15 @@ function get_ThreadLocalBuffers(System)::Vector{ThreadLocalBuffersT{Float64}}
             zeros(21),
             zeros(21),
 
-            zeros(maxNsum),                    # P11_loc
-            zeros(maxNsum),                    # P22_loc
-            zeros(maxNsum),                    # P33_loc
-            zeros(maxNsum),                    # P12_loc
-            zeros(maxNsum),                    # P13_loc
-            zeros(maxNsum),                    # P21_loc
-            zeros(maxNsum),                    # P23_loc
-            zeros(maxNsum),                    # P31_loc
-            zeros(maxNsum),                    # P32_loc
+            zeros(NUnique),                    # P11_loc
+            zeros(NUnique),                    # P22_loc
+            zeros(NUnique),                    # P33_loc
+            zeros(NUnique),                    # P12_loc
+            zeros(NUnique),                    # P13_loc
+            zeros(NUnique),                    # P21_loc
+            zeros(NUnique),                    # P23_loc
+            zeros(NUnique),                    # P31_loc
+            zeros(NUnique),                    # P32_loc
         ) for _ = 1:Threads.nthreads()
     ]
 end
@@ -428,7 +428,6 @@ function addX!(
     it::Integer,
     iu::Integer,
     nwpr::Integer,
-    Props::Array{T,3},
     Buffers::ThreadLocalBuffersT,
 ) where {T}
     (; Npairs, Nsum, siteSum, invpairs) = System
@@ -495,12 +494,6 @@ function addX!(
 
 
     @inbounds for Rij = 1:Npairs
-
-        R12 = swap_R12 ? invpairs[Rij] : Rij
-        R34 = swap_R34 ? invpairs[Rij] : Rij
-        Vert!((@view V12[:, Rij]), Gamma, s1, t1, u1, flavTransf12, R12)
-        Vert!((@view V34[:, Rij]), Gamma, s2, t2, u2, flavTransf34, R34)
-
         #loop over all left hand side inequivalent pairs Rij
         # scalar accumulators for the 21 components
         xx  = zero(T); yy  = zero(T); zz  = zero(T)
@@ -510,34 +503,17 @@ function addX!(
         yx2 = zero(T); zx2 = zero(T); zy2 = zero(T)
         xy3 = zero(T); xz3 = zero(T); yz3 = zero(T)
         yx3 = zero(T); zx3 = zero(T); zy3 = zero(T)
-        nsum = Nsum[Rij]
-
-
-        for k_spl = 1:nsum
-            xk = S_xk[k_spl, Rij]
-            m = S_m[k_spl, Rij]
-            P11_loc[k_spl] = m * Props[1,1,xk]
-            P22_loc[k_spl] = m * Props[2,2,xk]
-            P33_loc[k_spl] = m * Props[3,3,xk]
-            P12_loc[k_spl] = m * Props[1,2,xk]
-            P13_loc[k_spl] = m * Props[1,3,xk]
-            P21_loc[k_spl] = m * Props[2,1,xk]
-            P23_loc[k_spl] = m * Props[2,3,xk]
-            P31_loc[k_spl] = m * Props[3,1,xk]
-            P32_loc[k_spl] = m * Props[3,2,xk]
-        end
         
-        
-        for k_spl = 1:nsum
+        for k_spl = 1:Nsum[Rij]
             #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
             
-            ki = S_ki[k_spl, Rij]
-            kj = S_kj[k_spl, Rij]
+            ki, kj, m, xk =
+                S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
 
-            Ptm11 = P11_loc[k_spl]
-            Ptm22 = P22_loc[k_spl]
-            Ptm33 = P33_loc[k_spl]
-
+            Ptm11 = m * P11_loc[xk]
+            Ptm22 = m * P22_loc[xk]
+            Ptm33 = m * P33_loc[xk]
+            
             yy += -V12[fd_yy, ki] * V34[fd_yy, kj] * Ptm22 -
                 V12[fd_yz1, ki] * V34[fd_zy1, kj] * Ptm33 -
                 V12[fd_yx1, ki] * V34[fd_xy1, kj] * Ptm11
@@ -567,19 +543,14 @@ function addX!(
             zy1 += -V12[fd_zz, ki] * V34[fd_zy1, kj] * Ptm33 -
                 V12[fd_zy1, ki] * V34[fd_yy, kj] * Ptm22 -
                 V12[fd_zx1, ki] * V34[fd_xy1, kj] * Ptm11
-        end 
+        
 
-        for k_spl = 1:nsum
-
-            ki = S_ki[k_spl, Rij]
-            kj = S_kj[k_spl, Rij]
-
-            Ptm12 = P12_loc[k_spl]
-            Ptm13 = P13_loc[k_spl]
-            Ptm21 = P21_loc[k_spl]
-            Ptm23 = P23_loc[k_spl]
-            Ptm31 = P31_loc[k_spl]
-            Ptm32 = P32_loc[k_spl]
+            Ptm12 = m * P12_loc[xk]
+            Ptm13 = m * P13_loc[xk]
+            Ptm21 = m * P21_loc[xk]
+            Ptm23 = m * P23_loc[xk]
+            Ptm31 = m * P31_loc[xk]
+            Ptm32 = m * P32_loc[xk]
 
             ### Xab2 = -Vab2 Vab2 - Vab3 Vba3
             xy2 += -V12[fd_xy2, ki] * V34[fd_xy2, kj] * Ptm12 -
@@ -996,10 +967,16 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                 nw_ns = nw + ns
                 nw_nt = nw - nt
                 # Update Katanin propagators for current nw
-                for Rij = 1:NUnique
-                    for j = 1:3, i = 1:3
-                        Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, nw) * iG[j](Rij, nw_ns)
-                    end
+                 for Rij = 1:NUnique
+                    Buffs.P11_loc[Rij] = -iSKat[1](Rij, nw) * iG[1](Rij, nw_ns)
+                    Buffs.P12_loc[Rij] = -iSKat[1](Rij, nw) * iG[2](Rij, nw_ns)
+                    Buffs.P13_loc[Rij] = -iSKat[1](Rij, nw) * iG[3](Rij, nw_ns)
+                    Buffs.P21_loc[Rij] = -iSKat[2](Rij, nw) * iG[1](Rij, nw_ns)
+                    Buffs.P22_loc[Rij] = -iSKat[2](Rij, nw) * iG[2](Rij, nw_ns)
+                    Buffs.P23_loc[Rij] = -iSKat[2](Rij, nw) * iG[3](Rij, nw_ns)
+                    Buffs.P31_loc[Rij] = -iSKat[3](Rij, nw) * iG[1](Rij, nw_ns)
+                    Buffs.P32_loc[Rij] = -iSKat[3](Rij, nw) * iG[2](Rij, nw_ns)
+                    Buffs.P33_loc[Rij] = -iSKat[3](Rij, nw) * iG[3](Rij, nw_ns)
                 end
 
                 for Rij1 = 1:NUnique, Rij2 = 1:NUnique
@@ -1014,7 +991,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                     if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                         continue
                     end
-                    addY!(
+                    #= @marker "addY!" =# addY!(
                         Workspace.X,
                         Workspace.State.Gamma,
                         Workspace.Par.System,
@@ -1030,8 +1007,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                     ### If no u--t symmetry, then add all the bubbles
                     ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
                     # if(!Par.Options.use_symmetry || nu<=nt)
-                    
-                    @region "addX" addX!(
+                    #= @marker "addX!" =# addX!(
                         Workspace.X,
                         Workspace.State.Gamma,
                         Workspace.Par.System,
@@ -1040,7 +1016,6 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                         it,
                         iu,
                         nw,
-                        Buffs.spropX,
                         Buffs,
                     )
                     # end
@@ -1221,7 +1196,7 @@ function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
 
     getDFint!(Workspace, Lam)
     get_Self_Energy!(Workspace, Lam)
-    #= @region "getXBubble!"  =#getXBubble!(Workspace, Lam)
+    #= @region "getXBubble!" =# getXBubble!(Workspace, Lam)
     symmetrizeBubble!(Workspace.X, Par)
     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
