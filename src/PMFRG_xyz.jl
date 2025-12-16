@@ -410,6 +410,7 @@ function addX!(
     nwpr::Integer,
     Props::Array{T,3},
     Buffers::ThreadLocalBuffersT,
+    sitesum_split,
 ) where {T}
     (; Npairs, Nsum, siteSum, invpairs) = System
     ns = is - 1
@@ -452,15 +453,33 @@ function addX!(
         end
     end
 
+    nblocks = size(sitesum_split, 1)
+
+    ## DEBUG
+    #blocksize = Npairs/nblocks
+    #limits(blocksize,iblock) = (round(Int32,blocksize*(iblock-1))+1,
+    #                            round(Int32,min(blocksize*iblock,Npairs)))
+    #findblock(i,blocksize) = first(iblock -> begin
+    #                                   start,stop = limits(blocksize,iblock)
+    #                                  start <= i <= stop
+    #                                   end,1:Int(ceil()))
 
     @inbounds @muladd begin
         fill!(X_sum_addX, 0.0)
-        for Rij = 1:Npairs
-            #loop over all left hand side inequivalent pairs Rij
-            for k_spl = 1:Nsum[Rij]
-                #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-                ki, kj, m, xk =
-                    S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+        ######
+        for Rijblock = 1:nblocks, kiblock = 1:nblocks, kjblock = 1:nblocks
+            for s_ in sitesum_split[kjblock, kiblock, Rijblock]
+                (; Rij, ki, kj, m, xk) = s_
+                ######
+                #    for Rij = 1:Npairs
+                #        for k_spl = 1:Nsum[Rij]
+                #            ki = S_ki[k_spl, Rij]
+                #            kj = S_kj[k_spl, Rij]
+                #            m = S_m[k_spl, Rij]
+                #            xk = S_xk[k_spl, Rij]
+
+
+
 
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
@@ -545,8 +564,10 @@ function addX!(
                         V12_addX[:, fd.zy3, ki] * V34_addX[:, fd.yz2, kj] * Ptm[2, 3]
                 end
             end
-
         end
+
+        #end
+        #end
         (@view Xh[:, 1:21, :, it, is]) .+= (@view X_sum_addX[:, :, :])
     end
     return
@@ -900,10 +921,65 @@ function X_from_Xh!(X::Array{T,5}, Xh::Array{T,5}) where {T}
 end
 
 
+function split_sitesum(siteSum, max_blocksize, Npairs, Nsum)
+    S_ki = siteSum.ki
+    S_kj = siteSum.kj
+    S_xk = siteSum.xk
+    S_m = siteSum.m
+
+
+    nblocks = Int(ceil(Npairs / max_blocksize))
+    blocksize = Npairs / nblocks
+
+    limits(iblock) = (
+        round(Int32, blocksize * (iblock - 1)) + 1,
+        round(Int32, min(blocksize * iblock, Npairs)),
+    )
+
+    get_S_el() = Vector{@NamedTuple{Rij::Int32, ki::Int32, kj::Int32, m::Int32, xk::Int32}}(
+        undef,
+        (maximum(Nsum) * max_blocksize),
+    )
+
+    S = Array{Base.return_types(get_S_el)[1],3}(undef, (nblocks, nblocks, nblocks))
+    for Rijblock = 1:nblocks
+        Rijmin, Rijmax = limits(Rijblock)
+        for kiblock = 1:nblocks
+            kimin, kimax = limits(kiblock)
+            for kjblock = 1:nblocks
+                kjmin, kjmax = limits(kjblock)
+                S_el = get_S_el()
+
+                counter = 0
+                for Rij = Rijmin:Rijmax
+                    for k_spl = 1:Nsum[Rij]
+                        let ki = S_ki[k_spl, Rij], kj = S_kj[k_spl, Rij]
+                            if (kimin <= ki <= kimax && kjmin <= kj <= kjmax)
+                                counter += 1
+                                S_el[counter] = (
+                                    Rij = Rij,
+                                    ki = ki,
+                                    kj = kj,
+                                    m = S_m[k_spl, Rij],
+                                    xk = S_xk[k_spl, Rij],
+                                )
+                            end
+                        end
+                    end
+                end
+                S[kjblock, kiblock, Rijblock] = S_el[1:counter]
+            end
+        end
+    end
+    S
+end
+
+
+
 function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
     Par = Workspace.Par
     (; N, lenIntw) = Par.NumericalParams
-    (; NUnique) = Par.System
+    (; NUnique, siteSum, Npairs, Nsum) = Par.System
 
     iSigma = Workspace.State.iSigma
     DiSigma = Workspace.Deriv.iSigma
@@ -918,6 +994,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System)
 
+    sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
 
     Xh = Xh_from_X(Workspace.X)
 
@@ -979,6 +1056,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
                     nw,
                     Buffs.spropX,
                     Buffs,
+                    sitesum_split,
                 )
             end
         end
