@@ -412,15 +412,9 @@ function addX!(
     Buffers::ThreadLocalBuffersT,
     sitesum_split,
 ) where {T}
-    (; Npairs, Nsum, siteSum, invpairs) = System
+    (; Npairs, invpairs) = System
     ns = is - 1
     nt = it - 1
-
-    S_ki = siteSum.ki
-    S_kj = siteSum.kj
-    S_xk = siteSum.xk
-    S_m = siteSum.m
-
     (; V12_addX, V34_addX, X_sum_addX, Ptm) = Buffers
 
     iuh_max = size(Xh)[1]
@@ -453,32 +447,18 @@ function addX!(
         end
     end
 
-    nblocks = size(sitesum_split, 1)
-
-    ## DEBUG
-    #blocksize = Npairs/nblocks
-    #limits(blocksize,iblock) = (round(Int32,blocksize*(iblock-1))+1,
-    #                            round(Int32,min(blocksize*iblock,Npairs)))
-    #findblock(i,blocksize) = first(iblock -> begin
-    #                                   start,stop = limits(blocksize,iblock)
-    #                                  start <= i <= stop
-    #                                   end,1:Int(ceil()))
 
     @inbounds @muladd begin
         fill!(X_sum_addX, 0.0)
-        ######
-        for Rijblock = 1:nblocks, kiblock = 1:nblocks, kjblock = 1:nblocks
-            for s_ in sitesum_split[kjblock, kiblock, Rijblock]
-                (; Rij, ki, kj, m, xk) = s_
-                ######
-                #    for Rij = 1:Npairs
-                #        for k_spl = 1:Nsum[Rij]
-                #            ki = S_ki[k_spl, Rij]
-                #            kj = S_kj[k_spl, Rij]
-                #            m = S_m[k_spl, Rij]
-                #            xk = S_xk[k_spl, Rij]
+        for (; S, Nsum_split, Rijmin, Rijmax, kimin, kimax) in sitesum_split,
+            Rij = Rijmin:Rijmax,
+            ki = kimin:kimax
 
+            Rij_iblock = Rij - Rijmin + 1
+            ki_iblock = ki - kimin + 1
 
+            for k_spl = 1:Nsum_split[ki_iblock, Rij_iblock]
+                (; kj, m, xk) = S[k_spl, ki_iblock, Rij_iblock]
 
 
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
@@ -936,39 +916,63 @@ function split_sitesum(siteSum, max_blocksize, Npairs, Nsum)
         round(Int32, min(blocksize * iblock, Npairs)),
     )
 
-    get_S_el() = Vector{@NamedTuple{Rij::Int32, ki::Int32, kj::Int32, m::Int32, xk::Int32}}(
+    get_S_el() = Array{@NamedTuple{kj::Int32, m::Int32, xk::Int32},3}(
         undef,
-        (maximum(Nsum) * max_blocksize),
+        (maximum(Nsum), max_blocksize, max_blocksize),
     )
 
-    S = Array{Base.return_types(get_S_el)[1],3}(undef, (nblocks, nblocks, nblocks))
+    S = Vector{
+        @NamedTuple{
+            S::Base.return_types(get_S_el)[1],
+            Nsum_split::Matrix{Int32},
+            Rijmin::Int32,
+            Rijmax::Int32,
+            kimin::Int32,
+            kimax::Int32,
+        }
+    }()
     for Rijblock = 1:nblocks
         Rijmin, Rijmax = limits(Rijblock)
         for kiblock = 1:nblocks
             kimin, kimax = limits(kiblock)
-            for kjblock = 1:nblocks
-                kjmin, kjmax = limits(kjblock)
-                S_el = get_S_el()
+            S_el = get_S_el()
+            for i in eachindex(S_el)
+                S_el[i] = (kj = 0, m = 0, xk = 0)
+            end
 
-                counter = 0
-                for Rij = Rijmin:Rijmax
-                    for k_spl = 1:Nsum[Rij]
-                        let ki = S_ki[k_spl, Rij], kj = S_kj[k_spl, Rij]
-                            if (kimin <= ki <= kimax && kjmin <= kj <= kjmax)
-                                counter += 1
-                                S_el[counter] = (
-                                    Rij = Rij,
-                                    ki = ki,
-                                    kj = kj,
-                                    m = S_m[k_spl, Rij],
-                                    xk = S_xk[k_spl, Rij],
-                                )
-                            end
+            Nsum_el = zeros(Int32, (kimax - kimin + 1, Rijmax - Rijmin + 1))
+
+            for Rij = Rijmin:Rijmax
+                for ki_target = kimin:kimax
+                    counter = 0
+                    for k_spl_old = 1:Nsum[Rij]
+                        ki_old = S_ki[k_spl_old, Rij]
+                        kj_old = S_kj[k_spl_old, Rij]
+                        xk_old = S_xk[k_spl_old, Rij]
+                        m_old = S_m[k_spl_old, Rij]
+
+                        if ki_target == ki_old
+                            counter += 1
+                            S_el[counter, ki_target-kimin+1, Rij-Rijmin+1] =
+                                (kj = kj_old, m = m_old, xk = xk_old)
                         end
                     end
+                    Nsum_el[ki_target-kimin+1, Rij-Rijmin+1] = counter
                 end
-                S[kjblock, kiblock, Rijblock] = S_el[1:counter]
+
             end
+            push!(
+                S,
+                (
+                    S = S_el[1:maximum(Nsum_el), :, :],
+                    Nsum_split = Nsum_el,
+                    Rijmin = Rijmin,
+                    Rijmax = Rijmax,
+                    kimin = kimin,
+                    kimax = kimax,
+                ),
+            )
+
         end
     end
     S

@@ -4,6 +4,7 @@ using PMFRG_xyz
 include("regression/dimer_anisotropy/regression_tests_dimer.jl")
 include("performance/allocations.jl")
 include("unit/Xtype.jl")
+include("unit/sitesum.jl")
 
 function run_regression_tests()
     @testset verbose = true "Regression Tests for PMFRG_xyz, dimer anisotropy" begin
@@ -22,6 +23,9 @@ end
 
 function run_unit_tests()
     @testset verbose = true "Unit Tests" begin
+        @testset "site sum split" begin
+            test_site_sum_split()
+        end
         @testset "XType tests" begin
             # Test with small configuration
             mapping_small = DefaultXIndexMapping(21, 3, 4)
