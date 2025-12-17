@@ -15,8 +15,8 @@ import .CPUInfo
 function main(;
     record::Bool,
     commit::Union{String,Nothing} = nothing,
-    dbfile::String,
-    comment::String,
+    dbfile::String = joinpath(@__DIR__, "benchmark_getXBubble.db"),
+    comment::String = "",
 )
     println("Testing...")
     run_getXbubble_regression_tests()
