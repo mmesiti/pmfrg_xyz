@@ -9,45 +9,91 @@ import PMFRG_xyz:
     addX!,
     addY!,
     Xh_from_X,
-    ThreadLocalBuffersT
+    get_ThreadLocalBuffers,
+    split_sitesum
 
-function check_addXY_allocations()
+function check_addXY_allocations(T)
 
     workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
 
     Par = workspace.Par
-    (; NUnique, Npairs) = Par.System
+    (; NUnique, siteSum, Npairs, Nsum) = Par.System
+    sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
+
+    iuh_blocksize = 10 ÷ 2
+
+    buffs = get_ThreadLocalBuffers(10, Par.System, iuh_blocksize, T, 1)[1]
+
+    # Convert Gamma to ComputeType if needed
+    Gamma =
+        eltype(workspace.State.Gamma) == T ? workspace.State.Gamma :
+        T.(workspace.State.Gamma)
 
 
-    buffs = ThreadLocalBuffersT(
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21)),
-        zeros(21),
-        zeros(3, 3, NUnique),
-        zeros(3, 3, NUnique, NUnique),
-        zeros(3, 3),
-        zeros(21),
-        zeros(21),
-        zeros(21),
-        zeros(21),
-    )
-
-
-    X = workspace.X
-    Gamma = workspace.State.Gamma
     System = Par.System
     N = Par.NumericalParams.N
 
 
-    Xh = Xh_from_X(X)
+    Xh = zeros(T, iuh_blocksize, 42, Npairs, N, N)
 
-    addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
-    addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
+    addX!(
+        buffs.X_sum_addX,
+        Gamma,
+        System,
+        N,
+        1,
+        1,
+        1,
+        buffs.spropX,
+        buffs,
+        sitesum_split,
+        1,
+        iuh_blocksize,
+    )
 
-    addXallocations = @allocations addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
+    addY!(
+        buffs.X_sum_addY,
+        Gamma,
+        System,
+        N,
+        1,
+        1,
+        1,
+        buffs.spropY,
+        buffs,
+        1,
+        iuh_blocksize,
+    )
 
-    addYallocations = @allocations addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
+
+    addXallocations = @allocations addX!(
+        buffs.X_sum_addX,
+        Gamma,
+        System,
+        N,
+        1,
+        1,
+        1,
+        buffs.spropX,
+        buffs,
+        sitesum_split,
+        1,
+        iuh_blocksize,
+    )
+
+    addYallocations = @allocations addY!(
+        buffs.X_sum_addY,
+        Gamma,
+        System,
+        N,
+        1,
+        1,
+        1,
+        buffs.spropY,
+        buffs,
+        1,
+        iuh_blocksize,
+    )
 
     addXallocations, addYallocations
 end

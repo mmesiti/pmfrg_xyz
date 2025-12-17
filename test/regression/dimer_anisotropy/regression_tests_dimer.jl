@@ -92,6 +92,41 @@ function run_getXbubble_regression_tests()
             end
 
         end
+
+        # Test Float32 precision parameter
+        @testset verbose = true "Float32 precision test" begin
+            # Take the first test case
+            arguments = (data["arguments"])[1]
+            Workspace = arguments[1]
+            T = arguments[2]
+
+            # Save original X
+            X_original = copy(Workspace.X)
+
+            # Test with Float64 (default)
+            PMFRG_xyz.setZero!(Workspace.X)
+            @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T)
+            X_float64 = copy(Workspace.X)
+
+            # Test with explicit Float64
+            PMFRG_xyz.setZero!(Workspace.X)
+            @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T; ComputeType = Float64)
+            X_float64_explicit = copy(Workspace.X)
+
+            # Test with Float32
+            PMFRG_xyz.setZero!(Workspace.X)
+            @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T; ComputeType = Float32)
+            X_float32 = copy(Workspace.X)
+
+            # Check that Float64 results match
+            @test X_float64 ≈ X_float64_explicit
+
+            # Check that Float32 results are close to Float64 (within Float32 precision)
+            @test X_float64 ≈ X_float32 rtol = 1e-6
+
+            # Restore original X
+            Workspace.X .= X_original
+        end
     end
     nothing
 end

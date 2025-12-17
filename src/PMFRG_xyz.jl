@@ -367,7 +367,7 @@ struct ThreadLocalBuffersT{T}
     V12_addX::Array{T,3}
     V34_addX::Array{T,3}
     X_sum_addX::Array{T,3}
-    X_sum::Vector{T}
+    X_sum_addY::Array{T,3}
     spropX::Array{T,3}
     spropY::Array{T,4}
     Ptm::Matrix{T}
@@ -378,30 +378,36 @@ struct ThreadLocalBuffersT{T}
 
 end
 
-function get_ThreadLocalBuffers(N, System)::Vector{ThreadLocalBuffersT{Float64}}
+function get_ThreadLocalBuffers(
+    N,
+    System,
+    iuh_blocksize::Int,
+    ComputeType::Type{<:AbstractFloat},
+    nbuffers = Threads.nthreads(),
+)::Vector{ThreadLocalBuffersT{ComputeType}}
     (; Npairs, NUnique) = System
 
     [
         ThreadLocalBuffersT(
-            zeros(Int(N / 2), 21, Npairs),
-            zeros(Int(N / 2), 21, Npairs),
-            zeros(Int(N / 2), 21, Npairs),
-            zeros(21),
-            zeros(3, 3, NUnique),
-            zeros(3, 3, NUnique, NUnique),
-            zeros(3, 3),
-            zeros(21),
-            zeros(21),
-            zeros(21),
-            zeros(21),
-        ) for _ = 1:Threads.nthreads()
+            zeros(ComputeType, iuh_blocksize, 21, Npairs),
+            zeros(ComputeType, iuh_blocksize, 21, Npairs),
+            zeros(ComputeType, iuh_blocksize, 21, Npairs),
+            zeros(ComputeType, iuh_blocksize, 21, Npairs),
+            zeros(ComputeType, 3, 3, NUnique),
+            zeros(ComputeType, 3, 3, NUnique, NUnique),
+            zeros(ComputeType, 3, 3),
+            zeros(ComputeType, 21),
+            zeros(ComputeType, 21),
+            zeros(ComputeType, 21),
+            zeros(ComputeType, 21),
+        ) for _ = 1:nbuffers
     ]
 end
 
 # The main bottleneck seems to me to be located in the creation of large
 # arrays of size 42 and 21 and the continued calling fo the V_ function.
 function addX!(
-    Xh::Array{T,5},
+    X_sum_addX::Array{T,3},
     Gamma::Array{T,5},
     System::Geometry,
     N::Int64,
@@ -409,19 +415,20 @@ function addX!(
     it::Integer,
     nwpr::Integer,
     Props::Array{T,3},
-    Buffers::ThreadLocalBuffersT,
+    Buffers::ThreadLocalBuffersT{T},
     sitesum_split,
+    iuh_start::Integer,
+    block_length::Integer,
 ) where {T}
     (; Npairs, invpairs) = System
     ns = is - 1
     nt = it - 1
-    (; V12_addX, V34_addX, X_sum_addX, Ptm) = Buffers
+    (; V12_addX, V34_addX, Ptm) = Buffers
 
-    iuh_max = size(Xh)[1]
-
-    for iuh = 1:iuh_max
+    for iuh_local = 1:block_length
+        iuh_global = iuh_start + iuh_local - 1
         iu_parity = (is + it) % 2
-        iu = (iuh - 1) * 2 + 1 + (1 - iu_parity)
+        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
 
         nu = iu - 1
 
@@ -442,14 +449,14 @@ function addX!(
 
             R12 = swap_R12 ? invpairs[ki] : ki
             R34 = swap_R34 ? invpairs[ki] : ki
-            Vert!((@view V12_addX[iuh, :, ki]), Gamma, s1, t1, u1, flavTransf12, R12)
-            Vert!((@view V34_addX[iuh, :, ki]), Gamma, s2, t2, u2, flavTransf34, R34)
+            Vert!((@view V12_addX[iuh_local, :, ki]), Gamma, s1, t1, u1, flavTransf12, R12)
+            Vert!((@view V34_addX[iuh_local, :, ki]), Gamma, s2, t2, u2, flavTransf34, R34)
         end
     end
 
 
     @inbounds @muladd begin
-        fill!(X_sum_addX, 0.0)
+        fill!((@view X_sum_addX[1:block_length, :, :]), zero(T))
         for (; S, Nsum_split, Rijmin, Rijmax, kimin, kimax) in sitesum_split,
             Rij = Rijmin:Rijmax,
             ki = kimin:kimax
@@ -464,97 +471,195 @@ function addX!(
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
                 @.. @inbounds @fastmath begin
-                    X_sum_addX[:, fd.yy, Rij] +=
-                        -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1]
-                    X_sum_addX[:, fd.zz, Rij] +=
-                        -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2]
-                    X_sum_addX[:, fd.xx, Rij] +=
-                        -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3]
+                    X_sum_addX[1:block_length, fd.yy, Rij] +=
+                        -V12_addX[1:block_length, fd.yy, ki] *
+                        V34_addX[1:block_length, fd.yy, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.yz1, ki] *
+                        V34_addX[1:block_length, fd.zy1, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.yx1, ki] *
+                        V34_addX[1:block_length, fd.xy1, kj] *
+                        Ptm[1, 1]
+                    X_sum_addX[1:block_length, fd.zz, Rij] +=
+                        -V12_addX[1:block_length, fd.zz, ki] *
+                        V34_addX[1:block_length, fd.zz, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.zx1, ki] *
+                        V34_addX[1:block_length, fd.xz1, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.zy1, ki] *
+                        V34_addX[1:block_length, fd.yz1, kj] *
+                        Ptm[2, 2]
+                    X_sum_addX[1:block_length, fd.xx, Rij] +=
+                        -V12_addX[1:block_length, fd.xx, ki] *
+                        V34_addX[1:block_length, fd.xx, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.xy1, ki] *
+                        V34_addX[1:block_length, fd.yx1, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.xz1, ki] *
+                        V34_addX[1:block_length, fd.zx1, kj] *
+                        Ptm[3, 3]
 
                     ### Xab1 += -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-                    X_sum_addX[:, fd.xy1, Rij] +=
-                        -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3]
-                    X_sum_addX[:, fd.xz1, Rij] +=
-                        -V12_addX[:, fd.xx, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.xz1, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.xy1, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2]
-                    X_sum_addX[:, fd.yx1, Rij] +=
-                        -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3]
-                    X_sum_addX[:, fd.yz1, Rij] +=
-                        -V12_addX[:, fd.yy, ki] * V34_addX[:, fd.yz1, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.yz1, ki] * V34_addX[:, fd.zz, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.yx1, ki] * V34_addX[:, fd.xz1, kj] * Ptm[1, 1]
-                    X_sum_addX[:, fd.zx1, Rij] +=
-                        -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zx1, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xx, kj] * Ptm[1, 1] -
-                        V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yx1, kj] * Ptm[2, 2]
-                    X_sum_addX[:, fd.zy1, Rij] +=
-                        -V12_addX[:, fd.zz, ki] * V34_addX[:, fd.zy1, kj] * Ptm[3, 3] -
-                        V12_addX[:, fd.zy1, ki] * V34_addX[:, fd.yy, kj] * Ptm[2, 2] -
-                        V12_addX[:, fd.zx1, ki] * V34_addX[:, fd.xy1, kj] * Ptm[1, 1]
+                    X_sum_addX[1:block_length, fd.xy1, Rij] +=
+                        -V12_addX[1:block_length, fd.xx, ki] *
+                        V34_addX[1:block_length, fd.xy1, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.xy1, ki] *
+                        V34_addX[1:block_length, fd.yy, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.xz1, ki] *
+                        V34_addX[1:block_length, fd.zy1, kj] *
+                        Ptm[3, 3]
+                    X_sum_addX[1:block_length, fd.xz1, Rij] +=
+                        -V12_addX[1:block_length, fd.xx, ki] *
+                        V34_addX[1:block_length, fd.xz1, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.xz1, ki] *
+                        V34_addX[1:block_length, fd.zz, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.xy1, ki] *
+                        V34_addX[1:block_length, fd.yz1, kj] *
+                        Ptm[2, 2]
+                    X_sum_addX[1:block_length, fd.yx1, Rij] +=
+                        -V12_addX[1:block_length, fd.yy, ki] *
+                        V34_addX[1:block_length, fd.yx1, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.yx1, ki] *
+                        V34_addX[1:block_length, fd.xx, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.yz1, ki] *
+                        V34_addX[1:block_length, fd.zx1, kj] *
+                        Ptm[3, 3]
+                    X_sum_addX[1:block_length, fd.yz1, Rij] +=
+                        -V12_addX[1:block_length, fd.yy, ki] *
+                        V34_addX[1:block_length, fd.yz1, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.yz1, ki] *
+                        V34_addX[1:block_length, fd.zz, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.yx1, ki] *
+                        V34_addX[1:block_length, fd.xz1, kj] *
+                        Ptm[1, 1]
+                    X_sum_addX[1:block_length, fd.zx1, Rij] +=
+                        -V12_addX[1:block_length, fd.zz, ki] *
+                        V34_addX[1:block_length, fd.zx1, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.zx1, ki] *
+                        V34_addX[1:block_length, fd.xx, kj] *
+                        Ptm[1, 1] -
+                        V12_addX[1:block_length, fd.zy1, ki] *
+                        V34_addX[1:block_length, fd.yx1, kj] *
+                        Ptm[2, 2]
+                    X_sum_addX[1:block_length, fd.zy1, Rij] +=
+                        -V12_addX[1:block_length, fd.zz, ki] *
+                        V34_addX[1:block_length, fd.zy1, kj] *
+                        Ptm[3, 3] -
+                        V12_addX[1:block_length, fd.zy1, ki] *
+                        V34_addX[1:block_length, fd.yy, kj] *
+                        Ptm[2, 2] -
+                        V12_addX[1:block_length, fd.zx1, ki] *
+                        V34_addX[1:block_length, fd.xy1, kj] *
+                        Ptm[1, 1]
 
                     ### Xab2 += -Vab2 Vab2 - Vab3 Vba3
-                    X_sum_addX[:, fd.xy2, Rij] +=
-                        -V12_addX[:, fd.xy2, ki] * V34_addX[:, fd.xy2, kj] * Ptm[1, 2] -
-                        V12_addX[:, fd.xy3, ki] * V34_addX[:, fd.yx3, kj] * Ptm[2, 1]
-                    X_sum_addX[:, fd.xz2, Rij] +=
-                        -V12_addX[:, fd.xz2, ki] * V34_addX[:, fd.xz2, kj] * Ptm[1, 3] -
-                        V12_addX[:, fd.xz3, ki] * V34_addX[:, fd.zx3, kj] * Ptm[3, 1]
-                    X_sum_addX[:, fd.yx2, Rij] +=
-                        -V12_addX[:, fd.yx2, ki] * V34_addX[:, fd.yx2, kj] * Ptm[2, 1] -
-                        V12_addX[:, fd.yx3, ki] * V34_addX[:, fd.xy3, kj] * Ptm[1, 2]
-                    X_sum_addX[:, fd.yz2, Rij] +=
-                        -V12_addX[:, fd.yz2, ki] * V34_addX[:, fd.yz2, kj] * Ptm[2, 3] -
-                        V12_addX[:, fd.yz3, ki] * V34_addX[:, fd.zy3, kj] * Ptm[3, 2]
-                    X_sum_addX[:, fd.zx2, Rij] +=
-                        -V12_addX[:, fd.zx2, ki] * V34_addX[:, fd.zx2, kj] * Ptm[3, 1] -
-                        V12_addX[:, fd.zx3, ki] * V34_addX[:, fd.xz3, kj] * Ptm[1, 3]
-                    X_sum_addX[:, fd.zy2, Rij] +=
-                        -V12_addX[:, fd.zy2, ki] * V34_addX[:, fd.zy2, kj] * Ptm[3, 2] -
-                        V12_addX[:, fd.zy3, ki] * V34_addX[:, fd.yz3, kj] * Ptm[2, 3]
+                    X_sum_addX[1:block_length, fd.xy2, Rij] +=
+                        -V12_addX[1:block_length, fd.xy2, ki] *
+                        V34_addX[1:block_length, fd.xy2, kj] *
+                        Ptm[1, 2] -
+                        V12_addX[1:block_length, fd.xy3, ki] *
+                        V34_addX[1:block_length, fd.yx3, kj] *
+                        Ptm[2, 1]
+                    X_sum_addX[1:block_length, fd.xz2, Rij] +=
+                        -V12_addX[1:block_length, fd.xz2, ki] *
+                        V34_addX[1:block_length, fd.xz2, kj] *
+                        Ptm[1, 3] -
+                        V12_addX[1:block_length, fd.xz3, ki] *
+                        V34_addX[1:block_length, fd.zx3, kj] *
+                        Ptm[3, 1]
+                    X_sum_addX[1:block_length, fd.yx2, Rij] +=
+                        -V12_addX[1:block_length, fd.yx2, ki] *
+                        V34_addX[1:block_length, fd.yx2, kj] *
+                        Ptm[2, 1] -
+                        V12_addX[1:block_length, fd.yx3, ki] *
+                        V34_addX[1:block_length, fd.xy3, kj] *
+                        Ptm[1, 2]
+                    X_sum_addX[1:block_length, fd.yz2, Rij] +=
+                        -V12_addX[1:block_length, fd.yz2, ki] *
+                        V34_addX[1:block_length, fd.yz2, kj] *
+                        Ptm[2, 3] -
+                        V12_addX[1:block_length, fd.yz3, ki] *
+                        V34_addX[1:block_length, fd.zy3, kj] *
+                        Ptm[3, 2]
+                    X_sum_addX[1:block_length, fd.zx2, Rij] +=
+                        -V12_addX[1:block_length, fd.zx2, ki] *
+                        V34_addX[1:block_length, fd.zx2, kj] *
+                        Ptm[3, 1] -
+                        V12_addX[1:block_length, fd.zx3, ki] *
+                        V34_addX[1:block_length, fd.xz3, kj] *
+                        Ptm[1, 3]
+                    X_sum_addX[1:block_length, fd.zy2, Rij] +=
+                        -V12_addX[1:block_length, fd.zy2, ki] *
+                        V34_addX[1:block_length, fd.zy2, kj] *
+                        Ptm[3, 2] -
+                        V12_addX[1:block_length, fd.zy3, ki] *
+                        V34_addX[1:block_length, fd.yz3, kj] *
+                        Ptm[2, 3]
 
                     ### Xab3 += -Vab2 Vab3 - Vab3 Vba2
-                    X_sum_addX[:, fd.xy3, Rij] +=
-                        -V12_addX[:, fd.xy2, ki] * V34_addX[:, fd.xy3, kj] * Ptm[1, 2] -
-                        V12_addX[:, fd.xy3, ki] * V34_addX[:, fd.yx2, kj] * Ptm[2, 1]
-                    X_sum_addX[:, fd.xz3, Rij] +=
-                        -V12_addX[:, fd.xz2, ki] * V34_addX[:, fd.xz3, kj] * Ptm[1, 3] -
-                        V12_addX[:, fd.xz3, ki] * V34_addX[:, fd.zx2, kj] * Ptm[3, 1]
-                    X_sum_addX[:, fd.yx3, Rij] +=
-                        -V12_addX[:, fd.yx2, ki] * V34_addX[:, fd.yx3, kj] * Ptm[2, 1] -
-                        V12_addX[:, fd.yx3, ki] * V34_addX[:, fd.xy2, kj] * Ptm[1, 2]
-                    X_sum_addX[:, fd.yz3, Rij] +=
-                        -V12_addX[:, fd.yz2, ki] * V34_addX[:, fd.yz3, kj] * Ptm[2, 3] -
-                        V12_addX[:, fd.yz3, ki] * V34_addX[:, fd.zy2, kj] * Ptm[3, 2]
-                    X_sum_addX[:, fd.zx3, Rij] +=
-                        -V12_addX[:, fd.zx2, ki] * V34_addX[:, fd.zx3, kj] * Ptm[3, 1] -
-                        V12_addX[:, fd.zx3, ki] * V34_addX[:, fd.xz2, kj] * Ptm[1, 3]
-                    X_sum_addX[:, fd.zy3, Rij] +=
-                        -V12_addX[:, fd.zy2, ki] * V34_addX[:, fd.zy3, kj] * Ptm[3, 2] -
-                        V12_addX[:, fd.zy3, ki] * V34_addX[:, fd.yz2, kj] * Ptm[2, 3]
+                    X_sum_addX[1:block_length, fd.xy3, Rij] +=
+                        -V12_addX[1:block_length, fd.xy2, ki] *
+                        V34_addX[1:block_length, fd.xy3, kj] *
+                        Ptm[1, 2] -
+                        V12_addX[1:block_length, fd.xy3, ki] *
+                        V34_addX[1:block_length, fd.yx2, kj] *
+                        Ptm[2, 1]
+                    X_sum_addX[1:block_length, fd.xz3, Rij] +=
+                        -V12_addX[1:block_length, fd.xz2, ki] *
+                        V34_addX[1:block_length, fd.xz3, kj] *
+                        Ptm[1, 3] -
+                        V12_addX[1:block_length, fd.xz3, ki] *
+                        V34_addX[1:block_length, fd.zx2, kj] *
+                        Ptm[3, 1]
+                    X_sum_addX[1:block_length, fd.yx3, Rij] +=
+                        -V12_addX[1:block_length, fd.yx2, ki] *
+                        V34_addX[1:block_length, fd.yx3, kj] *
+                        Ptm[2, 1] -
+                        V12_addX[1:block_length, fd.yx3, ki] *
+                        V34_addX[1:block_length, fd.xy2, kj] *
+                        Ptm[1, 2]
+                    X_sum_addX[1:block_length, fd.yz3, Rij] +=
+                        -V12_addX[1:block_length, fd.yz2, ki] *
+                        V34_addX[1:block_length, fd.yz3, kj] *
+                        Ptm[2, 3] -
+                        V12_addX[1:block_length, fd.yz3, ki] *
+                        V34_addX[1:block_length, fd.zy2, kj] *
+                        Ptm[3, 2]
+                    X_sum_addX[1:block_length, fd.zx3, Rij] +=
+                        -V12_addX[1:block_length, fd.zx2, ki] *
+                        V34_addX[1:block_length, fd.zx3, kj] *
+                        Ptm[3, 1] -
+                        V12_addX[1:block_length, fd.zx3, ki] *
+                        V34_addX[1:block_length, fd.xz2, kj] *
+                        Ptm[1, 3]
+                    X_sum_addX[1:block_length, fd.zy3, Rij] +=
+                        -V12_addX[1:block_length, fd.zy2, ki] *
+                        V34_addX[1:block_length, fd.zy3, kj] *
+                        Ptm[3, 2] -
+                        V12_addX[1:block_length, fd.zy3, ki] *
+                        V34_addX[1:block_length, fd.yz2, kj] *
+                        Ptm[2, 3]
                 end
             end
         end
-
-        #end
-        #end
-        (@view Xh[:, 1:21, :, it, is]) .+= (@view X_sum_addX[:, :, :])
     end
     return
 end
 
 function addY!(
-    Xh::Array{T,5},
+    X_sum_addY::Array{T,3},
     Gamma::Array{T,5},
     System::Geometry,
     N::Int64,
@@ -562,15 +667,20 @@ function addY!(
     it::Integer,
     nwpr::Integer,
     Props::Array{T,4},
-    Buffers::ThreadLocalBuffersT,
+    Buffers::ThreadLocalBuffersT{T},
+    iuh_start::Integer,
+    block_length::Integer,
 ) where {T}
     (; Npairs, invpairs, PairTypes, OnsitePairs) = System
     ns = is - 1
     nt = it - 1
 
-    for iuh = 1:Int(N / 2)
+    (; V13_addY, V24_addY, V31_addY, V42_addY) = Buffers
+    fill!(X_sum_addY, zero(T))
+    for iuh_local = 1:block_length
+        iuh_global = iuh_start + iuh_local - 1
         iu_parity = (is + it) % 2
-        iu = (iuh - 1) * 2 + 1 + (1 - iu_parity)
+        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
 
         nu = iu - 1
         _, wpw2, _, wpw4, wmw1, _, wmw3, _ = mixedFrequencies(ns, nt, nu, nwpr)
@@ -579,7 +689,6 @@ function addY!(
         flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
         flavTransf42 = (nt * wpw2 > 0, wpw4 * wpw2 > 0, wpw4 * nt < 0)
 
-        (; X_sum, V13_addY, V24_addY, V31_addY, V42_addY) = Buffers
 
         V13 = V13_addY
         V24 = V24_addY
@@ -602,7 +711,7 @@ function addY!(
             Rij in OnsitePairs && continue
             # loop over all left hand side inequivalent pairs Rij
             # loop over all left hand side inequivalent pairs Rij
-            #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij) 
+            #Rji = invpairs[Rij] # store pair corresponding to Rji (easiest case: Rji = Rij)
             (; xi, xj) = PairTypes[Rij]
 
             R13 = swap13 ? invpairs[Rij] : Rij
@@ -615,15 +724,14 @@ function addY!(
             Vert!(V31, Gamma, s31, t31, u31, flavTransf31, R31)
             Vert!(V42, Gamma, s42, t42, u42, flavTransf42, R42)
 
-            fill!(X_sum, 0.0)
 
             P = @SMatrix [Props[i, j, xi, xj] for i = 1:3, j = 1:3]
             PT = @SMatrix [Props[j, i, xj, xi] for i = 1:3, j = 1:3]
 
             ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
-            X_sum[fd.xx] =
-                X_sum[fd.xx] + (
+            X_sum_addY[iuh_local, fd.xx, Rij] =
+                X_sum_addY[iuh_local, fd.xx, Rij] + (
                     (
                         V13[fd.xx] * V24[fd.xx] * P[1, 1] +
                         V13[fd.xy2] * V24[fd.xy2] * P[2, 2] +
@@ -635,8 +743,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yy] =
-                X_sum[fd.yy] + (
+            X_sum_addY[iuh_local, fd.yy, Rij] =
+                X_sum_addY[iuh_local, fd.yy, Rij] + (
                     (
                         V13[fd.yy] * V24[fd.yy] * P[2, 2] +
                         V13[fd.yx2] * V24[fd.yx2] * P[1, 1] +
@@ -648,8 +756,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zz] =
-                X_sum[fd.zz] + (
+            X_sum_addY[iuh_local, fd.zz, Rij] =
+                X_sum_addY[iuh_local, fd.zz, Rij] + (
                     (
                         V13[fd.zz] * V24[fd.zz] * P[3, 3] +
                         V13[fd.zx2] * V24[fd.zx2] * P[1, 1] +
@@ -663,8 +771,8 @@ function addY!(
 
             ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
 
-            X_sum[fd.xy1] =
-                X_sum[fd.xy1] + (
+            X_sum_addY[iuh_local, fd.xy1, Rij] =
+                X_sum_addY[iuh_local, fd.xy1, Rij] + (
                     (
                         V13[fd.xy3] * V24[fd.xy3] * P[2, 1] +
                         V13[fd.xy1] * V24[fd.xy1] * P[1, 2]
@@ -674,8 +782,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.xz1] =
-                X_sum[fd.xz1] + (
+            X_sum_addY[iuh_local, fd.xz1, Rij] =
+                X_sum_addY[iuh_local, fd.xz1, Rij] + (
                     (
                         V13[fd.xz3] * V24[fd.xz3] * P[3, 1] +
                         V13[fd.xz1] * V24[fd.xz1] * P[1, 3]
@@ -685,8 +793,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yx1] =
-                X_sum[fd.yx1] + (
+            X_sum_addY[iuh_local, fd.yx1, Rij] =
+                X_sum_addY[iuh_local, fd.yx1, Rij] + (
                     (
                         V13[fd.yx3] * V24[fd.yx3] * P[1, 2] +
                         V13[fd.yx1] * V24[fd.yx1] * P[2, 1]
@@ -696,8 +804,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yz1] =
-                X_sum[fd.yz1] + (
+            X_sum_addY[iuh_local, fd.yz1, Rij] =
+                X_sum_addY[iuh_local, fd.yz1, Rij] + (
                     (
                         V13[fd.yz3] * V24[fd.yz3] * P[3, 2] +
                         V13[fd.yz1] * V24[fd.yz1] * P[2, 3]
@@ -707,8 +815,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zx1] =
-                X_sum[fd.zx1] + (
+            X_sum_addY[iuh_local, fd.zx1, Rij] =
+                X_sum_addY[iuh_local, fd.zx1, Rij] + (
                     (
                         V13[fd.zx3] * V24[fd.zx3] * P[1, 3] +
                         V13[fd.zx1] * V24[fd.zx1] * P[3, 1]
@@ -718,8 +826,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zy1] =
-                X_sum[fd.zy1] + (
+            X_sum_addY[iuh_local, fd.zy1, Rij] =
+                X_sum_addY[iuh_local, fd.zy1, Rij] + (
                     (
                         V13[fd.zy3] * V24[fd.zy3] * P[2, 3] +
                         V13[fd.zy1] * V24[fd.zy1] * P[3, 2]
@@ -731,8 +839,8 @@ function addY!(
 
             ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
 
-            X_sum[fd.xy2] =
-                X_sum[fd.xy2] + (
+            X_sum_addY[iuh_local, fd.xy2, Rij] =
+                X_sum_addY[iuh_local, fd.xy2, Rij] + (
                     (
                         V13[fd.xx] * V24[fd.yx2] * P[1, 1] +
                         V13[fd.xy2] * V24[fd.yy] * P[2, 2] +
@@ -744,8 +852,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.xz2] =
-                X_sum[fd.xz2] + (
+            X_sum_addY[iuh_local, fd.xz2, Rij] =
+                X_sum_addY[iuh_local, fd.xz2, Rij] + (
                     (
                         V13[fd.xx] * V24[fd.zx2] * P[1, 1] +
                         V13[fd.xz2] * V24[fd.zz] * P[3, 3] +
@@ -757,8 +865,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yx2] =
-                X_sum[fd.yx2] + (
+            X_sum_addY[iuh_local, fd.yx2, Rij] =
+                X_sum_addY[iuh_local, fd.yx2, Rij] + (
                     (
                         V13[fd.yy] * V24[fd.xy2] * P[2, 2] +
                         V13[fd.yx2] * V24[fd.xx] * P[1, 1] +
@@ -770,8 +878,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yz2] =
-                X_sum[fd.yz2] + (
+            X_sum_addY[iuh_local, fd.yz2, Rij] =
+                X_sum_addY[iuh_local, fd.yz2, Rij] + (
                     (
                         V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
                         V13[fd.yz2] * V24[fd.zz] * P[3, 3] +
@@ -783,8 +891,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zx2] =
-                X_sum[fd.zx2] + (
+            X_sum_addY[iuh_local, fd.zx2, Rij] =
+                X_sum_addY[iuh_local, fd.zx2, Rij] + (
                     (
                         V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
                         V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
@@ -796,8 +904,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zy2] =
-                X_sum[fd.zy2] + (
+            X_sum_addY[iuh_local, fd.zy2, Rij] =
+                X_sum_addY[iuh_local, fd.zy2, Rij] + (
                     (
                         V13[fd.zz] * V24[fd.yz2] * P[3, 3] +
                         V13[fd.zy2] * V24[fd.yy] * P[2, 2] +
@@ -811,8 +919,8 @@ function addY!(
 
             ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
 
-            X_sum[fd.xy3] =
-                X_sum[fd.xy3] + (
+            X_sum_addY[iuh_local, fd.xy3, Rij] =
+                X_sum_addY[iuh_local, fd.xy3, Rij] + (
                     (
                         V13[fd.xy3] * V24[fd.yx1] * P[2, 1] +
                         V13[fd.xy1] * V24[fd.yx3] * P[1, 2]
@@ -822,8 +930,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.xz3] =
-                X_sum[fd.xz3] + (
+            X_sum_addY[iuh_local, fd.xz3, Rij] =
+                X_sum_addY[iuh_local, fd.xz3, Rij] + (
                     (
                         V13[fd.xz3] * V24[fd.zx1] * P[3, 1] +
                         V13[fd.xz1] * V24[fd.zx3] * P[1, 3]
@@ -833,8 +941,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yx3] =
-                X_sum[fd.yx3] + (
+            X_sum_addY[iuh_local, fd.yx3, Rij] =
+                X_sum_addY[iuh_local, fd.yx3, Rij] + (
                     (
                         V13[fd.yx3] * V24[fd.xy1] * P[1, 2] +
                         V13[fd.yx1] * V24[fd.xy3] * P[2, 1]
@@ -844,8 +952,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.yz3] =
-                X_sum[fd.yz3] + (
+            X_sum_addY[iuh_local, fd.yz3, Rij] =
+                X_sum_addY[iuh_local, fd.yz3, Rij] + (
                     (
                         V13[fd.yz3] * V24[fd.zy1] * P[3, 2] +
                         V13[fd.yz1] * V24[fd.zy3] * P[2, 3]
@@ -855,8 +963,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zx3] =
-                X_sum[fd.zx3] + (
+            X_sum_addY[iuh_local, fd.zx3, Rij] =
+                X_sum_addY[iuh_local, fd.zx3, Rij] + (
                     (
                         V13[fd.zx3] * V24[fd.xz1] * P[1, 3] +
                         V13[fd.zx1] * V24[fd.xz3] * P[3, 1]
@@ -866,8 +974,8 @@ function addY!(
                     )
                 )
 
-            X_sum[fd.zy3] =
-                X_sum[fd.zy3] + (
+            X_sum_addY[iuh_local, fd.zy3, Rij] =
+                X_sum_addY[iuh_local, fd.zy3, Rij] + (
                     (
                         V13[fd.zy3] * V24[fd.yz1] * P[2, 3] +
                         V13[fd.zy1] * V24[fd.yz3] * P[3, 2]
@@ -877,7 +985,6 @@ function addY!(
                     )
                 )
 
-            (@view Xh[iuh, 22:end, Rij, it, is]) .+= X_sum
         end
     end
 end
@@ -980,7 +1087,11 @@ end
 
 
 
-function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
+function getXBubble!(
+    Workspace::OneLoopWorkspace,
+    T::Real;
+    ComputeType::Type{<:AbstractFloat} = Float64,
+)
     Par = Workspace.Par
     (; N, lenIntw) = Par.NumericalParams
     (; NUnique, siteSum, Npairs, Nsum) = Par.System
@@ -996,76 +1107,126 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real)
         zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
     ])
 
-    ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System)
+    # Convert Gamma to ComputeType if needed
+    Gamma =
+        eltype(Workspace.State.Gamma) == ComputeType ? Workspace.State.Gamma :
+        ComputeType.(Workspace.State.Gamma)
+
+    # Determine block size based on precision
+    iuh_blocksize = ComputeType == Float64 ? 4 : 8
+
+    ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, ComputeType)
 
     sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
 
-    Xh = Xh_from_X(Workspace.X)
+    # Create smaller Xh array for blocked computation
+    Xhs = [zeros(ComputeType, iuh_blocksize, 42, Npairs, N, N) for _ = 1:Threads.nthreads()]
+
+    # Calculate number of blocks (ceiling division)
+    iuh_max = div(N, 2)
+    num_blocks = cld(iuh_max, iuh_blocksize)
 
     Threads.@threads :static for is_it = 1:N*N
         @inbounds begin
             is = (is_it - 1) ÷ N + 1
             it = (is_it - 1) % N + 1
-            # WARNING: 
+            # WARNING:
             # This works only with :static
             Buffs = ThreadLocalBuffers[Threads.threadid()]
+            Xh = Xhs[Threads.threadid()]
             ns = is - 1
             nt = it - 1
 
-            # Precompute Katanin propagators
+            # Precompute Katanin propagators (convert to ComputeType)
             for Rij = 1:NUnique
                 for j = 1:3, i = 1:3
-                    Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, 0) * iG[j](Rij, 0)  # nw will be updated later
+                    Buffs.spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, 0) * iG[j](Rij, 0))  # nw will be updated later
                 end
             end
 
             for nw = -lenIntw:lenIntw-1 # Matsubara sum
                 nw_ns = nw + ns
                 nw_nt = nw - nt
-                # Update Katanin propagators for current nw
+                # Update Katanin propagators for current nw (convert to ComputeType)
                 for Rij = 1:NUnique
                     for j = 1:3, i = 1:3
-                        Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, nw) * iG[j](Rij, nw_ns)
+                        Buffs.spropX[i, j, Rij] =
+                            ComputeType(-iSKat[i](Rij, nw) * iG[j](Rij, nw_ns))
                     end
                 end
 
                 for Rij1 = 1:NUnique, Rij2 = 1:NUnique
                     for j = 1:3, i = 1:3
                         Buffs.spropY[i, j, Rij1, Rij2] =
-                            -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
+                            ComputeType(-iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt))
                     end
                 end
 
-                addY!(
-                    Xh,
-                    Workspace.State.Gamma,
-                    Workspace.Par.System,
-                    N,
-                    is,
-                    it,
-                    nw,
-                    Buffs.spropY,
-                    Buffs,
-                ) # add to XTilde-type bubble functions
+                # Loop over iuh blocks
+                for iblock = 1:num_blocks
+                    iuh_start = (iblock - 1) * iuh_blocksize + 1
+                    iuh_end = min(iuh_start + iuh_blocksize - 1, iuh_max)
+                    block_length = iuh_end - iuh_start + 1
 
-                ### If no u--t symmetry, then add all the bubbles
-                ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
-                addX!(
-                    Xh,
-                    Workspace.State.Gamma,
-                    Workspace.Par.System,
-                    N,
-                    is,
-                    it,
-                    nw,
-                    Buffs.spropX,
-                    Buffs,
-                    sitesum_split,
-                )
+                    # Zero out Xh for this block
+                    fill!(Xh, zero(ComputeType))
+
+                    addY!(
+                        Buffs.X_sum_addY,
+                        Gamma,
+                        Workspace.Par.System,
+                        N,
+                        is,
+                        it,
+                        nw,
+                        Buffs.spropY,
+                        Buffs,
+                        iuh_start,
+                        block_length,
+                    ) # add to XTilde-type bubble functions
+
+                    ### If no u--t symmetry, then add all the bubbles
+                    ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
+                    addX!(
+                        Buffs.X_sum_addX,
+                        Gamma,
+                        Workspace.Par.System,
+                        N,
+                        is,
+                        it,
+                        nw,
+                        Buffs.spropX,
+                        Buffs,
+                        sitesum_split,
+                        iuh_start,
+                        block_length,
+                    )
+
+
+                    # Copy results back to Workspace.X
+                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                        iuh_global = iuh_start + iuh_local - 1
+                        iu_parity = (is + it) % 2
+                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+                        if iu <= N
+                            Workspace.X[1:21, Rij, is, it, iu] .+=
+                                (@view Buffs.X_sum_addX[iuh_local, :, Rij])
+                        end
+                    end
+                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                        iuh_global = iuh_start + iuh_local - 1
+                        iu_parity = (is + it) % 2
+                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+                        if iu <= N
+                            Workspace.X[22:42, Rij, is, it, iu] +=
+                                (@view Buffs.X_sum_addY[iuh_local, :, Rij])
+                        end
+                    end
+
+                end
             end
         end
     end
-    X_from_Xh!(Workspace.X, Xh)
 end
 
 function symmetrizeBubble!(X::Array{T,5}, Par) where {T}
