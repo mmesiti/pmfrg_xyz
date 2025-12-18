@@ -466,8 +466,6 @@ function addX!(
 
             for k_spl = 1:Nsum_split[ki_iblock, Rij_iblock]
                 (; kj, m, xk) = S[k_spl, ki_iblock, Rij_iblock]
-
-
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
                 @.. @inbounds @fastmath begin
@@ -1218,8 +1216,6 @@ function getXBubble!(
                     end
 
                 end
-
-
             end
         end
     end
