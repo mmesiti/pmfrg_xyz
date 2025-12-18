@@ -10,15 +10,15 @@ import PMFRG_xyz:
     addY!,
     Xh_from_X,
     get_ThreadLocalBuffers,
-    split_sitesum
+    split_sitesum_v2_noblocking
 
 function check_addXY_allocations(T)
 
     workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
 
     Par = workspace.Par
-    (; NUnique, siteSum, Npairs, Nsum) = Par.System
-    sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
+    (; siteSum, Npairs) = Par.System
+    sitesum_split = split_sitesum_v2_noblocking(siteSum, Npairs)
 
     iuh_blocksize = 10 ÷ 2
 
@@ -32,9 +32,6 @@ function check_addXY_allocations(T)
 
     System = Par.System
     N = Par.NumericalParams.N
-
-
-    Xh = zeros(T, iuh_blocksize, 42, Npairs, N, N)
 
     addX!(
         buffs.X_sum_addX,

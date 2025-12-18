@@ -370,7 +370,6 @@ struct ThreadLocalBuffersT{T}
     X_sum_addY::Array{T,3}
     spropX::Array{T,3}
     spropY::Array{T,4}
-    Ptm::Matrix{T}
     V13_addY::Vector{T}
     V24_addY::Vector{T}
     V31_addY::Vector{T}
@@ -395,7 +394,6 @@ function get_ThreadLocalBuffers(
             zeros(ComputeType, iuh_blocksize, 21, Npairs),
             zeros(ComputeType, 3, 3, NUnique),
             zeros(ComputeType, 3, 3, NUnique, NUnique),
-            zeros(ComputeType, 3, 3),
             zeros(ComputeType, 21),
             zeros(ComputeType, 21),
             zeros(ComputeType, 21),
@@ -423,7 +421,7 @@ function addX!(
     (; Npairs, invpairs) = System
     ns = is - 1
     nt = it - 1
-    (; V12_addX, V34_addX, Ptm) = Buffers
+    (; V12_addX, V34_addX) = Buffers
 
     for iuh_local = 1:block_length
         iuh_global = iuh_start + iuh_local - 1
@@ -454,18 +452,48 @@ function addX!(
         end
     end
 
+    ###
+    unrolled_kj_m_xk, cumsum_ns = sitesum_split
+    @inline @inbounds start(Rij, ki) =
+        let i = ki + (Rij - 1) * Npairs
+            if i > 1
+                cumsum_ns[i-1] + 1
+            else
+                1
+            end
+        end
+    @inline @inbounds stop(Rij, ki) = cumsum_ns[ki+(Rij-1)*Npairs]
+
+    nblocks = Int(ceil(Npairs / 15)) # max_blocksize=15
+    blocksize = Npairs / nblocks
+
+    @inline blockstart(iblock) = round(Int8, blocksize * (iblock - 1)) + 1
+    @inline blockstop(iblock) = round(Int8, min(blocksize * iblock, Npairs))
+
+    ###
 
     @inbounds @muladd begin
         fill!((@view X_sum_addX[1:block_length, :, :]), zero(T))
-        for (; S, Nsum_split, Rijmin, Rijmax, kimin, kimax) in sitesum_split,
-            Rij = Rijmin:Rijmax,
-            ki = kimin:kimax
+        ###
+        #for (; S, Nsum_split, Rijmin, Rijmax, kimin, kimax) in sitesum_split,
+        #    Rij = Rijmin:Rijmax,
+        #    ki = kimin:kimax
 
-            Rij_iblock = Rij - Rijmin + 1
-            ki_iblock = ki - kimin + 1
+        #    Rij_iblock = Rij - Rijmin + 1
+        #    ki_iblock = ki - kimin + 1
 
-            for k_spl = 1:Nsum_split[ki_iblock, Rij_iblock]
-                (; kj, m, xk) = S[k_spl, ki_iblock, Rij_iblock]
+        #    for k_spl = 1:Nsum_split[ki_iblock, Rij_iblock]
+        #        (; kj, m, xk) = S[k_spl, ki_iblock, Rij_iblock]
+        ###
+
+        for Rijblock = 1:nblocks,
+            kiblock = 1:nblocks,
+            Rij = blockstart(Rijblock):blockstop(Rijblock),
+            ki = blockstart(kiblock):blockstop(kiblock)
+
+            for i = start(Rij, ki):stop(Rij, ki)
+                (; kj, m, xk) = unrolled_kj_m_xk[i]
+
 
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
@@ -654,6 +682,7 @@ function addX!(
             end
         end
     end
+
     return
 end
 
@@ -1008,9 +1037,9 @@ end
 
 
 function split_sitesum_v2_noblocking(siteSum, Npairs)
-    unrolled_kj_m_xk = [
-        (Int8(x.kj), Int8(x.m), Int8(x.xk)) for Rij = 1:Npairs for ki = 1:Npairs for
-        x in siteSum[:, Rij] if x.ki == ki
+    unrolled_kj_m_xk::Vector{@NamedTuple{kj::Int8, m::Int8, xk::Int8}} = [
+        (kj = Int8(x.kj), m = Int8(x.m), xk = Int8(x.xk)) for Rij = 1:Npairs for
+        ki = 1:Npairs for x in siteSum[:, Rij] if x.ki == ki
     ]
     ns = [count(x -> x.ki == ki, siteSum[:, Rij]) for Rij = 1:Npairs for ki = 1:Npairs]
 
@@ -1129,7 +1158,7 @@ function getXBubble!(
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, ComputeType)
 
-    sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
+    sitesum_split = split_sitesum_v2_noblocking(siteSum, Npairs)
 
     # Calculate number of blocks (ceiling division)
     iuh_max = div(N, 2)
