@@ -1023,7 +1023,7 @@ function split_sitesum(siteSum, max_blocksize, Npairs, Nsum)
         round(Int32, min(blocksize * iblock, Npairs)),
     )
 
-    get_S_el() = Array{@NamedTuple{kj::Int32, m::Int32, xk::Int32},3}(
+    get_S_el() = Array{@NamedTuple{kj::Int8, m::Int8, xk::Int8},3}(
         undef,
         (maximum(Nsum), max_blocksize, max_blocksize),
     )
@@ -1031,11 +1031,11 @@ function split_sitesum(siteSum, max_blocksize, Npairs, Nsum)
     S = Vector{
         @NamedTuple{
             S::Base.return_types(get_S_el)[1],
-            Nsum_split::Matrix{Int32},
-            Rijmin::Int32,
-            Rijmax::Int32,
-            kimin::Int32,
-            kimax::Int32,
+            Nsum_split::Matrix{Int16},
+            Rijmin::Int8,
+            Rijmax::Int8,
+            kimin::Int8,
+            kimax::Int8,
         }
     }()
     for Rijblock = 1:nblocks
