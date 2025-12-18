@@ -25,6 +25,7 @@ function run_unit_tests()
     @testset verbose = true "Unit Tests" begin
         @testset "site sum split" begin
             test_site_sum_split()
+            test_site_sum_split_v2_noblocking()
         end
         @testset "XType tests" begin
             # Test with small configuration

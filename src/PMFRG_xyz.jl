@@ -466,6 +466,7 @@ function addX!(
 
             for k_spl = 1:Nsum_split[ki_iblock, Rij_iblock]
                 (; kj, m, xk) = S[k_spl, ki_iblock, Rij_iblock]
+
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
                 @.. @inbounds @fastmath begin
@@ -1003,6 +1004,19 @@ function X_from_Xh!(X::Array{T,5}, Xh::Array{T,5}) where {T}
             X[n, Rij, is, it, iu] = zero(T)
         end
     end
+end
+
+
+function split_sitesum_v2_noblocking(siteSum, Npairs)
+    unrolled_kj_m_xk = [
+        (Int8(x.kj), Int8(x.m), Int8(x.xk)) for Rij = 1:Npairs for ki = 1:Npairs for
+        x in siteSum[:, Rij] if x.ki == ki
+    ]
+    ns = [count(x -> x.ki == ki, siteSum[:, Rij]) for Rij = 1:Npairs for ki = 1:Npairs]
+
+    return unrolled_kj_m_xk, cumsum(ns)
+
+
 end
 
 
