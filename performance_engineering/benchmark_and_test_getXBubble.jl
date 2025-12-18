@@ -44,8 +44,8 @@ function main(;
     data = Dict(
         "benchmark_data" => Dict(
             "$(q)_$(fn)" =>
-                eval(Meta.parse("$fn($(getfield(bench_resultFP32, Symbol(q))))"))
-            for q in quantities for fn in funcnames
+                eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))")) for
+            q in quantities for fn in funcnames
         ),
         "allocations" => allocations,
         "benchmark_dataFP32" => Dict(
