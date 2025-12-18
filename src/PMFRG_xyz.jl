@@ -1119,12 +1119,10 @@ function getXBubble!(
 
     sitesum_split = split_sitesum(siteSum, 16, Npairs, Nsum)
 
-    # Create smaller Xh array for blocked computation
-    Xhs = [zeros(ComputeType, iuh_blocksize, 42, Npairs, N, N) for _ = 1:Threads.nthreads()]
-
     # Calculate number of blocks (ceiling division)
     iuh_max = div(N, 2)
-    num_blocks = cld(iuh_max, iuh_blocksize)
+    num_iublocks = cld(iuh_max, iuh_blocksize)
+
 
     Threads.@threads :static for is_it = 1:N*N
         @inbounds begin
@@ -1133,43 +1131,39 @@ function getXBubble!(
             # WARNING:
             # This works only with :static
             Buffs = ThreadLocalBuffers[Threads.threadid()]
-            Xh = Xhs[Threads.threadid()]
             ns = is - 1
             nt = it - 1
 
             # Precompute Katanin propagators (convert to ComputeType)
             for Rij = 1:NUnique
                 for j = 1:3, i = 1:3
-                    Buffs.spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, 0) * iG[j](Rij, 0))  # nw will be updated later
+                    Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, 0) * iG[j](Rij, 0)  # nw will be updated later
                 end
             end
 
             for nw = -lenIntw:lenIntw-1 # Matsubara sum
+
                 nw_ns = nw + ns
                 nw_nt = nw - nt
                 # Update Katanin propagators for current nw (convert to ComputeType)
                 for Rij = 1:NUnique
                     for j = 1:3, i = 1:3
-                        Buffs.spropX[i, j, Rij] =
-                            ComputeType(-iSKat[i](Rij, nw) * iG[j](Rij, nw_ns))
+                        Buffs.spropX[i, j, Rij] = -iSKat[i](Rij, nw) * iG[j](Rij, nw_ns)
                     end
                 end
 
                 for Rij1 = 1:NUnique, Rij2 = 1:NUnique
                     for j = 1:3, i = 1:3
                         Buffs.spropY[i, j, Rij1, Rij2] =
-                            ComputeType(-iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt))
+                            -iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt)
                     end
                 end
 
                 # Loop over iuh blocks
-                for iblock = 1:num_blocks
-                    iuh_start = (iblock - 1) * iuh_blocksize + 1
+                for iublock = 1:num_iublocks
+                    iuh_start = (iublock - 1) * iuh_blocksize + 1
                     iuh_end = min(iuh_start + iuh_blocksize - 1, iuh_max)
                     block_length = iuh_end - iuh_start + 1
-
-                    # Zero out Xh for this block
-                    fill!(Xh, zero(ComputeType))
 
                     addY!(
                         Buffs.X_sum_addY,
@@ -1204,26 +1198,28 @@ function getXBubble!(
 
 
                     # Copy results back to Workspace.X
-                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                    for Rij = 1:Npairs, n = 1:21, iuh_local = 1:block_length
                         iuh_global = iuh_start + iuh_local - 1
                         iu_parity = (is + it) % 2
                         iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                         if iu <= N
-                            Workspace.X[1:21, Rij, is, it, iu] .+=
-                                (@view Buffs.X_sum_addX[iuh_local, :, Rij])
+                            Workspace.X[n, Rij, is, it, iu] +=
+                                Buffs.X_sum_addX[iuh_local, n, Rij]
                         end
                     end
-                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                    for Rij = 1:Npairs, n = 1:21, iuh_local = 1:block_length
                         iuh_global = iuh_start + iuh_local - 1
                         iu_parity = (is + it) % 2
                         iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                         if iu <= N
-                            Workspace.X[22:42, Rij, is, it, iu] +=
-                                (@view Buffs.X_sum_addY[iuh_local, :, Rij])
+                            Workspace.X[21+n, Rij, is, it, iu] +=
+                                Buffs.X_sum_addY[iuh_local, n, Rij]
                         end
                     end
 
                 end
+
+
             end
         end
     end

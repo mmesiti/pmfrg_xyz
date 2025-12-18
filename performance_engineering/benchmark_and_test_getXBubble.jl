@@ -69,13 +69,14 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::Data
 
     println("  N = $N, lattice_size = $lattice_size")
     println("  Lam = $lam")
+    println("  T = $T")
 
     #getXBubble!(workspace, lam, ThreadLocalBuffers)
     #allocations = @ballocations getXBubble!($workspace, $lam, $ThreadLocalBuffers)
     #timing_results = @benchmark getXBubble!($workspace, $lam, $ThreadLocalBuffers)
-    getXBubble!(workspace, lam)
-    allocations = @ballocations getXBubble!($workspace, $lam)
-    timing_results = @benchmark getXBubble!($workspace, $lam)
+    getXBubble!(workspace, lam, ComputeType = T)
+    allocations = @ballocations getXBubble!($workspace, $lam, ComputeType = $T)
+    timing_results = @benchmark getXBubble!($workspace, $lam, ComputeType = $T)
     display(allocations)
     display(timing_results)
     timing_results, allocations
