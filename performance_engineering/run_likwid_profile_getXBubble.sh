@@ -18,8 +18,9 @@ main() {
     echo "Project: $script_dir"
     echo 
 
+    julia --project="$script_dir" -e 'using Pkg; Pkg.resolve(); Pkg.instantiate()'
     likwid-perfctr -C 0 -g "$group" -m \
-        julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl  "$precision"
+        julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl  --precision "$precision"
 }
 
 main "$@"
