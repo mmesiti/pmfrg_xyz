@@ -5,17 +5,18 @@
 using LIKWID
 import ThreadPinning
 using Pkg
+using ArgParse
 Pkg.instantiate()
 
 include("benchmark_utils.jl")
 import PMFRG_xyz: getXBubble!, getDeriv!, SolveFRG
 
-function main()
+function main(precision)
     N = 10
     lattice_size = 16
 
     setup_threads()
-    run_profiling(N, lattice_size)
+    run_profiling(N, lattice_size, precision)
     return 0
 end
 
@@ -27,7 +28,7 @@ function setup_threads()
     ThreadPinning.threadinfo()
 end
 
-function run_profiling(N::Int, lattice_size::Int)
+function run_profiling(N::Int, lattice_size::Int, precision::Int)
     println("\n=== LIKWID Profiling ===")
     println("N=$N, lattice_size=$lattice_size")
     println("Threads: $(Threads.nthreads())")
@@ -42,12 +43,28 @@ function run_profiling(N::Int, lattice_size::Int)
     println("Profiling getXBubble!...")
     Marker.init()
 
-    @marker "getXBubble!" getXBubble!(workspace, lam)
+    T = Dict(64 => Float64, 32 => Float32)
+    @marker "getXBubble!" getXBubble!(workspace, lam, ComputeType = T[precision])
 
     Marker.close()
     println("Done.")
 end
 
+function parse_commandline()
+    s = ArgParseSettings()
+
+    @add_arg_table! s begin
+        "--precision"
+        help = "64 -> use FP64, 32 -> use FP32"
+        arg_type = Int
+        default = 64
+    end
+
+    return parse_args(s)
+end
+
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    exit(main())
+    args = parse_commandline()
+    exit(main(args["precision"]))
 end

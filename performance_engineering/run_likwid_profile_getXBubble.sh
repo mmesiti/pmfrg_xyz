@@ -7,6 +7,7 @@ set -e
 
 main() {
     local group="${1:-FLOPS_DP}"
+    local precision="${2:-64}"
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -18,7 +19,7 @@ main() {
     echo 
 
     likwid-perfctr -C 0 -g "$group" -m \
-        julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl
+        julia --project="$script_dir" -O3 -t 1 likwid_profile_getXBubble.jl  "$precision"
 }
 
 main "$@"
