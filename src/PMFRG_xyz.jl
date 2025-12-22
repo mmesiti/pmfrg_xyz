@@ -254,7 +254,7 @@ function V_(
 
         if (block != 0 && isFlavorTransform[block])
             # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
-            # The layout of the fd-module is hence *very* important
+            # The layout of the flidx-module is hence *very* important
 
             block_start = 4 + (block - 1) * 6
             offset = n - block_start
@@ -339,7 +339,7 @@ function mixedFrequencies(ns, nt, nu, nwpr)
 end
 
 # This defines the Vertex flavors. module was the fastest option
-module fd
+module flidx
 const xx = 1
 const yy = 2
 const zz = 3
@@ -546,185 +546,185 @@ function addX!(
             Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
             @.. @inbounds @fastmath begin
-                X_sum_addX[1:block_length, fd.yy, Rij] +=
-                    -V12_addX[1:block_length, fd.yy, ki] *
-                    V34_addX[1:block_length, fd.yy, kj] *
+                X_sum_addX[1:block_length, flidx.yy, Rij] +=
+                    -V12_addX[1:block_length, flidx.yy, ki] *
+                    V34_addX[1:block_length, flidx.yy, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.yz1, ki] *
-                    V34_addX[1:block_length, fd.zy1, kj] *
+                    V12_addX[1:block_length, flidx.yz1, ki] *
+                    V34_addX[1:block_length, flidx.zy1, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.yx1, ki] *
-                    V34_addX[1:block_length, fd.xy1, kj] *
+                    V12_addX[1:block_length, flidx.yx1, ki] *
+                    V34_addX[1:block_length, flidx.xy1, kj] *
                     Ptm[1, 1]
-                X_sum_addX[1:block_length, fd.zz, Rij] +=
-                    -V12_addX[1:block_length, fd.zz, ki] *
-                    V34_addX[1:block_length, fd.zz, kj] *
+                X_sum_addX[1:block_length, flidx.zz, Rij] +=
+                    -V12_addX[1:block_length, flidx.zz, ki] *
+                    V34_addX[1:block_length, flidx.zz, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.zx1, ki] *
-                    V34_addX[1:block_length, fd.xz1, kj] *
+                    V12_addX[1:block_length, flidx.zx1, ki] *
+                    V34_addX[1:block_length, flidx.xz1, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.zy1, ki] *
-                    V34_addX[1:block_length, fd.yz1, kj] *
+                    V12_addX[1:block_length, flidx.zy1, ki] *
+                    V34_addX[1:block_length, flidx.yz1, kj] *
                     Ptm[2, 2]
-                X_sum_addX[1:block_length, fd.xx, Rij] +=
-                    -V12_addX[1:block_length, fd.xx, ki] *
-                    V34_addX[1:block_length, fd.xx, kj] *
+                X_sum_addX[1:block_length, flidx.xx, Rij] +=
+                    -V12_addX[1:block_length, flidx.xx, ki] *
+                    V34_addX[1:block_length, flidx.xx, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.xy1, ki] *
-                    V34_addX[1:block_length, fd.yx1, kj] *
+                    V12_addX[1:block_length, flidx.xy1, ki] *
+                    V34_addX[1:block_length, flidx.yx1, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.xz1, ki] *
-                    V34_addX[1:block_length, fd.zx1, kj] *
+                    V12_addX[1:block_length, flidx.xz1, ki] *
+                    V34_addX[1:block_length, flidx.zx1, kj] *
                     Ptm[3, 3]
 
                 ### Xab1 += -Vaa Vab1 - Vab1 Vbb - Vac1 Vcb1
-                X_sum_addX[1:block_length, fd.xy1, Rij] +=
-                    -V12_addX[1:block_length, fd.xx, ki] *
-                    V34_addX[1:block_length, fd.xy1, kj] *
+                X_sum_addX[1:block_length, flidx.xy1, Rij] +=
+                    -V12_addX[1:block_length, flidx.xx, ki] *
+                    V34_addX[1:block_length, flidx.xy1, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.xy1, ki] *
-                    V34_addX[1:block_length, fd.yy, kj] *
+                    V12_addX[1:block_length, flidx.xy1, ki] *
+                    V34_addX[1:block_length, flidx.yy, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.xz1, ki] *
-                    V34_addX[1:block_length, fd.zy1, kj] *
+                    V12_addX[1:block_length, flidx.xz1, ki] *
+                    V34_addX[1:block_length, flidx.zy1, kj] *
                     Ptm[3, 3]
-                X_sum_addX[1:block_length, fd.xz1, Rij] +=
-                    -V12_addX[1:block_length, fd.xx, ki] *
-                    V34_addX[1:block_length, fd.xz1, kj] *
+                X_sum_addX[1:block_length, flidx.xz1, Rij] +=
+                    -V12_addX[1:block_length, flidx.xx, ki] *
+                    V34_addX[1:block_length, flidx.xz1, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.xz1, ki] *
-                    V34_addX[1:block_length, fd.zz, kj] *
+                    V12_addX[1:block_length, flidx.xz1, ki] *
+                    V34_addX[1:block_length, flidx.zz, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.xy1, ki] *
-                    V34_addX[1:block_length, fd.yz1, kj] *
+                    V12_addX[1:block_length, flidx.xy1, ki] *
+                    V34_addX[1:block_length, flidx.yz1, kj] *
                     Ptm[2, 2]
-                X_sum_addX[1:block_length, fd.yx1, Rij] +=
-                    -V12_addX[1:block_length, fd.yy, ki] *
-                    V34_addX[1:block_length, fd.yx1, kj] *
+                X_sum_addX[1:block_length, flidx.yx1, Rij] +=
+                    -V12_addX[1:block_length, flidx.yy, ki] *
+                    V34_addX[1:block_length, flidx.yx1, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.yx1, ki] *
-                    V34_addX[1:block_length, fd.xx, kj] *
+                    V12_addX[1:block_length, flidx.yx1, ki] *
+                    V34_addX[1:block_length, flidx.xx, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.yz1, ki] *
-                    V34_addX[1:block_length, fd.zx1, kj] *
+                    V12_addX[1:block_length, flidx.yz1, ki] *
+                    V34_addX[1:block_length, flidx.zx1, kj] *
                     Ptm[3, 3]
-                X_sum_addX[1:block_length, fd.yz1, Rij] +=
-                    -V12_addX[1:block_length, fd.yy, ki] *
-                    V34_addX[1:block_length, fd.yz1, kj] *
+                X_sum_addX[1:block_length, flidx.yz1, Rij] +=
+                    -V12_addX[1:block_length, flidx.yy, ki] *
+                    V34_addX[1:block_length, flidx.yz1, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.yz1, ki] *
-                    V34_addX[1:block_length, fd.zz, kj] *
+                    V12_addX[1:block_length, flidx.yz1, ki] *
+                    V34_addX[1:block_length, flidx.zz, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.yx1, ki] *
-                    V34_addX[1:block_length, fd.xz1, kj] *
+                    V12_addX[1:block_length, flidx.yx1, ki] *
+                    V34_addX[1:block_length, flidx.xz1, kj] *
                     Ptm[1, 1]
-                X_sum_addX[1:block_length, fd.zx1, Rij] +=
-                    -V12_addX[1:block_length, fd.zz, ki] *
-                    V34_addX[1:block_length, fd.zx1, kj] *
+                X_sum_addX[1:block_length, flidx.zx1, Rij] +=
+                    -V12_addX[1:block_length, flidx.zz, ki] *
+                    V34_addX[1:block_length, flidx.zx1, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.zx1, ki] *
-                    V34_addX[1:block_length, fd.xx, kj] *
+                    V12_addX[1:block_length, flidx.zx1, ki] *
+                    V34_addX[1:block_length, flidx.xx, kj] *
                     Ptm[1, 1] -
-                    V12_addX[1:block_length, fd.zy1, ki] *
-                    V34_addX[1:block_length, fd.yx1, kj] *
+                    V12_addX[1:block_length, flidx.zy1, ki] *
+                    V34_addX[1:block_length, flidx.yx1, kj] *
                     Ptm[2, 2]
-                X_sum_addX[1:block_length, fd.zy1, Rij] +=
-                    -V12_addX[1:block_length, fd.zz, ki] *
-                    V34_addX[1:block_length, fd.zy1, kj] *
+                X_sum_addX[1:block_length, flidx.zy1, Rij] +=
+                    -V12_addX[1:block_length, flidx.zz, ki] *
+                    V34_addX[1:block_length, flidx.zy1, kj] *
                     Ptm[3, 3] -
-                    V12_addX[1:block_length, fd.zy1, ki] *
-                    V34_addX[1:block_length, fd.yy, kj] *
+                    V12_addX[1:block_length, flidx.zy1, ki] *
+                    V34_addX[1:block_length, flidx.yy, kj] *
                     Ptm[2, 2] -
-                    V12_addX[1:block_length, fd.zx1, ki] *
-                    V34_addX[1:block_length, fd.xy1, kj] *
+                    V12_addX[1:block_length, flidx.zx1, ki] *
+                    V34_addX[1:block_length, flidx.xy1, kj] *
                     Ptm[1, 1]
 
                 ### Xab2 += -Vab2 Vab2 - Vab3 Vba3
-                X_sum_addX[1:block_length, fd.xy2, Rij] +=
-                    -V12_addX[1:block_length, fd.xy2, ki] *
-                    V34_addX[1:block_length, fd.xy2, kj] *
+                X_sum_addX[1:block_length, flidx.xy2, Rij] +=
+                    -V12_addX[1:block_length, flidx.xy2, ki] *
+                    V34_addX[1:block_length, flidx.xy2, kj] *
                     Ptm[1, 2] -
-                    V12_addX[1:block_length, fd.xy3, ki] *
-                    V34_addX[1:block_length, fd.yx3, kj] *
+                    V12_addX[1:block_length, flidx.xy3, ki] *
+                    V34_addX[1:block_length, flidx.yx3, kj] *
                     Ptm[2, 1]
-                X_sum_addX[1:block_length, fd.xz2, Rij] +=
-                    -V12_addX[1:block_length, fd.xz2, ki] *
-                    V34_addX[1:block_length, fd.xz2, kj] *
+                X_sum_addX[1:block_length, flidx.xz2, Rij] +=
+                    -V12_addX[1:block_length, flidx.xz2, ki] *
+                    V34_addX[1:block_length, flidx.xz2, kj] *
                     Ptm[1, 3] -
-                    V12_addX[1:block_length, fd.xz3, ki] *
-                    V34_addX[1:block_length, fd.zx3, kj] *
+                    V12_addX[1:block_length, flidx.xz3, ki] *
+                    V34_addX[1:block_length, flidx.zx3, kj] *
                     Ptm[3, 1]
-                X_sum_addX[1:block_length, fd.yx2, Rij] +=
-                    -V12_addX[1:block_length, fd.yx2, ki] *
-                    V34_addX[1:block_length, fd.yx2, kj] *
+                X_sum_addX[1:block_length, flidx.yx2, Rij] +=
+                    -V12_addX[1:block_length, flidx.yx2, ki] *
+                    V34_addX[1:block_length, flidx.yx2, kj] *
                     Ptm[2, 1] -
-                    V12_addX[1:block_length, fd.yx3, ki] *
-                    V34_addX[1:block_length, fd.xy3, kj] *
+                    V12_addX[1:block_length, flidx.yx3, ki] *
+                    V34_addX[1:block_length, flidx.xy3, kj] *
                     Ptm[1, 2]
-                X_sum_addX[1:block_length, fd.yz2, Rij] +=
-                    -V12_addX[1:block_length, fd.yz2, ki] *
-                    V34_addX[1:block_length, fd.yz2, kj] *
+                X_sum_addX[1:block_length, flidx.yz2, Rij] +=
+                    -V12_addX[1:block_length, flidx.yz2, ki] *
+                    V34_addX[1:block_length, flidx.yz2, kj] *
                     Ptm[2, 3] -
-                    V12_addX[1:block_length, fd.yz3, ki] *
-                    V34_addX[1:block_length, fd.zy3, kj] *
+                    V12_addX[1:block_length, flidx.yz3, ki] *
+                    V34_addX[1:block_length, flidx.zy3, kj] *
                     Ptm[3, 2]
-                X_sum_addX[1:block_length, fd.zx2, Rij] +=
-                    -V12_addX[1:block_length, fd.zx2, ki] *
-                    V34_addX[1:block_length, fd.zx2, kj] *
+                X_sum_addX[1:block_length, flidx.zx2, Rij] +=
+                    -V12_addX[1:block_length, flidx.zx2, ki] *
+                    V34_addX[1:block_length, flidx.zx2, kj] *
                     Ptm[3, 1] -
-                    V12_addX[1:block_length, fd.zx3, ki] *
-                    V34_addX[1:block_length, fd.xz3, kj] *
+                    V12_addX[1:block_length, flidx.zx3, ki] *
+                    V34_addX[1:block_length, flidx.xz3, kj] *
                     Ptm[1, 3]
-                X_sum_addX[1:block_length, fd.zy2, Rij] +=
-                    -V12_addX[1:block_length, fd.zy2, ki] *
-                    V34_addX[1:block_length, fd.zy2, kj] *
+                X_sum_addX[1:block_length, flidx.zy2, Rij] +=
+                    -V12_addX[1:block_length, flidx.zy2, ki] *
+                    V34_addX[1:block_length, flidx.zy2, kj] *
                     Ptm[3, 2] -
-                    V12_addX[1:block_length, fd.zy3, ki] *
-                    V34_addX[1:block_length, fd.yz3, kj] *
+                    V12_addX[1:block_length, flidx.zy3, ki] *
+                    V34_addX[1:block_length, flidx.yz3, kj] *
                     Ptm[2, 3]
 
                 ### Xab3 += -Vab2 Vab3 - Vab3 Vba2
-                X_sum_addX[1:block_length, fd.xy3, Rij] +=
-                    -V12_addX[1:block_length, fd.xy2, ki] *
-                    V34_addX[1:block_length, fd.xy3, kj] *
+                X_sum_addX[1:block_length, flidx.xy3, Rij] +=
+                    -V12_addX[1:block_length, flidx.xy2, ki] *
+                    V34_addX[1:block_length, flidx.xy3, kj] *
                     Ptm[1, 2] -
-                    V12_addX[1:block_length, fd.xy3, ki] *
-                    V34_addX[1:block_length, fd.yx2, kj] *
+                    V12_addX[1:block_length, flidx.xy3, ki] *
+                    V34_addX[1:block_length, flidx.yx2, kj] *
                     Ptm[2, 1]
-                X_sum_addX[1:block_length, fd.xz3, Rij] +=
-                    -V12_addX[1:block_length, fd.xz2, ki] *
-                    V34_addX[1:block_length, fd.xz3, kj] *
+                X_sum_addX[1:block_length, flidx.xz3, Rij] +=
+                    -V12_addX[1:block_length, flidx.xz2, ki] *
+                    V34_addX[1:block_length, flidx.xz3, kj] *
                     Ptm[1, 3] -
-                    V12_addX[1:block_length, fd.xz3, ki] *
-                    V34_addX[1:block_length, fd.zx2, kj] *
+                    V12_addX[1:block_length, flidx.xz3, ki] *
+                    V34_addX[1:block_length, flidx.zx2, kj] *
                     Ptm[3, 1]
-                X_sum_addX[1:block_length, fd.yx3, Rij] +=
-                    -V12_addX[1:block_length, fd.yx2, ki] *
-                    V34_addX[1:block_length, fd.yx3, kj] *
+                X_sum_addX[1:block_length, flidx.yx3, Rij] +=
+                    -V12_addX[1:block_length, flidx.yx2, ki] *
+                    V34_addX[1:block_length, flidx.yx3, kj] *
                     Ptm[2, 1] -
-                    V12_addX[1:block_length, fd.yx3, ki] *
-                    V34_addX[1:block_length, fd.xy2, kj] *
+                    V12_addX[1:block_length, flidx.yx3, ki] *
+                    V34_addX[1:block_length, flidx.xy2, kj] *
                     Ptm[1, 2]
-                X_sum_addX[1:block_length, fd.yz3, Rij] +=
-                    -V12_addX[1:block_length, fd.yz2, ki] *
-                    V34_addX[1:block_length, fd.yz3, kj] *
+                X_sum_addX[1:block_length, flidx.yz3, Rij] +=
+                    -V12_addX[1:block_length, flidx.yz2, ki] *
+                    V34_addX[1:block_length, flidx.yz3, kj] *
                     Ptm[2, 3] -
-                    V12_addX[1:block_length, fd.yz3, ki] *
-                    V34_addX[1:block_length, fd.zy2, kj] *
+                    V12_addX[1:block_length, flidx.yz3, ki] *
+                    V34_addX[1:block_length, flidx.zy2, kj] *
                     Ptm[3, 2]
-                X_sum_addX[1:block_length, fd.zx3, Rij] +=
-                    -V12_addX[1:block_length, fd.zx2, ki] *
-                    V34_addX[1:block_length, fd.zx3, kj] *
+                X_sum_addX[1:block_length, flidx.zx3, Rij] +=
+                    -V12_addX[1:block_length, flidx.zx2, ki] *
+                    V34_addX[1:block_length, flidx.zx3, kj] *
                     Ptm[3, 1] -
-                    V12_addX[1:block_length, fd.zx3, ki] *
-                    V34_addX[1:block_length, fd.xz2, kj] *
+                    V12_addX[1:block_length, flidx.zx3, ki] *
+                    V34_addX[1:block_length, flidx.xz2, kj] *
                     Ptm[1, 3]
-                X_sum_addX[1:block_length, fd.zy3, Rij] +=
-                    -V12_addX[1:block_length, fd.zy2, ki] *
-                    V34_addX[1:block_length, fd.zy3, kj] *
+                X_sum_addX[1:block_length, flidx.zy3, Rij] +=
+                    -V12_addX[1:block_length, flidx.zy2, ki] *
+                    V34_addX[1:block_length, flidx.zy3, kj] *
                     Ptm[3, 2] -
-                    V12_addX[1:block_length, fd.zy3, ki] *
-                    V34_addX[1:block_length, fd.yz2, kj] *
+                    V12_addX[1:block_length, flidx.zy3, ki] *
+                    V34_addX[1:block_length, flidx.yz2, kj] *
                     Ptm[2, 3]
             end
         end
@@ -805,258 +805,258 @@ function addY!(
 
             ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
 
-            X_sum_addY[iuh_local, fd.xx, Rij] =
-                X_sum_addY[iuh_local, fd.xx, Rij] + (
+            X_sum_addY[iuh_local, flidx.xx, Rij] =
+                X_sum_addY[iuh_local, flidx.xx, Rij] + (
                     (
-                        V13[fd.xx] * V24[fd.xx] * P[1, 1] +
-                        V13[fd.xy2] * V24[fd.xy2] * P[2, 2] +
-                        V13[fd.xz2] * V24[fd.xz2] * P[3, 3]
+                        V13[flidx.xx] * V24[flidx.xx] * P[1, 1] +
+                        V13[flidx.xy2] * V24[flidx.xy2] * P[2, 2] +
+                        V13[flidx.xz2] * V24[flidx.xz2] * P[3, 3]
                     ) + (
-                        V31[fd.xx] * V42[fd.xx] * PT[1, 1] +
-                        V31[fd.xy2] * V42[fd.xy2] * PT[2, 2] +
-                        V31[fd.xz2] * V42[fd.xz2] * PT[3, 3]
+                        V31[flidx.xx] * V42[flidx.xx] * PT[1, 1] +
+                        V31[flidx.xy2] * V42[flidx.xy2] * PT[2, 2] +
+                        V31[flidx.xz2] * V42[flidx.xz2] * PT[3, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yy, Rij] =
-                X_sum_addY[iuh_local, fd.yy, Rij] + (
+            X_sum_addY[iuh_local, flidx.yy, Rij] =
+                X_sum_addY[iuh_local, flidx.yy, Rij] + (
                     (
-                        V13[fd.yy] * V24[fd.yy] * P[2, 2] +
-                        V13[fd.yx2] * V24[fd.yx2] * P[1, 1] +
-                        V13[fd.yz2] * V24[fd.yz2] * P[3, 3]
+                        V13[flidx.yy] * V24[flidx.yy] * P[2, 2] +
+                        V13[flidx.yx2] * V24[flidx.yx2] * P[1, 1] +
+                        V13[flidx.yz2] * V24[flidx.yz2] * P[3, 3]
                     ) + (
-                        V31[fd.yy] * V42[fd.yy] * PT[2, 2] +
-                        V31[fd.yx2] * V42[fd.yx2] * PT[1, 1] +
-                        V31[fd.yz2] * V42[fd.yz2] * PT[3, 3]
+                        V31[flidx.yy] * V42[flidx.yy] * PT[2, 2] +
+                        V31[flidx.yx2] * V42[flidx.yx2] * PT[1, 1] +
+                        V31[flidx.yz2] * V42[flidx.yz2] * PT[3, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zz, Rij] =
-                X_sum_addY[iuh_local, fd.zz, Rij] + (
+            X_sum_addY[iuh_local, flidx.zz, Rij] =
+                X_sum_addY[iuh_local, flidx.zz, Rij] + (
                     (
-                        V13[fd.zz] * V24[fd.zz] * P[3, 3] +
-                        V13[fd.zx2] * V24[fd.zx2] * P[1, 1] +
-                        V13[fd.zy2] * V24[fd.zy2] * P[2, 2]
+                        V13[flidx.zz] * V24[flidx.zz] * P[3, 3] +
+                        V13[flidx.zx2] * V24[flidx.zx2] * P[1, 1] +
+                        V13[flidx.zy2] * V24[flidx.zy2] * P[2, 2]
                     ) + (
-                        V31[fd.zz] * V42[fd.zz] * PT[3, 3] +
-                        V31[fd.zx2] * V42[fd.zx2] * PT[1, 1] +
-                        V31[fd.zy2] * V42[fd.zy2] * PT[2, 2]
+                        V31[flidx.zz] * V42[flidx.zz] * PT[3, 3] +
+                        V31[flidx.zx2] * V42[flidx.zx2] * PT[1, 1] +
+                        V31[flidx.zy2] * V42[flidx.zy2] * PT[2, 2]
                     )
                 )
 
             ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
 
-            X_sum_addY[iuh_local, fd.xy1, Rij] =
-                X_sum_addY[iuh_local, fd.xy1, Rij] + (
+            X_sum_addY[iuh_local, flidx.xy1, Rij] =
+                X_sum_addY[iuh_local, flidx.xy1, Rij] + (
                     (
-                        V13[fd.xy3] * V24[fd.xy3] * P[2, 1] +
-                        V13[fd.xy1] * V24[fd.xy1] * P[1, 2]
+                        V13[flidx.xy3] * V24[flidx.xy3] * P[2, 1] +
+                        V13[flidx.xy1] * V24[flidx.xy1] * P[1, 2]
                     ) + (
-                        V31[fd.xy3] * V42[fd.xy3] * PT[2, 1] +
-                        V31[fd.xy1] * V42[fd.xy1] * PT[1, 2]
+                        V31[flidx.xy3] * V42[flidx.xy3] * PT[2, 1] +
+                        V31[flidx.xy1] * V42[flidx.xy1] * PT[1, 2]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.xz1, Rij] =
-                X_sum_addY[iuh_local, fd.xz1, Rij] + (
+            X_sum_addY[iuh_local, flidx.xz1, Rij] =
+                X_sum_addY[iuh_local, flidx.xz1, Rij] + (
                     (
-                        V13[fd.xz3] * V24[fd.xz3] * P[3, 1] +
-                        V13[fd.xz1] * V24[fd.xz1] * P[1, 3]
+                        V13[flidx.xz3] * V24[flidx.xz3] * P[3, 1] +
+                        V13[flidx.xz1] * V24[flidx.xz1] * P[1, 3]
                     ) + (
-                        V31[fd.xz3] * V42[fd.xz3] * PT[3, 1] +
-                        V31[fd.xz1] * V42[fd.xz1] * PT[1, 3]
+                        V31[flidx.xz3] * V42[flidx.xz3] * PT[3, 1] +
+                        V31[flidx.xz1] * V42[flidx.xz1] * PT[1, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yx1, Rij] =
-                X_sum_addY[iuh_local, fd.yx1, Rij] + (
+            X_sum_addY[iuh_local, flidx.yx1, Rij] =
+                X_sum_addY[iuh_local, flidx.yx1, Rij] + (
                     (
-                        V13[fd.yx3] * V24[fd.yx3] * P[1, 2] +
-                        V13[fd.yx1] * V24[fd.yx1] * P[2, 1]
+                        V13[flidx.yx3] * V24[flidx.yx3] * P[1, 2] +
+                        V13[flidx.yx1] * V24[flidx.yx1] * P[2, 1]
                     ) + (
-                        V31[fd.yx3] * V42[fd.yx3] * PT[1, 2] +
-                        V31[fd.yx1] * V42[fd.yx1] * PT[2, 1]
+                        V31[flidx.yx3] * V42[flidx.yx3] * PT[1, 2] +
+                        V31[flidx.yx1] * V42[flidx.yx1] * PT[2, 1]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yz1, Rij] =
-                X_sum_addY[iuh_local, fd.yz1, Rij] + (
+            X_sum_addY[iuh_local, flidx.yz1, Rij] =
+                X_sum_addY[iuh_local, flidx.yz1, Rij] + (
                     (
-                        V13[fd.yz3] * V24[fd.yz3] * P[3, 2] +
-                        V13[fd.yz1] * V24[fd.yz1] * P[2, 3]
+                        V13[flidx.yz3] * V24[flidx.yz3] * P[3, 2] +
+                        V13[flidx.yz1] * V24[flidx.yz1] * P[2, 3]
                     ) + (
-                        V31[fd.yz3] * V42[fd.yz3] * PT[3, 2] +
-                        V31[fd.yz1] * V42[fd.yz1] * PT[2, 3]
+                        V31[flidx.yz3] * V42[flidx.yz3] * PT[3, 2] +
+                        V31[flidx.yz1] * V42[flidx.yz1] * PT[2, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zx1, Rij] =
-                X_sum_addY[iuh_local, fd.zx1, Rij] + (
+            X_sum_addY[iuh_local, flidx.zx1, Rij] =
+                X_sum_addY[iuh_local, flidx.zx1, Rij] + (
                     (
-                        V13[fd.zx3] * V24[fd.zx3] * P[1, 3] +
-                        V13[fd.zx1] * V24[fd.zx1] * P[3, 1]
+                        V13[flidx.zx3] * V24[flidx.zx3] * P[1, 3] +
+                        V13[flidx.zx1] * V24[flidx.zx1] * P[3, 1]
                     ) + (
-                        V31[fd.zx3] * V42[fd.zx3] * PT[1, 3] +
-                        V31[fd.zx1] * V42[fd.zx1] * PT[3, 1]
+                        V31[flidx.zx3] * V42[flidx.zx3] * PT[1, 3] +
+                        V31[flidx.zx1] * V42[flidx.zx1] * PT[3, 1]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zy1, Rij] =
-                X_sum_addY[iuh_local, fd.zy1, Rij] + (
+            X_sum_addY[iuh_local, flidx.zy1, Rij] =
+                X_sum_addY[iuh_local, flidx.zy1, Rij] + (
                     (
-                        V13[fd.zy3] * V24[fd.zy3] * P[2, 3] +
-                        V13[fd.zy1] * V24[fd.zy1] * P[3, 2]
+                        V13[flidx.zy3] * V24[flidx.zy3] * P[2, 3] +
+                        V13[flidx.zy1] * V24[flidx.zy1] * P[3, 2]
                     ) + (
-                        V31[fd.zy3] * V42[fd.zy3] * PT[2, 3] +
-                        V31[fd.zy1] * V42[fd.zy1] * PT[3, 2]
+                        V31[flidx.zy3] * V42[flidx.zy3] * PT[2, 3] +
+                        V31[flidx.zy1] * V42[flidx.zy1] * PT[3, 2]
                     )
                 )
 
             ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
 
-            X_sum_addY[iuh_local, fd.xy2, Rij] =
-                X_sum_addY[iuh_local, fd.xy2, Rij] + (
+            X_sum_addY[iuh_local, flidx.xy2, Rij] =
+                X_sum_addY[iuh_local, flidx.xy2, Rij] + (
                     (
-                        V13[fd.xx] * V24[fd.yx2] * P[1, 1] +
-                        V13[fd.xy2] * V24[fd.yy] * P[2, 2] +
-                        V13[fd.xz2] * V24[fd.yz2] * P[3, 3]
+                        V13[flidx.xx] * V24[flidx.yx2] * P[1, 1] +
+                        V13[flidx.xy2] * V24[flidx.yy] * P[2, 2] +
+                        V13[flidx.xz2] * V24[flidx.yz2] * P[3, 3]
                     ) + (
-                        V31[fd.xx] * V42[fd.yx2] * PT[1, 1] +
-                        V31[fd.xy2] * V42[fd.yy] * PT[2, 2] +
-                        V31[fd.xz2] * V42[fd.yz2] * PT[3, 3]
+                        V31[flidx.xx] * V42[flidx.yx2] * PT[1, 1] +
+                        V31[flidx.xy2] * V42[flidx.yy] * PT[2, 2] +
+                        V31[flidx.xz2] * V42[flidx.yz2] * PT[3, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.xz2, Rij] =
-                X_sum_addY[iuh_local, fd.xz2, Rij] + (
+            X_sum_addY[iuh_local, flidx.xz2, Rij] =
+                X_sum_addY[iuh_local, flidx.xz2, Rij] + (
                     (
-                        V13[fd.xx] * V24[fd.zx2] * P[1, 1] +
-                        V13[fd.xz2] * V24[fd.zz] * P[3, 3] +
-                        V13[fd.xy2] * V24[fd.zy2] * P[2, 2]
+                        V13[flidx.xx] * V24[flidx.zx2] * P[1, 1] +
+                        V13[flidx.xz2] * V24[flidx.zz] * P[3, 3] +
+                        V13[flidx.xy2] * V24[flidx.zy2] * P[2, 2]
                     ) + (
-                        V31[fd.xx] * V42[fd.zx2] * PT[1, 1] +
-                        V31[fd.xz2] * V42[fd.zz] * PT[3, 3] +
-                        V31[fd.xy2] * V42[fd.zy2] * PT[2, 2]
+                        V31[flidx.xx] * V42[flidx.zx2] * PT[1, 1] +
+                        V31[flidx.xz2] * V42[flidx.zz] * PT[3, 3] +
+                        V31[flidx.xy2] * V42[flidx.zy2] * PT[2, 2]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yx2, Rij] =
-                X_sum_addY[iuh_local, fd.yx2, Rij] + (
+            X_sum_addY[iuh_local, flidx.yx2, Rij] =
+                X_sum_addY[iuh_local, flidx.yx2, Rij] + (
                     (
-                        V13[fd.yy] * V24[fd.xy2] * P[2, 2] +
-                        V13[fd.yx2] * V24[fd.xx] * P[1, 1] +
-                        V13[fd.yz2] * V24[fd.xz2] * P[3, 3]
+                        V13[flidx.yy] * V24[flidx.xy2] * P[2, 2] +
+                        V13[flidx.yx2] * V24[flidx.xx] * P[1, 1] +
+                        V13[flidx.yz2] * V24[flidx.xz2] * P[3, 3]
                     ) + (
-                        V31[fd.yy] * V42[fd.xy2] * PT[2, 2] +
-                        V31[fd.yx2] * V42[fd.xx] * PT[1, 1] +
-                        V31[fd.yz2] * V42[fd.xz2] * PT[3, 3]
+                        V31[flidx.yy] * V42[flidx.xy2] * PT[2, 2] +
+                        V31[flidx.yx2] * V42[flidx.xx] * PT[1, 1] +
+                        V31[flidx.yz2] * V42[flidx.xz2] * PT[3, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yz2, Rij] =
-                X_sum_addY[iuh_local, fd.yz2, Rij] + (
+            X_sum_addY[iuh_local, flidx.yz2, Rij] =
+                X_sum_addY[iuh_local, flidx.yz2, Rij] + (
                     (
-                        V13[fd.yy] * V24[fd.zy2] * P[2, 2] +
-                        V13[fd.yz2] * V24[fd.zz] * P[3, 3] +
-                        V13[fd.yx2] * V24[fd.zx2] * P[1, 1]
+                        V13[flidx.yy] * V24[flidx.zy2] * P[2, 2] +
+                        V13[flidx.yz2] * V24[flidx.zz] * P[3, 3] +
+                        V13[flidx.yx2] * V24[flidx.zx2] * P[1, 1]
                     ) + (
-                        V31[fd.yy] * V42[fd.zy2] * PT[2, 2] +
-                        V31[fd.yz2] * V42[fd.zz] * PT[3, 3] +
-                        V31[fd.yx2] * V42[fd.zx2] * PT[1, 1]
+                        V31[flidx.yy] * V42[flidx.zy2] * PT[2, 2] +
+                        V31[flidx.yz2] * V42[flidx.zz] * PT[3, 3] +
+                        V31[flidx.yx2] * V42[flidx.zx2] * PT[1, 1]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zx2, Rij] =
-                X_sum_addY[iuh_local, fd.zx2, Rij] + (
+            X_sum_addY[iuh_local, flidx.zx2, Rij] =
+                X_sum_addY[iuh_local, flidx.zx2, Rij] + (
                     (
-                        V13[fd.zz] * V24[fd.xz2] * P[3, 3] +
-                        V13[fd.zx2] * V24[fd.xx] * P[1, 1] +
-                        V13[fd.zy2] * V24[fd.xy2] * P[2, 2]
+                        V13[flidx.zz] * V24[flidx.xz2] * P[3, 3] +
+                        V13[flidx.zx2] * V24[flidx.xx] * P[1, 1] +
+                        V13[flidx.zy2] * V24[flidx.xy2] * P[2, 2]
                     ) + (
-                        V31[fd.zz] * V42[fd.xz2] * PT[3, 3] +
-                        V31[fd.zx2] * V42[fd.xx] * PT[1, 1] +
-                        V31[fd.zy2] * V42[fd.xy2] * PT[2, 2]
+                        V31[flidx.zz] * V42[flidx.xz2] * PT[3, 3] +
+                        V31[flidx.zx2] * V42[flidx.xx] * PT[1, 1] +
+                        V31[flidx.zy2] * V42[flidx.xy2] * PT[2, 2]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zy2, Rij] =
-                X_sum_addY[iuh_local, fd.zy2, Rij] + (
+            X_sum_addY[iuh_local, flidx.zy2, Rij] =
+                X_sum_addY[iuh_local, flidx.zy2, Rij] + (
                     (
-                        V13[fd.zz] * V24[fd.yz2] * P[3, 3] +
-                        V13[fd.zy2] * V24[fd.yy] * P[2, 2] +
-                        V13[fd.zx2] * V24[fd.yx2] * P[1, 1]
+                        V13[flidx.zz] * V24[flidx.yz2] * P[3, 3] +
+                        V13[flidx.zy2] * V24[flidx.yy] * P[2, 2] +
+                        V13[flidx.zx2] * V24[flidx.yx2] * P[1, 1]
                     ) + (
-                        V31[fd.zz] * V42[fd.yz2] * PT[3, 3] +
-                        V31[fd.zy2] * V42[fd.yy] * PT[2, 2] +
-                        V31[fd.zx2] * V42[fd.yx2] * PT[1, 1]
+                        V31[flidx.zz] * V42[flidx.yz2] * PT[3, 3] +
+                        V31[flidx.zy2] * V42[flidx.yy] * PT[2, 2] +
+                        V31[flidx.zx2] * V42[flidx.yx2] * PT[1, 1]
                     )
                 )
 
             ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
 
-            X_sum_addY[iuh_local, fd.xy3, Rij] =
-                X_sum_addY[iuh_local, fd.xy3, Rij] + (
+            X_sum_addY[iuh_local, flidx.xy3, Rij] =
+                X_sum_addY[iuh_local, flidx.xy3, Rij] + (
                     (
-                        V13[fd.xy3] * V24[fd.yx1] * P[2, 1] +
-                        V13[fd.xy1] * V24[fd.yx3] * P[1, 2]
+                        V13[flidx.xy3] * V24[flidx.yx1] * P[2, 1] +
+                        V13[flidx.xy1] * V24[flidx.yx3] * P[1, 2]
                     ) + (
-                        V31[fd.xy3] * V42[fd.yx1] * PT[2, 1] +
-                        V31[fd.xy1] * V42[fd.yx3] * PT[1, 2]
+                        V31[flidx.xy3] * V42[flidx.yx1] * PT[2, 1] +
+                        V31[flidx.xy1] * V42[flidx.yx3] * PT[1, 2]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.xz3, Rij] =
-                X_sum_addY[iuh_local, fd.xz3, Rij] + (
+            X_sum_addY[iuh_local, flidx.xz3, Rij] =
+                X_sum_addY[iuh_local, flidx.xz3, Rij] + (
                     (
-                        V13[fd.xz3] * V24[fd.zx1] * P[3, 1] +
-                        V13[fd.xz1] * V24[fd.zx3] * P[1, 3]
+                        V13[flidx.xz3] * V24[flidx.zx1] * P[3, 1] +
+                        V13[flidx.xz1] * V24[flidx.zx3] * P[1, 3]
                     ) + (
-                        V31[fd.xz3] * V42[fd.zx1] * PT[3, 1] +
-                        V31[fd.xz1] * V42[fd.zx3] * PT[1, 3]
+                        V31[flidx.xz3] * V42[flidx.zx1] * PT[3, 1] +
+                        V31[flidx.xz1] * V42[flidx.zx3] * PT[1, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yx3, Rij] =
-                X_sum_addY[iuh_local, fd.yx3, Rij] + (
+            X_sum_addY[iuh_local, flidx.yx3, Rij] =
+                X_sum_addY[iuh_local, flidx.yx3, Rij] + (
                     (
-                        V13[fd.yx3] * V24[fd.xy1] * P[1, 2] +
-                        V13[fd.yx1] * V24[fd.xy3] * P[2, 1]
+                        V13[flidx.yx3] * V24[flidx.xy1] * P[1, 2] +
+                        V13[flidx.yx1] * V24[flidx.xy3] * P[2, 1]
                     ) + (
-                        V31[fd.yx3] * V42[fd.xy1] * PT[1, 2] +
-                        V31[fd.yx1] * V42[fd.xy3] * PT[2, 1]
+                        V31[flidx.yx3] * V42[flidx.xy1] * PT[1, 2] +
+                        V31[flidx.yx1] * V42[flidx.xy3] * PT[2, 1]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.yz3, Rij] =
-                X_sum_addY[iuh_local, fd.yz3, Rij] + (
+            X_sum_addY[iuh_local, flidx.yz3, Rij] =
+                X_sum_addY[iuh_local, flidx.yz3, Rij] + (
                     (
-                        V13[fd.yz3] * V24[fd.zy1] * P[3, 2] +
-                        V13[fd.yz1] * V24[fd.zy3] * P[2, 3]
+                        V13[flidx.yz3] * V24[flidx.zy1] * P[3, 2] +
+                        V13[flidx.yz1] * V24[flidx.zy3] * P[2, 3]
                     ) + (
-                        V31[fd.yz3] * V42[fd.zy1] * PT[3, 2] +
-                        V31[fd.yz1] * V42[fd.zy3] * PT[2, 3]
+                        V31[flidx.yz3] * V42[flidx.zy1] * PT[3, 2] +
+                        V31[flidx.yz1] * V42[flidx.zy3] * PT[2, 3]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zx3, Rij] =
-                X_sum_addY[iuh_local, fd.zx3, Rij] + (
+            X_sum_addY[iuh_local, flidx.zx3, Rij] =
+                X_sum_addY[iuh_local, flidx.zx3, Rij] + (
                     (
-                        V13[fd.zx3] * V24[fd.xz1] * P[1, 3] +
-                        V13[fd.zx1] * V24[fd.xz3] * P[3, 1]
+                        V13[flidx.zx3] * V24[flidx.xz1] * P[1, 3] +
+                        V13[flidx.zx1] * V24[flidx.xz3] * P[3, 1]
                     ) + (
-                        V31[fd.zx3] * V42[fd.xz1] * PT[1, 3] +
-                        V31[fd.zx1] * V42[fd.xz3] * PT[3, 1]
+                        V31[flidx.zx3] * V42[flidx.xz1] * PT[1, 3] +
+                        V31[flidx.zx1] * V42[flidx.xz3] * PT[3, 1]
                     )
                 )
 
-            X_sum_addY[iuh_local, fd.zy3, Rij] =
-                X_sum_addY[iuh_local, fd.zy3, Rij] + (
+            X_sum_addY[iuh_local, flidx.zy3, Rij] =
+                X_sum_addY[iuh_local, flidx.zy3, Rij] + (
                     (
-                        V13[fd.zy3] * V24[fd.yz1] * P[2, 3] +
-                        V13[fd.zy1] * V24[fd.yz3] * P[3, 2]
+                        V13[flidx.zy3] * V24[flidx.yz1] * P[2, 3] +
+                        V13[flidx.zy1] * V24[flidx.yz3] * P[3, 2]
                     ) + (
-                        V31[fd.zy3] * V42[fd.yz1] * PT[2, 3] +
-                        V31[fd.zy1] * V42[fd.yz3] * PT[3, 2]
+                        V31[flidx.zy3] * V42[flidx.yz1] * PT[2, 3] +
+                        V31[flidx.zy1] * V42[flidx.yz3] * PT[3, 2]
                     )
                 )
 
@@ -1457,23 +1457,23 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
                     gam = @SVector [
                         Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform) for n = 1:21
                     ]
-                    jsum[fd.xx] +=
+                    jsum[flidx.xx] +=
                         (
-                            gam[fd.xx] * Props[1](xk, nw) +
-                            gam[fd.yx1] * Props[2](xk, nw) +
-                            gam[fd.zx1] * Props[3](xk, nw)
+                            gam[flidx.xx] * Props[1](xk, nw) +
+                            gam[flidx.yx1] * Props[2](xk, nw) +
+                            gam[flidx.zx1] * Props[3](xk, nw)
                         ) * m
-                    jsum[fd.yy] +=
+                    jsum[flidx.yy] +=
                         (
-                            gam[fd.xy1] * Props[1](xk, nw) +
-                            gam[fd.yy] * Props[2](xk, nw) +
-                            gam[fd.zy1] * Props[3](xk, nw)
+                            gam[flidx.xy1] * Props[1](xk, nw) +
+                            gam[flidx.yy] * Props[2](xk, nw) +
+                            gam[flidx.zy1] * Props[3](xk, nw)
                         ) * m
-                    jsum[fd.zz] +=
+                    jsum[flidx.zz] +=
                         (
-                            gam[fd.xz1] * Props[1](xk, nw) +
-                            gam[fd.yz1] * Props[2](xk, nw) +
-                            gam[fd.zz] * Props[3](xk, nw)
+                            gam[flidx.xz1] * Props[1](xk, nw) +
+                            gam[flidx.yz1] * Props[2](xk, nw) +
+                            gam[flidx.zz] * Props[3](xk, nw)
                         ) * m
                 end
                 Dgamma.x[x, iw1] += -jsum[1]
@@ -1635,19 +1635,19 @@ function setToBareVertex!(
     isotropy::Array{T,2},
 ) where {T}
     for Rj in axes(Gamma, 2)
-        Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
+        Gamma[flidx.yz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
+        Gamma[flidx.zy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
+        Gamma[flidx.zx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
+        Gamma[flidx.xz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
+        Gamma[flidx.xy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
+        Gamma[flidx.yx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
 
-        Gamma[fd.yz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
+        Gamma[flidx.yz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
+        Gamma[flidx.zy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
+        Gamma[flidx.zx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
+        Gamma[flidx.xz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
+        Gamma[flidx.xy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
+        Gamma[flidx.yx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
     end
 
     return Gamma
@@ -1677,7 +1677,7 @@ function getChi_z(
     iGx(x, w) = iG_(iSigmaX, x, w, T)
     iGy(x, w) = iG_(iSigmaY, x, w, T)
     Vxy2(Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+        V_(Gamma, flidx.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
@@ -1713,7 +1713,7 @@ function getChi_x(
     iGy(x, w) = iG_(iSigmaY, x, w, T)
     iGz(x, w) = iG_(iSigmaZ, x, w, T)
     Vyz2(Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, fd.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+        V_(Gamma, flidx.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
@@ -1749,7 +1749,7 @@ function getChi_y(
     iGz(x, w) = iG_(iSigmaZ, x, w, T)
     iGx(x, w) = iG_(iSigmaX, x, w, T)
     Vzx2(Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, fd.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+        V_(Gamma, flidx.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
