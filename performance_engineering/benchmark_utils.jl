@@ -9,45 +9,88 @@ import PMFRG_xyz:
     addX!,
     addY!,
     Xh_from_X,
-    ThreadLocalBuffersT
+    get_ThreadLocalBuffers
 
-function check_addXY_allocations()
+function check_addXY_allocations(T)
 
-    workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
+    Workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
 
-    Par = workspace.Par
-    (; NUnique, Npairs) = Par.System
+    Par = Workspace.Par
+    N = Par.NumericalParams.N
+
+    # Convert Gamma to ComputeType if needed
+    Gamma =
+        eltype(Workspace.State.Gamma) == T ? Workspace.State.Gamma :
+        T.(Workspace.State.Gamma)
 
 
-    buffs = ThreadLocalBuffersT(
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21, Npairs)),
-        zeros((10 ÷ 2, 21)),
-        zeros(21),
-        zeros(3, 3, NUnique),
-        zeros(3, 3, NUnique, NUnique),
-        zeros(3, 3),
-        zeros(21),
-        zeros(21),
-        zeros(21),
-        zeros(21),
+    iuh_blocksize = (T == Float64) ? 4 : 8
+
+    Buffs = first(get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, T, 1))
+
+
+    is, it, nw = 1, 1, 1
+    iuh_start = 1
+    block_length = iuh_blocksize
+
+    addX!(
+        Buffs.X_sum_addX,
+        Gamma,
+        Workspace.Par.System,
+        N,
+        is,
+        it,
+        nw,
+        Buffs.spropX,
+        Buffs,
+        iuh_start,
+        block_length,
+    )
+
+    addY!(
+        Buffs.X_sum_addY,
+        Gamma,
+        Workspace.Par.System,
+        N,
+        is,
+        it,
+        nw,
+        Buffs.spropY,
+        Buffs,
+        iuh_start,
+        block_length,
     )
 
 
-    X = workspace.X
-    Gamma = workspace.State.Gamma
-    System = Par.System
-    N = Par.NumericalParams.N
+    addXallocations = @allocations addX!(
+        Buffs.X_sum_addX,
+        Gamma,
+        Workspace.Par.System,
+        N,
+        is,
+        it,
+        nw,
+        Buffs.spropX,
+        Buffs,
+        iuh_start,
+        block_length,
+    )
+
+    addYallocations = @allocations addY!(
+        Buffs.X_sum_addY,
+        Gamma,
+        Workspace.Par.System,
+        N,
+        is,
+        it,
+        nw,
+        Buffs.spropY,
+        Buffs,
+        iuh_start,
+        block_length,
+    )
 
 
-    Xh = Xh_from_X(X)
-
-    addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
-    addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
-
-    addXallocations = @allocations addX!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropX, buffs)
-
-    addYallocations = @allocations addY!(Xh, Gamma, System, N, 1, 1, 1, buffs.spropY, buffs)
 
     addXallocations, addYallocations
 end

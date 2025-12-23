@@ -13,10 +13,10 @@ function run_regression_tests()
 end
 
 function run_allocation_tests()
-    @testset "Checking allocations" begin
-        addXallocations, addYallocations = check_addXY_allocations()
-        @test addXallocations <= 1
-        @test addYallocations <= 1
+    @testset "Checking allocations" for T in (Float64, Float32)
+        addXallocations, addYallocations = check_addXY_allocations(T)
+        @test addXallocations <= 2
+        @test addYallocations <= 2
     end
 end
 

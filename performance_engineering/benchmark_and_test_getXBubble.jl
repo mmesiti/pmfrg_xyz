@@ -15,8 +15,8 @@ import .CPUInfo
 function main(;
     record::Bool,
     commit::Union{String,Nothing} = nothing,
-    dbfile::String,
-    comment::String,
+    dbfile::String = joinpath(@__DIR__, "benchmark_getXBubble.db"),
+    comment::String = "",
 )
     println("Testing...")
     run_getXbubble_regression_tests()
@@ -31,7 +31,11 @@ function main(;
         ThreadPinning.threadinfo()
     end
     bench_result, allocations =
-        benchmark_synthetic_square(N = N, lattice_size = lattice_size)
+        benchmark_synthetic_square(N = N, lattice_size = lattice_size, T = Float64)
+
+    bench_resultFP32, allocationsFP32 =
+        benchmark_synthetic_square(N = N, lattice_size = lattice_size, T = Float32)
+
 
     funcnames = ["mean", "minimum", "maximum"]
     quantities = ["times", "gctimes"]
@@ -40,10 +44,16 @@ function main(;
     data = Dict(
         "benchmark_data" => Dict(
             "$(q)_$(fn)" =>
-                eval(Meta.parse("$fn($(getfield(bench_result, Symbol(q))))")) for
-            q in quantities for fn in funcnames
+                eval(Meta.parse("$fn($(getfield(bench_resultFP64, Symbol(q))))"))
+            for q in quantities for fn in funcnames
         ),
         "allocations" => allocations,
+        "benchmark_dataFP32" => Dict(
+            "$(q)_$(fn)" =>
+                eval(Meta.parse("$fn($(getfield(bench_resultFP32, Symbol(q))))"))
+            for q in quantities for fn in funcnames
+        ),
+        "allocationsFP32" => allocations,
         "metadata" => metadata,
     )
     if record
@@ -54,7 +64,7 @@ function main(;
 
 end
 
-function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4)
+function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::DataType)
     workspace, lam = create_synthetic_workspace_square(N = N, lattice_size = lattice_size)
 
     println("  N = $N, lattice_size = $lattice_size")
