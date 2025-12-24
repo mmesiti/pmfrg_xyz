@@ -71,6 +71,12 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::Data
     println("  Lam = $lam")
     println("  T = $T")
 
+    max_blocksize = (T == Float64) ? 10 : 20
+    (; siteSum, Npairs, Nsum) = workspace.Par.System
+    print(@benchmark PMFRG_xyz.split_sitesum($siteSum, $max_blocksize, $Npairs, $Nsum))
+    print(@benchmark PMFRG_xyz.split_sitesum_v2_noblocking($siteSum, $Npairs, $Nsum))
+
+
     #getXBubble!(workspace, lam, ThreadLocalBuffers)
     #allocations = @ballocations getXBubble!($workspace, $lam, $ThreadLocalBuffers)
     #timing_results = @benchmark getXBubble!($workspace, $lam, $ThreadLocalBuffers)
@@ -79,6 +85,7 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::Data
     timing_results = @benchmark getXBubble!($workspace, $lam, ComputeType = $T)
     display(allocations)
     display(timing_results)
+
     timing_results, allocations
 end
 
