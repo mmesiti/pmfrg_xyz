@@ -363,6 +363,64 @@ const zx3 = 20
 const zy3 = 21
 end
 
+# Compressed geometry struct using smaller integer types for memory efficiency
+# Fixed types: Int16 for indices, Int8 for small values, Int32 for counts
+struct CompressedGeometry
+    Npairs::Int
+    Nsum::Vector{Int32}
+    siteSum::Matrix{@NamedTuple{ki::Int16, kj::Int16, m::Int8, xk::Int8}}
+    invpairs::Vector{Int32}
+    PairTypes::Vector{@NamedTuple{xi::Int16, xj::Int16}}
+    OnsitePairs::Vector{Int32}
+end
+
+"""
+    compress_geometry(System::Geometry) -> CompressedGeometry
+
+Compresses a Geometry object by converting integer fields to smaller
+integer types. This reduces memory usage and can improve cache performance.
+
+# Compression scheme:
+- `Nsum`, `invpairs`, `OnsitePairs`: Int64 -> Int32
+- `siteSum.ki`, `siteSum.kj`: Int64 -> Int16 (pair indices)
+- `siteSum.m`, `siteSum.xk`: Int64 -> Int8 (small values)
+- `PairTypes.xi`, `PairTypes.xj`: Int64 -> Int16 (site indices)
+
+# Returns:
+A `CompressedGeometry` struct with fixed-size smaller integer types
+"""
+function compress_geometry(System)
+    # Create compressed siteSum as matrix of NamedTuples
+    nrows, ncols = size(System.siteSum.ki)
+    compressed_siteSum =
+        Matrix{@NamedTuple{ki::Int16, kj::Int16, m::Int8, xk::Int8}}(undef, nrows, ncols)
+
+    for i = 1:nrows, j = 1:ncols
+        compressed_siteSum[i, j] = (
+            ki = Int16(System.siteSum.ki[i, j]),
+            kj = Int16(System.siteSum.kj[i, j]),
+            m = Int8(System.siteSum.m[i, j]),
+            xk = Int8(System.siteSum.xk[i, j]),
+        )
+    end
+
+    # Create compressed PairTypes as vector of NamedTuples
+    compressed_PairTypes = [
+        @NamedTuple{xi::Int16, xj::Int16}((xi = Int16(pt.xi), xj = Int16(pt.xj))) for
+        pt in System.PairTypes
+    ]
+
+    # Create compressed geometry
+    return CompressedGeometry(
+        System.Npairs,
+        Vector{Int32}(System.Nsum),
+        compressed_siteSum,
+        Vector{Int32}(System.invpairs),
+        compressed_PairTypes,
+        Vector{Int32}(System.OnsitePairs),
+    )
+end
+
 struct ThreadLocalBuffersT{T}
     V12_addX::Array{T,3}
     V34_addX::Array{T,3}
@@ -409,7 +467,7 @@ end
 function addX!(
     X_sum_addX::Array{T,3},
     Gamma::Array{T,5},
-    System::Geometry,
+    System,
     N::Integer,
     is::Integer,
     it::Integer,
@@ -424,12 +482,6 @@ function addX!(
     (; V12_addX, V34_addX) = Buffers
     ns = is - 1
     nt = it - 1
-
-    S_ki = siteSum.ki
-    S_kj = siteSum.kj
-    S_xk = siteSum.xk
-    S_m = siteSum.m
-
 
     for iuh_local = 1:block_length
         iuh_global = iuh_start + iuh_local - 1
@@ -466,9 +518,9 @@ function addX!(
         for Rij = 1:Npairs
             #loop over all left hand side inequivalent pairs Rij
             for k_spl = 1:Nsum[Rij]
-                #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort! 
-                ki, kj, m, xk =
-                    S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
+                #loop over all Nsum summation elements defined in geometry. This inner loop is responsible for most of the computational effort!
+                # Works for both CompressedGeometry (NamedTuple) and regular Geometry (StructArray)
+                (; ki, kj, m, xk) = siteSum[k_spl, Rij]
 
                 Ptm = @SMatrix [m * Props[i, j, xk] for i = 1:3, j = 1:3]
 
@@ -663,7 +715,7 @@ end
 function addY!(
     X_sum_addY::Array{T,3},
     Gamma::Array{T,5},
-    System::Geometry,
+    System,
     N::Int64,
     is::Integer,
     it::Integer,
@@ -1031,6 +1083,9 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
         eltype(Workspace.State.Gamma) == ComputeType ? Workspace.State.Gamma :
         ComputeType.(Workspace.State.Gamma)
 
+    # Compress System geometry for improved memory efficiency
+    CompressedSystem = compress_geometry(Par.System)
+
     # Determine block size based on precision
     iuh_blocksize = ComputeType == Float64 ? 4 : 8
 
@@ -1103,7 +1158,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                         addY!(
                             Buffs.X_sum_addY,
                             Gamma,
-                            Workspace.Par.System,
+                            CompressedSystem,
                             N,
                             is,
                             it,
@@ -1117,7 +1172,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                         addX!(
                             Buffs.X_sum_addX,
                             Gamma,
-                            Workspace.Par.System,
+                            CompressedSystem,
                             N,
                             is,
                             it,
