@@ -1632,5 +1632,45 @@
       "comment": ""
     },
     "allocations": 83
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 8.721419839e9,
+      "times_mean": 8.721419839e9,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 8.721419839e9,
+      "gctimes_minimum": 0.0
+    },
+    "benchmark_dataFP32": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 4.604774912e9,
+      "times_mean": 4.5984744395e9,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 4.592173967e9,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 16,
+        "N": 16,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": true,
+      "commit": "97617b",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 149886,
+    "allocationsFP32": 299649
   }
 ]
