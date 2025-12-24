@@ -1858,5 +1858,85 @@
       "comment": ""
     },
     "allocations": 83
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 2.47452607e9,
+      "times_mean": 2.4649763576666665e9,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 2.458807039e9,
+      "gctimes_minimum": 0.0
+    },
+    "benchmark_dataFP32": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 3.4195452e9,
+      "times_mean": 3.4011319005e9,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 3.382718601e9,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 16,
+        "N": 8,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": true,
+      "commit": "5cc206",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 2391,
+    "allocationsFP32": 2391
+  },
+  {
+    "benchmark_data": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 1.7077913118e10,
+      "times_mean": 1.7077913118e10,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 1.7077913118e10,
+      "gctimes_minimum": 0.0
+    },
+    "benchmark_dataFP32": {
+      "gctimes_mean": 0.0,
+      "times_maximum": 8.945564826e9,
+      "times_mean": 8.945564826e9,
+      "gctimes_maximum": 0.0,
+      "times_minimum": 8.945564826e9,
+      "gctimes_minimum": 0.0
+    },
+    "metadata": {
+      "nthreads": 4,
+      "physics": {
+        "lattice_size": 16,
+        "N": 16,
+        "type": "square lattice"
+      },
+      "cpu_info": {
+        "governor": "schedutil",
+        "max_freq": 2.601,
+        "hwp on": "no",
+        "hostname": "pisolo",
+        "uncore_max_freq": 3.6,
+        "turbo": true
+      },
+      "threadpinning": true,
+      "commit": "5cc206",
+      "julia_opt_level": 3,
+      "comment": ""
+    },
+    "allocations": 370,
+    "allocationsFP32": 370
   }
 ]
