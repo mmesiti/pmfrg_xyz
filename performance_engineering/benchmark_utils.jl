@@ -32,11 +32,10 @@ function check_addXY_allocations(T)
 
     is, it, nw = 1, 1, 1
     iuh_start = 1
+    block_length = iuh_blocksize
 
     addX!(
         Buffs.X_sum_addX,
-        Buffs.V12_addX,
-        Buffs.V34_addX,
         Gamma,
         Workspace.Par.System,
         N,
@@ -44,7 +43,9 @@ function check_addXY_allocations(T)
         it,
         nw,
         Buffs.spropX,
+        Buffs,
         iuh_start,
+        block_length,
     )
 
     addY!(
@@ -58,13 +59,12 @@ function check_addXY_allocations(T)
         Buffs.spropY,
         Buffs,
         iuh_start,
+        block_length,
     )
 
 
     addXallocations = @allocations addX!(
         Buffs.X_sum_addX,
-        Buffs.V12_addX,
-        Buffs.V34_addX,
         Gamma,
         Workspace.Par.System,
         N,
@@ -72,7 +72,9 @@ function check_addXY_allocations(T)
         it,
         nw,
         Buffs.spropX,
+        Buffs,
         iuh_start,
+        block_length,
     )
 
     addYallocations = @allocations addY!(
@@ -86,6 +88,7 @@ function check_addXY_allocations(T)
         Buffs.spropY,
         Buffs,
         iuh_start,
+        block_length,
     )
 
     if addXallocations > 2
@@ -95,8 +98,6 @@ function check_addXY_allocations(T)
                 addX!,
                 typeof.((
                     Buffs.X_sum_addX,
-                    Buffs.V12_addX,
-                    Buffs.V34_addX,
                     Gamma,
                     Workspace.Par.System,
                     N,
@@ -105,6 +106,7 @@ function check_addXY_allocations(T)
                     nw,
                     Buffs.spropX,
                     iuh_start,
+                    block_length,
                 )),
             )
         end
