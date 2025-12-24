@@ -21,7 +21,10 @@ function main(;
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
-    N = 8
+    # Note: N = 8 is sufficient for FP64,
+    # but to see AVX vectorization working for FP32
+    # we need N=16
+    N = 16
     lattice_size = 16
 
     threadpinning = true
@@ -30,7 +33,7 @@ function main(;
         ThreadPinning.pinthreads(:cores)
         ThreadPinning.threadinfo()
     end
-    bench_result, allocations =
+    bench_resultFP64, allocationsFP64 =
         benchmark_synthetic_square(N = N, lattice_size = lattice_size, T = Float64)
 
     bench_resultFP32, allocationsFP32 =
@@ -47,13 +50,13 @@ function main(;
                 eval(Meta.parse("$fn($(getfield(bench_resultFP64, Symbol(q))))"))
             for q in quantities for fn in funcnames
         ),
-        "allocations" => allocations,
+        "allocations" => allocationsFP64,
         "benchmark_dataFP32" => Dict(
             "$(q)_$(fn)" =>
                 eval(Meta.parse("$fn($(getfield(bench_resultFP32, Symbol(q))))"))
             for q in quantities for fn in funcnames
         ),
-        "allocationsFP32" => allocations,
+        "allocationsFP32" => allocationsFP32,
         "metadata" => metadata,
     )
     if record
@@ -73,9 +76,9 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::Data
     #getXBubble!(workspace, lam, ThreadLocalBuffers)
     #allocations = @ballocations getXBubble!($workspace, $lam, $ThreadLocalBuffers)
     #timing_results = @benchmark getXBubble!($workspace, $lam, $ThreadLocalBuffers)
-    getXBubble!(workspace, lam)
-    allocations = @ballocations getXBubble!($workspace, $lam)
-    timing_results = @benchmark getXBubble!($workspace, $lam)
+    getXBubble!(workspace, lam, ComputeType = T)
+    allocations = @ballocations getXBubble!($workspace, $lam, ComputeType = $T)
+    timing_results = @benchmark getXBubble!($workspace, $lam, ComputeType = $T)
     display(allocations)
     display(timing_results)
     timing_results, allocations

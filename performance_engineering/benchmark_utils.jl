@@ -11,9 +11,10 @@ import PMFRG_xyz:
     Xh_from_X,
     get_ThreadLocalBuffers
 
+using InteractiveUtils
 function check_addXY_allocations(T)
 
-    Workspace, _ = create_synthetic_workspace_square(N = 10, lattice_size = 5)
+    Workspace, _ = create_synthetic_workspace_square(N = 16, lattice_size = 5)
 
     Par = Workspace.Par
     N = Par.NumericalParams.N
@@ -31,10 +32,11 @@ function check_addXY_allocations(T)
 
     is, it, nw = 1, 1, 1
     iuh_start = 1
-    block_length = iuh_blocksize
 
     addX!(
         Buffs.X_sum_addX,
+        Buffs.V12_addX,
+        Buffs.V34_addX,
         Gamma,
         Workspace.Par.System,
         N,
@@ -42,9 +44,7 @@ function check_addXY_allocations(T)
         it,
         nw,
         Buffs.spropX,
-        Buffs,
         iuh_start,
-        block_length,
     )
 
     addY!(
@@ -58,12 +58,13 @@ function check_addXY_allocations(T)
         Buffs.spropY,
         Buffs,
         iuh_start,
-        block_length,
     )
 
 
     addXallocations = @allocations addX!(
         Buffs.X_sum_addX,
+        Buffs.V12_addX,
+        Buffs.V34_addX,
         Gamma,
         Workspace.Par.System,
         N,
@@ -71,9 +72,7 @@ function check_addXY_allocations(T)
         it,
         nw,
         Buffs.spropX,
-        Buffs,
         iuh_start,
-        block_length,
     )
 
     addYallocations = @allocations addY!(
@@ -87,8 +86,30 @@ function check_addXY_allocations(T)
         Buffs.spropY,
         Buffs,
         iuh_start,
-        block_length,
     )
+
+    if addXallocations > 2
+        open("addX-warntype.txt", "w") do f
+            code_warntype(
+                f,
+                addX!,
+                typeof.((
+                    Buffs.X_sum_addX,
+                    Buffs.V12_addX,
+                    Buffs.V34_addX,
+                    Gamma,
+                    Workspace.Par.System,
+                    N,
+                    is,
+                    it,
+                    nw,
+                    Buffs.spropX,
+                    iuh_start,
+                )),
+            )
+        end
+    end
+
 
 
 
