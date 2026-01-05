@@ -1086,15 +1086,27 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
     # Compress System geometry for improved memory efficiency
     CompressedSystem = compress_geometry(Par.System)
 
-    # Determine block size based on precision
-    # iuh_blocksize = ComputeType == Float64 ? 4 : 8 # 256b - based, avx2
-    iuh_blocksize = ComputeType == Float64 ? 8 : 16 # 64B - based, cache line  
+    iuh_max = Int(N / 2) # N must be even
+    # Determine block size based on size of data type 
+    # iuh_blocksize = 256 ÷  (sizeof(ComputeType)*8) # based on AVX vector width
+    # iuh_blocksize = 64 ÷ sizeof(ComputeType) # based on cache line size
+
+    function unit_cost(iuh_blocksize, N, ComputeType)
+        num_blocks = cld(Int(N / 2), iuh_blocksize)
+
+        blocksize_bytes = iuh_blocksize * sizeof(ComputeType)
+        vector_computations_per_block = cld(blocksize_bytes, 32)
+        cache_loads_per_block = cld(blocksize_bytes, 64)
+
+        (vector_computations_per_block * 0.25 + cache_loads_per_block) * num_blocks / N
+    end
+
+    iuh_blocksize = argmin(bs -> unit_cost(bs, N, ComputeType), 1:16)
+    # Calculate number of blocks (ceiling division)
+    num_blocks = cld(iuh_max, iuh_blocksize)
+
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, ComputeType)
-
-    # Calculate number of blocks (ceiling division)
-    iuh_max = div(N, 2)
-    num_blocks = cld(iuh_max, iuh_blocksize)
 
     Threads.@threads :static for is_it = 1:N*N
         @inbounds begin
