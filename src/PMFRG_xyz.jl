@@ -1138,51 +1138,36 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                     block_length = iuh_end - iuh_start + 1
 
 
-                    let (Buff_addX, Buff_addY, V12_addX, V34_addX) = (
-                            if block_length != iuh_blocksize
-                                (
-                                    Buffs.X_sum_addX,
-                                    Buffs.X_sum_addY,
-                                    Buffs.V12_addX,
-                                    Buffs.V34_addX,
-                                )
-                            else
-                                (
-                                    Buffs.X_sum_addX,
-                                    Buffs.X_sum_addY,
-                                    Buffs.V12_addX,
-                                    Buffs.V34_addX,
-                                )
-                            end
-                        )
+                    addY!(
+                        Buffs.X_sum_addY,
+                        Gamma,
+                        CompressedSystem,
+                        N,
+                        is,
+                        it,
+                        nw,
+                        Buffs.spropY,
+                        Buffs,
+                        iuh_start,
+                        block_length,
+                    )
 
-                        addY!(
-                            Buffs.X_sum_addY,
-                            Gamma,
-                            CompressedSystem,
-                            N,
-                            is,
-                            it,
-                            nw,
-                            Buffs.spropY,
-                            Buffs,
-                            iuh_start,
-                            block_length,
-                        )
+                    addX!(
+                        Buffs.X_sum_addX,
+                        Gamma,
+                        CompressedSystem,
+                        N,
+                        is,
+                        it,
+                        nw,
+                        Buffs.spropX,
+                        Buffs,
+                        iuh_start,
+                        block_length,
+                    )
 
-                        addX!(
-                            Buffs.X_sum_addX,
-                            Gamma,
-                            CompressedSystem,
-                            N,
-                            is,
-                            it,
-                            nw,
-                            Buffs.spropX,
-                            Buffs,
-                            iuh_start,
-                            block_length,
-                        )
+                    let (Buff_addX, Buff_addY, X) =
+                            (Buffs.X_sum_addX, Buffs.X_sum_addY, Workspace.X)
 
 
                         # Copy results back to Workspace.X
@@ -1191,7 +1176,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                             iu_parity = (is + it) % 2
                             iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                             if iu <= N
-                                (@view Workspace.X[1:21, Rij, is, it, iu]) .+=
+                                (@view X[1:21, Rij, is, it, iu]) .+=
                                     (@view Buff_addX[iuh_local, :, Rij])
                             end
                         end
@@ -1200,7 +1185,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                             iu_parity = (is + it) % 2
                             iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                             if iu <= N
-                                (@view Workspace.X[22:42, Rij, is, it, iu]) .+=
+                                (@view X[22:42, Rij, is, it, iu]) .+=
                                     (@view Buff_addY[iuh_local, :, Rij])
                             end
                         end

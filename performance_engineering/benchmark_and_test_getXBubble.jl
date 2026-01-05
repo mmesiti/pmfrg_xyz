@@ -26,7 +26,7 @@ function main(;
     # - N>=16 is necessary for AVX vectorization and FP32
     # - N>=16 is necessary for FP64 to fill a whole cache line
     # - N>=32 is necessary for FP32 to fill a whole cache line
-    N = 32
+    N = 16
     lattice_size = 16
 
     threadpinning = true
