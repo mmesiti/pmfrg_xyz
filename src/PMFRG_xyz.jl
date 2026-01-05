@@ -1087,7 +1087,8 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
     CompressedSystem = compress_geometry(Par.System)
 
     # Determine block size based on precision
-    iuh_blocksize = ComputeType == Float64 ? 4 : 8
+    # iuh_blocksize = ComputeType == Float64 ? 4 : 8 # 256b - based, avx2
+    iuh_blocksize = ComputeType == Float64 ? 8 : 16 # 64B - based, cache line  
 
     ThreadLocalBuffers = get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, ComputeType)
 

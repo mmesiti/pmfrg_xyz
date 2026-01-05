@@ -21,10 +21,12 @@ function main(;
     println("Testing...")
     run_getXbubble_regression_tests()
     println("Benchmarking...")
-    # Note: N = 8 is sufficient for FP64,
-    # but to see AVX vectorization working for FP32
-    # we need N=16
-    N = 16
+    # Note:
+    # - N>= 8 is necessary for AVX vectorization and FP64,
+    # - N>=16 is necessary for AVX vectorization and FP32
+    # - N>=16 is necessary for FP64 to fill a whole cache line
+    # - N>=32 is necessary for FP32 to fill a whole cache line
+    N = 32
     lattice_size = 16
 
     threadpinning = true
