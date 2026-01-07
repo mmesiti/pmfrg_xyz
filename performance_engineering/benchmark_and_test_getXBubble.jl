@@ -53,7 +53,7 @@ function main(;
                 eval(Meta.parse("$fn($(getfield(bench_resultFP32, Symbol(q))))"))
             for q in quantities for fn in funcnames
         ),
-        "allocationsFP32" => allocations,
+        "allocationsFP32" => allocationsFP32,
         "metadata" => metadata,
     )
     if record
@@ -73,8 +73,8 @@ function benchmark_synthetic_square(; N::Int = 8, lattice_size::Int = 4, T::Data
 
     max_blocksize = (T == Float64) ? 10 : 20
     (; siteSum, Npairs, Nsum) = workspace.Par.System
-    print(@benchmark PMFRG_xyz.split_sitesum($siteSum, $max_blocksize, $Npairs, $Nsum))
-    print(@benchmark PMFRG_xyz.split_sitesum_v2_noblocking($siteSum, $Npairs, $Nsum))
+    display(@benchmark PMFRG_xyz.split_sitesum($siteSum, $max_blocksize, $Npairs, $Nsum))
+    display(@benchmark PMFRG_xyz.split_sitesum_v2_noblocking($siteSum, $Npairs, $Nsum))
 
 
     #getXBubble!(workspace, lam, ThreadLocalBuffers)
