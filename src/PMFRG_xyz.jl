@@ -1166,28 +1166,24 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
                         block_length,
                     )
 
-                    let (Buff_addX, Buff_addY, X) =
-                            (Buffs.X_sum_addX, Buffs.X_sum_addY, Workspace.X)
 
-
-                        # Copy results back to Workspace.X
-                        for Rij = 1:Npairs, iuh_local = 1:block_length
-                            iuh_global = iuh_start + iuh_local - 1
-                            iu_parity = (is + it) % 2
-                            iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
-                            if iu <= N
-                                (@view X[1:21, Rij, is, it, iu]) .+=
-                                    (@view Buff_addX[iuh_local, :, Rij])
-                            end
+                    # Copy results back to Workspace.X
+                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                        iuh_global = iuh_start + iuh_local - 1
+                        iu_parity = (is + it) % 2
+                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+                        if iu <= N
+                            (@view Workspace.X[1:21, Rij, is, it, iu]) .+=
+                                (@view Buffs.X_sum_addX[iuh_local, :, Rij])
                         end
-                        for Rij = 1:Npairs, iuh_local = 1:block_length
-                            iuh_global = iuh_start + iuh_local - 1
-                            iu_parity = (is + it) % 2
-                            iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
-                            if iu <= N
-                                (@view X[22:42, Rij, is, it, iu]) .+=
-                                    (@view Buff_addY[iuh_local, :, Rij])
-                            end
+                    end
+                    for Rij = 1:Npairs, iuh_local = 1:block_length
+                        iuh_global = iuh_start + iuh_local - 1
+                        iu_parity = (is + it) % 2
+                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+                        if iu <= N
+                            (@view Workspace.X[22:42, Rij, is, it, iu]) .+=
+                                (@view Buffs.X_sum_addY[iuh_local, :, Rij])
                         end
                     end
 
