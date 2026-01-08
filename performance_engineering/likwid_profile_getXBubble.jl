@@ -12,7 +12,7 @@ include("benchmark_utils.jl")
 import PMFRG_xyz: getXBubble!, getDeriv!, SolveFRG
 
 function main(precision)
-    N = 10
+    N = 16
     lattice_size = 16
 
     setup_threads()
