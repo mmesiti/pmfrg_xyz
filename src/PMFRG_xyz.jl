@@ -272,7 +272,7 @@ function V_(
 end
 
 "Optimized, in-place version of V_ to be used in addX! and addY!"
-@inline function Vert!(
+@inline function FillVBuffer!(
     V::AbstractVector,
     GammaFlavorRow::AbstractVector,
     flavTransf::Tuple{Bool,Bool,Bool},
@@ -457,12 +457,12 @@ function addX!(
 
             R12 = swap_R12 ? invpairs[ki] : ki
             R34 = swap_R34 ? invpairs[ki] : ki
-            Vert!(
+            FillVBuffer!(
                 (@view V12_addX[iuh_local, :, ki]),
                 (@view Gamma[:, R12, s1+1, t1+1, u1+1]),
                 flavTransf12,
             )
-            Vert!(
+            FillVBuffer!(
                 (@view V34_addX[iuh_local, :, ki]),
                 (@view Gamma[:, R34, s2+1, t2+1, u2+1]),
                 flavTransf34,
@@ -731,10 +731,10 @@ function addY!(
             R31 = swap31 ? invpairs[Rij] : Rij
             R42 = swap42 ? invpairs[Rij] : Rij
 
-            Vert!(V13, (@view Gamma[:, R13, s13+1, t13+1, u13+1]), flavTransf13)
-            Vert!(V24, (@view Gamma[:, R24, s24+1, t24+1, u24+1]), flavTransf24)
-            Vert!(V31, (@view Gamma[:, R31, s31+1, t31+1, u31+1]), flavTransf31)
-            Vert!(V42, (@view Gamma[:, R42, s42+1, t42+1, u42+1]), flavTransf42)
+            FillVBuffer!(V13, (@view Gamma[:, R13, s13+1, t13+1, u13+1]), flavTransf13)
+            FillVBuffer!(V24, (@view Gamma[:, R24, s24+1, t24+1, u24+1]), flavTransf24)
+            FillVBuffer!(V31, (@view Gamma[:, R31, s31+1, t31+1, u31+1]), flavTransf31)
+            FillVBuffer!(V42, (@view Gamma[:, R42, s42+1, t42+1, u42+1]), flavTransf42)
 
 
             P = @SMatrix [Props[i, j, xi, xj] for i = 1:3, j = 1:3]

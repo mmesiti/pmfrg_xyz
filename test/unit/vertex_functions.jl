@@ -1,9 +1,9 @@
 using Test
 using SpinFRGLattices
 
-import PMFRG_xyz: V_, Vert!, ConvertFreqArgs, fd
+import PMFRG_xyz: V_, FillVBuffer!, ConvertFreqArgs, fd
 
-function test_vert_v_equivalence()
+function test_fillvbuffer_v_equivalence()
     N = 8
     Npairs = 6
     Gamma = randn(21, Npairs, N, N, N)
@@ -22,7 +22,7 @@ function test_vert_v_equivalence()
         R_swapped = flavTransf[1] ? invpairs[R] : R
 
         V_from_Vert = zeros(21)
-        Vert!(V_from_Vert, (@view Gamma[:, R_swapped, s+1, t+1, u+1]), flavTransf)
+        FillVBuffer!(V_from_Vert, (@view Gamma[:, R_swapped, s+1, t+1, u+1]), flavTransf)
 
         for n = 1:21
             V_from_V_ = V_(Gamma, n, raw_s, raw_t, raw_u, flavTransf, R, invpairs[R], N)
@@ -30,11 +30,3 @@ function test_vert_v_equivalence()
         end
     end
 end
-
-function run_vertex_tests()
-    @testset "Vertex function equivalence tests" begin
-        test_vert_v_equivalence()
-    end
-end
-
-export run_vertex_tests

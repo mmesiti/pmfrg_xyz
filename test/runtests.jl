@@ -33,7 +33,9 @@ function run_unit_tests()
             run_all_tests(mapping_realistic)
         end
 
-        run_vertex_tests()
+        @testset "Vertex function equivalence tests" begin
+            test_fillvbuffer_v_equivalence()
+        end
     end
 end
 
