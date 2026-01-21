@@ -2,6 +2,7 @@ using PMFRG_xyz
 using Test
 using JLD2
 import SciMLBase
+
 function recursive_value_test(strA, strB, name, verbose)::Nothing
     @testset verbose = verbose "$name" begin
         if strA == strB
@@ -11,7 +12,6 @@ function recursive_value_test(strA, strB, name, verbose)::Nothing
                 @test strA == strB # false
             else
                 for field in union(fieldnames(typeof(strA)), fieldnames(typeof(strB)))
-
                     if field in fieldnames(typeof(strA)) &&
                        field in fieldnames(typeof(strB))
                         recursive_value_test(
@@ -33,8 +33,7 @@ end
 
 recursive_value_test(::Nothing, ::Nothing, _, _)::Nothing = nothing
 
-# There are some data members in the results of SolveFRG
-# that we do not care about.
+# Skip ODEFunction comparisons (not relevant for regression tests)
 recursive_value_test(_, ::SciMLBase.ODEFunction, _, _)::Nothing = nothing
 
 function recursive_value_test(strA::Array, strB::Array, name, verbose)::Nothing
@@ -68,17 +67,15 @@ function recursive_value_test(
     nothing
 end
 
-function run_getXbubble_regression_tests()
+# Parameterized regression test functions
+
+function run_getXbubble_regression_tests(data_path::String)
     @testset verbose = true "Tests for PMFRG_xyz.getXBubble!" begin
-        data = load_object(
-            joinpath(@__DIR__(), "regression_tests_dimer-PMFRG_xyz.getXBubble!.data"),
-        )
+        data = load_object(data_path)
         @testset verbose = false for i = 1:length(data["return_value"])
             return_value = (data["return_value"])[i]
             arguments = (data["arguments"])[i]
             arguments_post = (data["arguments_post"])[i]
-            # Workspace = arguments[1]
-            # ThreadLocalBuffers = PMFRG_xyz.get_ThreadLocalBuffers(Workspace.Par.System)
             recursive_value_test(
                 return_value,
                 (PMFRG_xyz.getXBubble!)(arguments...),
@@ -90,53 +87,40 @@ function run_getXbubble_regression_tests()
                     recursive_value_test(arguments[i], arguments_post[i], "idx = $i", true)
                 end
             end
-
         end
 
         # Test Float32 precision parameter
         @testset verbose = true "Float32 precision test" begin
-            # Take the first test case
             arguments = (data["arguments"])[1]
             Workspace = arguments[1]
             T = arguments[2]
 
-            # Save original X
             X_original = copy(Workspace.X)
 
-            # Test with Float64 (default)
             PMFRG_xyz.setZero!(Workspace.X)
             @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T)
             X_float64 = copy(Workspace.X)
 
-            # Test with explicit Float64
             PMFRG_xyz.setZero!(Workspace.X)
             @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T; ComputeType = Float64)
             X_float64_explicit = copy(Workspace.X)
 
-            # Test with Float32
             PMFRG_xyz.setZero!(Workspace.X)
             @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T; ComputeType = Float32)
             X_float32 = copy(Workspace.X)
 
-            # Check that Float64 results match
             @test X_float64 ≈ X_float64_explicit
-
-            # Check that Float32 results are close to Float64 (within Float32 precision)
             @test X_float64 ≈ X_float32 rtol = 1e-6
 
-            # Restore original X
             Workspace.X .= X_original
         end
     end
     nothing
 end
 
-
-function run_SolveFRG_regression_tests()
+function run_SolveFRG_regression_tests(data_path::String)
     @testset verbose = true "Tests for PMFRG_xyz.SolveFRG" begin
-        data = load_object(
-            joinpath(@__DIR__(), "regression_tests_dimer-PMFRG_xyz.SolveFRG.data"),
-        )
+        data = load_object(data_path)
         @testset verbose = true for i = 1:length(data["return_value"])
             return_value = (data["return_value"])[i]
             arguments = (data["arguments"])[i]
