@@ -8,7 +8,6 @@ import PMFRG_xyz:
     OneLoopWorkspace,
     addX!,
     addY!,
-    Xh_from_X,
     get_ThreadLocalBuffers
 
 using InteractiveUtils
