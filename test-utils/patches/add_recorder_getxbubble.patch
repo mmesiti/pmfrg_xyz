@@ -2,16 +2,16 @@ diff --git a/src/PMFRG_xyz.jl b/src/PMFRG_xyz.jl
 index 2ea20d4..30cd935 100644
 --- a/src/PMFRG_xyz.jl
 +++ b/src/PMFRG_xyz.jl
-@@ -6,6 +6,7 @@ module PMFRG_xyz
+@@ -7,6 +7,7 @@ module PMFRG_xyz
 
  using RecursiveArrayTools
- using SpinFRGLattices,OrdinaryDiffEq,DiffEqCallbacks,RecursiveArrayTools,StructArrays
+ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, StructArrays
 +using Recorder
  using SpinFRGLattices.StaticArrays
+ using Unroll
 
- setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a,zero(T))
-@@ -830,7 +831,7 @@ function getDeriv!(Deriv, State, setup, Lam; saveArgs=true)
- 
+@@ -990,7 +991,7 @@ function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+
      getDFint!(Workspace, Lam)
      get_Self_Energy!(Workspace, Lam)
 -    getXBubble!(Workspace, Lam)
