@@ -1,11 +1,9 @@
-using Pkg
-Pkg.activate(@__DIR__)
-
 using SpinFRGLattices
+using JLD2
 import PMFRG_xyz: Params, SolveFRG
 
 System = SpinFRGLattices.getPolymer(2)
-par = Params(System, N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
+
 isotropy = zeros(System.Npairs, 3)
 
 for n = 1:System.Npairs
@@ -13,4 +11,11 @@ for n = 1:System.Npairs
 end
 
 
-@time results = SolveFRG(par, isotropy)
+Par = Params(System, N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
+
+@time sol, saved_values = SolveFRG(Par, isotropy)
+
+save_object(
+    "dimer_opt_values.jld2",
+    [(saved_values.saveval[n], exp(saved_values.t[n])) for n = 1:length(saved_values.t)],
+)

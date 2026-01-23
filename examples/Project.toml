@@ -1,3 +1,4 @@
 [deps]
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 PMFRG_xyz = "785b06fc-d355-4226-8a27-57b35e93bce2"
 SpinFRGLattices = "053fb7f8-31b7-4f68-aef8-4452b415dd8c"

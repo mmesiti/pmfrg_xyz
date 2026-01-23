@@ -1,8 +1,6 @@
-using Pkg
-Pkg.activate(@__DIR__)
-
-using SpinFRGLattices.SquareLattice
 import PMFRG_xyz: Params, SolveFRG
+using JLD2
+using SpinFRGLattices.SquareLattice
 
 J1 = 1.0
 J2 = 0.5
@@ -16,4 +14,9 @@ end
 
 Par = Params(System, N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
 
-@time results = SolveFRG(Par, isotropy)
+@time sol, saved_values = SolveFRG(Par, isotropy)
+
+save_object(
+    "square_lattice_values.jld2",
+    [(saved_values.saveval[n], exp(saved_values.t[n])) for n = 1:length(saved_values.t)],
+)
