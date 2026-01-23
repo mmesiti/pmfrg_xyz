@@ -37,6 +37,8 @@ jobs:
       - name: Run minimal examples
         run: |
           cd examples
+          julia --project=. -e 'using Pkg
+                                Pkg.instantiate()'
           julia --project=. dimer-anisotropy.jl
           julia --project=. square-lattice-anisotropy.jl
       - name: Formatting Check
