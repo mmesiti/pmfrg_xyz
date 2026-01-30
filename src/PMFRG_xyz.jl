@@ -1036,7 +1036,7 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
             it = (is_it - 1) % N + 1
             # WARNING:
             # This works only with :static
-            Buffs = ThreadLocalBuffers[Threads.threadid()]
+            Buffs = ThreadLocalBuffers[Threads.threadid()-Threads.nthreads(:interactive)]
             ns = is - 1
             nt = it - 1
 
