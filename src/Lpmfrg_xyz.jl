@@ -92,25 +92,29 @@ function V_(
     ns::Int,
     nt::Int,
     nu::Int,
+    isFlavorTransform::Tuple{Bool,Bool,Bool},
     Rij::Integer,
     Rji::Integer,
-    N::Integer;
+    N::Integer,
 )
-    isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
 
-    block = div(n + 2, 6)
+    @inbounds begin
+        block = div(n + 2, 6)
 
-    n_transf = n
-    if (block != 0)
-        if (isFlavorTransform[block])
-            n_transf = ((n - 3) - (block - 1) * 6 + 2) % 6 + 1 + 3 + (block - 1) * 6
+        if (block != 0 && isFlavorTransform[block])
+            block_start = 4 + (block - 1) * 6
+            offset = n - block_start
+            new_offset = (offset + 3) % 6
+
+            n_transf = block_start + new_offset
+        else
+            n_transf = n
         end
-    end
 
-    ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-    swapsites = nt * nu < 0
-    Rij = ifelse(swapsites, Rji, Rij)
-    return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
+        ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
+        Rij = ifelse(isFlavorTransform[1], Rji, Rij)
+        return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
+    end
 end
 
 
@@ -119,11 +123,14 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     N = Par.NumericalParams.N
     (; Npairs, Nsum, siteSum, invpairs) = Par.System
 
-    Vert(n, Rij, s, t, u) = V_(State.Gamma, n, s, t, u, Rij, invpairs[Rij], N)
+    Vert(n, Rij, s, t, u, flavTransf) =
+        V_(State.Gamma, n, s, t, u, flavTransf, Rij, invpairs[Rij], N)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
     wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+    flavTransf12 = (wpw1 * wpw2 > 0, ns * wpw2 > 0, ns * wpw1 < 0)
+    flavTransf34 = (wmw3 * wmw4 < 0, ns * wmw4 > 0, ns * wmw3 > 0)
 
     # get fields of siteSum struct as Matrices for better use of LoopVectorization
     S_ki = siteSum.ki
@@ -147,8 +154,8 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             ]
             Ptm = Ptm * m ### Props now contains two flavor indices
 
-            V12(n) = Vert(n, ki, ns, wpw1, -wpw2)
-            V34(n) = Vert(n, kj, ns, -wmw3, -wmw4)
+            V12(n) = Vert(n, ki, ns, wpw1, -wpw2, flavTransf12)
+            V34(n) = Vert(n, kj, ns, -wmw3, -wmw4, flavTransf34)
 
             X_sum[fd.yy] +=
                 -V12(fd.yy) * V34(fd.yy) * Ptm[2, 2] -
@@ -242,11 +249,16 @@ function addY!(
     N = Par.NumericalParams.N
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
 
-    Vert(n, Rij, s, t, u) = V_(State.Gamma, n, s, t, u, Rij, invpairs[Rij], N)
+    Vert(n, Rij, s, t, u, flavTransf) =
+        V_(State.Gamma, n, s, t, u, flavTransf, Rij, invpairs[Rij], N)
     ns = is - 1
     nt = it - 1
     nu = iu - 1
     wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4 = mixedFrequencies(ns, nt, nu, nwpr)
+    flavTransf13 = (nt * wmw3 < 0, wmw1 * wmw3 > 0, wmw1 * nt > 0)
+    flavTransf24 = (nt * wpw4 < 0, wpw2 * wpw4 > 0, wpw2 * nt > 0)
+    flavTransf31 = (nt * wmw1 > 0, wmw3 * wmw1 > 0, wmw3 * nt < 0)
+    flavTransf42 = (nt * wpw2 > 0, wpw4 * wpw2 > 0, wpw4 * nt < 0)
 
     X_sum = zeros(42)
 
@@ -265,11 +277,11 @@ function addY!(
             return Props[xj, xi, m, n]
         end
 
-        V13(n) = Vert(n, Rij, -wmw1, nt, wmw3)
-        V24(n) = Vert(n, Rij, wpw2, -nt, -wpw4)
+        V13(n) = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
+        V24(n) = Vert(n, Rij, wpw2, -nt, -wpw4, flavTransf24)
 
-        V31(n) = Vert(n, Rij, wmw3, nt, -wmw1)
-        V42(n) = Vert(n, Rij, -wpw4, -nt, wpw2)
+        V31(n) = Vert(n, Rij, wmw3, nt, -wmw1, flavTransf31)
+        V42(n) = Vert(n, Rij, -wpw4, -nt, wpw2, flavTransf42)
 
         fill!(X_sum, 0.0)
 
@@ -588,8 +600,8 @@ function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) w
     invpairs = Par.System.invpairs
 
     setZero!(Dgamma)
-    @inline Gamma_(n, Rij, s, t, u) =
-        V_(Gamma, n, s, t, u, Rij, invpairs[Rij], Par.NumericalParams.N)
+    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
     addTo1PartBubble!(Dgamma, Gamma_, Props, Par)
 end
 
@@ -605,9 +617,10 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
                 jsum = zeros(3)
                 wpw1 = nw1 + nw + 1
                 wmw1 = nw - nw1
+                flavTransform = (wmw1 * wpw1 < 0, false, false)
                 for k_spl = 1:Nsum[Rx]
                     (; m, ki, xk) = siteSum[k_spl, Rx]
-                    gam(n) = Gamma_(n, ki, 0, -wmw1, -wpw1)
+                    gam(n) = Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform)
                     jsum[fd.xx] +=
                         (
                             gam(fd.xx) * Props[1](xk, nw) +
@@ -766,7 +779,8 @@ function getChi_z(
 
     iGx(x, w) = iG_(iSigmaX, x, Lam, w, T)
     iGy(x, w) = iG_(iSigmaY, x, Lam, w, T)
-    Vxy2(Rij, s, t, u) = V_(Gamma, fd.xy2, s, t, u, Rij, invpairs[Rij], N)
+    Vxy2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
@@ -781,7 +795,8 @@ function getChi_z(
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
                 GGGG = iGx(xi, nK)^2 * iGy(xj, nK2)^2
-                Chi[Rij] += T^2 * GGGG * Vxy2(Rij, 0, npwpw2, -w2mw)
+                flavTransform = (npwpw2 * w2mw > 0, false, false)
+                Chi[Rij] += T^2 * GGGG * Vxy2(Rij, 0, npwpw2, -w2mw, flavTransform)
             end
         end
     end
@@ -800,7 +815,8 @@ function getChi_x(
 
     iGy(x, w) = iG_(iSigmaY, x, Lam, w, T)
     iGz(x, w) = iG_(iSigmaZ, x, Lam, w, T)
-    Vyz2(Rij, s, t, u) = V_(Gamma, fd.yz2, s, t, u, Rij, invpairs[Rij], N)
+    Vyz2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
@@ -815,7 +831,8 @@ function getChi_x(
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
                 GGGG = iGy(xi, nK)^2 * iGz(xj, nK2)^2
-                Chi[Rij] += T^2 * GGGG * Vyz2(Rij, 0, npwpw2, -w2mw)
+                flavTransform = (npwpw2 * w2mw > 0, false, false)
+                Chi[Rij] += T^2 * GGGG * Vyz2(Rij, 0, npwpw2, -w2mw, flavTransform)
             end
         end
     end
@@ -834,7 +851,8 @@ function getChi_y(
 
     iGz(x, w) = iG_(iSigmaZ, x, Lam, w, T)
     iGx(x, w) = iG_(iSigmaX, x, Lam, w, T)
-    Vzx2(Rij, s, t, u) = V_(Gamma, fd.zx2, s, t, u, Rij, invpairs[Rij], N)
+    Vzx2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
 
@@ -849,7 +867,8 @@ function getChi_y(
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
                 GGGG = iGz(xi, nK)^2 * iGx(xj, nK2)^2
-                Chi[Rij] += T^2 * GGGG * Vzx2(Rij, 0, npwpw2, -w2mw)
+                flavTransform = (npwpw2 * w2mw > 0, false, false)
+                Chi[Rij] += T^2 * GGGG * Vzx2(Rij, 0, npwpw2, -w2mw, flavTransform)
             end
         end
     end
