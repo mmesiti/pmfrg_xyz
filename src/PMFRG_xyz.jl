@@ -26,13 +26,6 @@ struct NumericalParams{T<:Real}
     lenIntw_acc::Int
 end
 
-struct OneLoopParams{T,SType}
-    System::SType
-    NumericalParams::NumericalParams{T}
-    Options::OptionParams
-end
-
-
 # Similar to Gamma I give X an extra dimension as opposed to create
 # A BubbleType struct for it
 struct OneLoopWorkspace{T,ParType}
@@ -122,41 +115,6 @@ end
 using LinearAlgebra
 using SparseArrays
 
-
-function V_(
-    Vertex::AbstractArray,
-    n::Int,
-    ns::Int,
-    nt::Int,
-    nu::Int,
-    isFlavorTransform::Tuple{Bool,Bool,Bool},
-    Rij::Integer,
-    Rji::Integer,
-    N::Integer,
-)
-
-    @inbounds begin
-        # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
-        block = div(n + 2, 6)
-
-        if (block != 0 && isFlavorTransform[block])
-            # This transforms a block (a,b,c,d,e,f) into (d,e,f,a,b,c)
-            # The layout of the fd-module is hence *very* important
-
-            block_start = 4 + (block - 1) * 6
-            offset = n - block_start
-            new_offset = (offset + 3) % 6 # cyclic permutation, right shift by 3
-
-            n_transf = block_start + new_offset
-        else
-            n_transf = n
-        end
-
-        ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-        Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-        return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
-    end
-end
 
 "Optimized, in-place version of V_ to be used in addX! and addY!"
 @inline function FillVBuffer!(
@@ -1018,15 +976,6 @@ function get_Self_Energy!(Workspace, T::Real)
     compute1PartBubble!(Workspace.Deriv.iSigma, Workspace.State.Gamma, [iSx, iSy, iSz], Par)
 end
 
-function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) where {T}
-    invpairs = Par.System.invpairs
-
-    setZero!(Dgamma)
-    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
-    addTo1PartBubble!(Dgamma, Gamma_, Props, Par)
-end
-
 function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 
     (; N, lenIntw_acc) = Par.NumericalParams
@@ -1091,14 +1040,6 @@ end
 ####################################################
 ######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
 ####################################################
-
-
-function AllocateSetup(Par::OneLoopParams)
-    println("Allocate Setup")
-    ## Allocate Memory:
-    floattype = _getFloatType(Par)
-    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
-end
 
 
 function launchPMFRG!(

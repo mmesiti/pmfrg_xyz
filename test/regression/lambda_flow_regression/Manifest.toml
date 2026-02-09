@@ -756,8 +756,8 @@ uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 version = "1.3.4"
 
 [[deps.Recorder]]
-deps = ["JLD2", "JuliaFormatter", "Random", "Statistics"]
-path = "/home/michele/PMFRG/pmfrg_xyz/examples/lambda_flow_regression/../../../Recorder.jl"
+deps = ["JLD2", "JuliaFormatter"]
+path = "/home/michele/PMFRG/pmfrg_xyz/test/regression/lambda_flow_regression/../../../../Recorder.jl"
 uuid = "c5f2e5b5-9010-42ac-aa93-6ef73b86c405"
 version = "0.1.0"
 

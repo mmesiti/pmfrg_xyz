@@ -177,6 +177,40 @@ const zy3 = 21
 end
 
 #################################################
+######### VERTEX ACCESS #########################
+#################################################
+
+function V_(
+    Vertex::AbstractArray,
+    n::Int,
+    ns::Int,
+    nt::Int,
+    nu::Int,
+    isFlavorTransform::Tuple{Bool,Bool,Bool},
+    Rij::Integer,
+    Rji::Integer,
+    N::Integer,
+)
+    @inbounds begin
+        block = div(n + 2, 6)
+
+        if (block != 0 && isFlavorTransform[block])
+            block_start = 4 + (block - 1) * 6
+            offset = n - block_start
+            new_offset = (offset + 3) % 6
+
+            n_transf = block_start + new_offset
+        else
+            n_transf = n
+        end
+
+        ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
+        Rij = ifelse(isFlavorTransform[1], Rji, Rij)
+        return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
+    end
+end
+
+#################################################
 ######### SYMMETRY FUNCTIONS ####################
 #################################################
 
@@ -245,6 +279,19 @@ function symmetrizeVertex!(Gamma::Array{T,5}, Par) where {T}
             end
         end
     end
+end
+
+#################################################
+######### 1-PARTICLE BUBBLE #####################
+#################################################
+
+function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) where {T}
+    invpairs = Par.System.invpairs
+
+    setZero!(Dgamma)
+    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
+    addTo1PartBubble!(Dgamma, Gamma_, Props, Par)
 end
 
 #################################################
@@ -324,4 +371,19 @@ function setToBareVertex!(
     end
 
     return Gamma
+end
+
+struct OneLoopParams{SType,NumericalParams}
+    System::SType
+    NumericalParams::NumericalParams
+    Options::OptionParams
+end
+
+
+
+function AllocateSetup(Par::OneLoopParams)
+    println("Allocate Setup")
+    ## Allocate Memory:
+    floattype = _getFloatType(Par)
+    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
 end

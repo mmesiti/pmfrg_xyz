@@ -19,12 +19,6 @@ struct NumericalParams{T<:Real}
     lenIntw_acc::Int
 end
 
-struct OneLoopParams{T,SType}
-    System::SType
-    NumericalParams::NumericalParams{T}
-    Options::OptionParams
-end
-
 _getFloatType(Par) = typeof(Par.NumericalParams.T)
 
 function NumericalParams(;
@@ -85,38 +79,6 @@ end
 ###     u <--> -u, i <--> j
 using LinearAlgebra
 using SparseArrays
-
-function V_(
-    Vertex::AbstractArray,
-    n::Int,
-    ns::Int,
-    nt::Int,
-    nu::Int,
-    isFlavorTransform::Tuple{Bool,Bool,Bool},
-    Rij::Integer,
-    Rji::Integer,
-    N::Integer,
-)
-
-    @inbounds begin
-        block = div(n + 2, 6)
-
-        if (block != 0 && isFlavorTransform[block])
-            block_start = 4 + (block - 1) * 6
-            offset = n - block_start
-            new_offset = (offset + 3) % 6
-
-            n_transf = block_start + new_offset
-        else
-            n_transf = n
-        end
-
-        ns, nt, nu = ConvertFreqArgs(ns, nt, nu, N)
-        Rij = ifelse(isFlavorTransform[1], Rji, Rij)
-        return Vertex[n_transf, Rij, ns+1, nt+1, nu+1]
-    end
-end
-
 
 function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props)
     (; State, X, Par) = Workspace
@@ -596,15 +558,6 @@ function get_Self_Energy!(Workspace, Lam)
     compute1PartBubble!(Workspace.Deriv.iSigma, Workspace.State.Gamma, [iSx, iSy, iSz], Par)
 end
 
-function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) where {T}
-    invpairs = Par.System.invpairs
-
-    setZero!(Dgamma)
-    @inline Gamma_(n, Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, n, s, t, u, isFlavorTransform, Rij, invpairs[Rij], Par.NumericalParams.N)
-    addTo1PartBubble!(Dgamma, Gamma_, Props, Par)
-end
-
 function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 
     (; T, N, lenIntw_acc) = Par.NumericalParams
@@ -665,7 +618,7 @@ end
 using JLD2
 function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
 
-    (X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
+    (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
 
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
@@ -683,14 +636,6 @@ end
 ######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
 ####################################################
 
-
-function AllocateSetup(Par::OneLoopParams)
-    println("One Loop: T= ", Par.NumericalParams.T)
-    ## Allocate Memory:
-    floattype = _getFloatType(Par)
-    X = zeros(floattype, getBubbleVDims(Par))
-    return (X, Par)
-end
 
 
 function launchPMFRG!(State, setup, Deriv!::Function; method = DP5(), npoints = 600)

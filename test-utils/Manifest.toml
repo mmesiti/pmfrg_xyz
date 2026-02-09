@@ -631,7 +631,7 @@ uuid = "1344f307-1e59-4825-a18e-ace9aa3fa4c6"
 version = "1.6.0"
 
 [[deps.PMFRG_xyz]]
-deps = ["DiffEqCallbacks", "JLD2", "LinearAlgebra", "MuladdMacro", "OrdinaryDiffEqLowOrderRK", "RecursiveArrayTools", "SparseArrays", "SpinFRGLattices", "StructArrays", "Unroll"]
+deps = ["DiffEqCallbacks", "FastBroadcast", "InteractiveUtils", "JLD2", "LinearAlgebra", "MuladdMacro", "OrdinaryDiffEqLowOrderRK", "RecursiveArrayTools", "SparseArrays", "SpinFRGLattices", "StructArrays", "Unroll"]
 path = ".."
 uuid = "785b06fc-d355-4226-8a27-57b35e93bce2"
 version = "0.1.0"
