@@ -1,9 +1,5 @@
 module PMFRG_xyz
 
-#################################################
-######### STRUCTS ## STRUCTS ## STRUCTS #########
-#################################################
-
 using RecursiveArrayTools
 using SpinFRGLattices,
     OrdinaryDiffEqLowOrderRK, DiffEqCallbacks, RecursiveArrayTools, StructArrays
@@ -12,170 +8,21 @@ using Unroll
 using MuladdMacro
 using FastBroadcast
 
-setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
-
-function setZero!(PartArr::ArrayPartition)
-    for arr in PartArr.x
-        fill!(arr, 0.0)
-    end
-end
-
-"""Recursively sets structure to zero"""
-function setZero!(a::T) where {T}
-    for f in fieldnames(T)
-        setZero!(getfield(a, f))
-    end
-    return a
-end
-
-# In my convention instead of γ I use iΣ
-# Since iΣ now carries three flavors I create a struct for it
-struct SigmaType{T}
-    x::Array{T,2}
-    y::Array{T,2}
-    z::Array{T,2}
-end
-
-# Previously there existed a Γ::VertexType with VertexType containing
-# the three Γ-flavors. Since here I have 21 I opted to add one
-# array-dimension as opposed to enlarge the struct.
-struct StateType{T}
-    f_int::Vector{T}
-    iSigma::SigmaType{T}
-    Gamma::Array{T,5}
-end
-
-# the XYZ model may give different Χ_x, Χ_y, X_z
-struct Observables{T}
-    Chi_x::Vector{T}
-    Chi_y::Vector{T}
-    Chi_z::Vector{T}
-end
-
-# np_vec is removed because
-# ns = np_vec[is] is the same
-# as simply ns = is - 1
-struct NumericalParams{T<:Real}
-    N::Int
-
-    accuracy::T
-    temp_min::T
-    temp_max::T
-
-    lenIntw::Int
-    lenIntw_acc::Int
-end
-
-# Remnant from the old code that I havent implemented yet
-struct OptionParams
-    use_symmetry::Bool
-    minimal_output::Bool
-end
-
-# The code doesnt work for some reason if I name this struct
-# OneLoopParams
-struct OneLoopParams{T,SType}
-    System::SType
-    NumericalParams::NumericalParams{T}
-    Options::OptionParams
-end
-
-# Similar to Gamma I give X an extra dimension as opposed to create
-# A BubbleType struct for it
-struct OneLoopWorkspace{T,ParType}
-    State::StateType{T}
-    Deriv::StateType{T}
-    X::Array{T,5}
-    Par::ParType
-end
-
-# For a general Vertex there can be 3^4 = 81 flavor combinations
-# In the XYZ model the SO(3) symmetry breaks down to a residual Klein-4 Symmetry
-# This means that the Vertex function can only depend on two distinct flavors at most
-# This gives 21 different Vertex functions.
-# In my convention I dont use X and ̃X but just one big array called X.
-# If I need to acces the ̃X part (which in my convention I name Y) I just go X[21 + flavor]
-getVDims(Par) = (
-    21,
-    Par.System.Npairs,
-    Par.NumericalParams.N,
-    Par.NumericalParams.N,
-    Par.NumericalParams.N,
-)
-getBubbleVDims(Par) = (
-    42,
-    Par.System.Npairs,
-    Par.NumericalParams.N,
-    Par.NumericalParams.N,
-    Par.NumericalParams.N,
-)
-_getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
-
-function SigmaType(NUnique::Int, N::Int, type = Float64)
-    return SigmaType(
-        zeros(type, NUnique, N),
-        zeros(type, NUnique, N),
-        zeros(type, NUnique, N),
-    )
-end
-SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
-
-function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
-    return StateType(zeros(type, NUnique), SigmaType(tpye, NUnique, N), zeros(type, VDims))
-end
-StateType(Par) =
-    StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
-StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
-    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), Gamma)
-RecursiveArrayTools.ArrayPartition(x) =
-    ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma)
-StateType(Arr::ArrayPartition) = StateType(Arr.x...)
-
-# The constructor of this is just blind-copied. To this day I dont really understand
-# the purpose of lenIntw and lenIntw_acc
-function NumericalParams(;
-    N::Integer = 24,
-    accuracy = 1e-6,
-    temp_min = exp(-10.0),
-    temp_max = exp(10.0),
-    lenIntw::Int = N,
-    lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
-)
-
-    return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
-end
-
-function OneLoopWorkspace(State, Deriv, X, Par)
-    setZero!(Deriv)
-    setZero!(X)
-
-    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
-end
-
-OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
-    OptionParams(use_symmetry, MinimalOutput)
-Params(System; kwargs...) =
-    OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+include("Structs.jl")
 
 #############################################################
 ######### PROPAGATORS ## PROPAGATORS ## PROPAGATORS #########
 #############################################################
 
-### Propagators will depend on an additional flavor
-### Instead of modifying the propagators, I will simply use them
-### as V_, by doing iG_(iSigma.x, ...)
-
-function get_w(nw, T)
+function get_w(nw)
     return pi * (2 * nw + 1)
 end
 
 function get_sign_iw(nw::Integer, N::Integer)
-    # s = sign(nw)
-    nw_bounds = min(nw, N - 1)  ### used to be min(abs(nw),...), but nw is set positive in iSigma_
-    return nw_bounds + 1        ### used to be s * ...
+    nw_bounds = min(nw, N - 1)
+    return nw_bounds + 1
 end
 
-### Sigma inputted as State.iSigma, which is Array{T, 2}
 function iSigma_(iSigma::AbstractArray, x::Integer, nw::Integer)
     N = size(iSigma, 2)
     s = 1
@@ -188,18 +35,16 @@ function iSigma_(iSigma::AbstractArray, x::Integer, nw::Integer)
 end
 
 function iG_(iSigma::AbstractArray, x::Integer, nw::Integer, T::Real)
-    w = get_w(nw, T)
+    w = get_w(nw)
     return 1.0 / (w * sqrt(T) + iSigma_(iSigma, x, nw))
 end
 
 ### by differentiating the above inverse by T
 function iS_(iSigma::AbstractArray, x::Integer, nw::Integer, T::Real)
-    w = get_w(nw, T)
+    w = get_w(nw)
     return -iG_(iSigma, x, nw, T)^2 * w / (2.0 * sqrt(T))
 end
 
-### Katanin requires (d/dΛ)iΣ, which in the original code is iSigma_(DSigma, x, nw)
-### might be wrong here though.
 function iSKat_(
     iSigma::AbstractArray,
     DSigma::AbstractArray,
@@ -207,7 +52,7 @@ function iSKat_(
     nw::Integer,
     T::Real,
 )
-    w = get_w(nw, T)
+    w = get_w(nw)
     return -iG_(iSigma, x, nw, T)^2 * (w / (2.0 * sqrt(T)) + iSigma_(DSigma, x, nw))
 end
 
@@ -225,7 +70,7 @@ end
 function ConvertFreqArgs(ns, nt, nu, Nw)
     ns, nt, nu = abs.((ns, nt, nu))
 
-    ns = min(ns, Nw - 1 - (ns + Nw - 1) % 2) ### weird cutoff, idk why
+    ns = min(ns, Nw - 1 - (ns + Nw - 1) % 2)
     nt = min(nt, Nw - 1 - (nt + Nw - 1) % 2)
     nu = min(nu, Nw - 1 - (nu + Nw - 1) % 2)
 
@@ -249,7 +94,6 @@ function V_(
 )
 
     @inbounds begin
-        # isFlavorTransform = (nt * nu < 0, ns * nu < 0, ns * nt < 0)
         block = div(n + 2, 6)
 
         if (block != 0 && isFlavorTransform[block])
@@ -340,7 +184,7 @@ function mixedFrequencies(ns, nt, nu, nwpr)
     return wpw1, wpw2, wpw3, wpw4, wmw1, wmw2, wmw3, wmw4
 end
 
-# This defines the Vertex flavors. module was the fastest option
+# This defines the 21 Vertex flavors
 module fd
 const xx = 1
 const yy = 2
@@ -391,23 +235,21 @@ function get_ThreadLocalBuffers(
 
     [
         ThreadLocalBuffersT(
-            zeros(ComputeType, iuh_blocksize, 21, Npairs),# V12_addX::Array{T,3}
-            zeros(ComputeType, iuh_blocksize, 21, Npairs),# V34_addX::Array{T,3}
-            zeros(ComputeType, iuh_blocksize, 21, Npairs),# X_sum_addX::Array{T,3}
+            zeros(ComputeType, iuh_blocksize, 21, Npairs), # V12_addX::Array{T,3}
+            zeros(ComputeType, iuh_blocksize, 21, Npairs), # V34_addX::Array{T,3}
+            zeros(ComputeType, iuh_blocksize, 21, Npairs), # X_sum_addX::Array{T,3}
             zeros(ComputeType, iuh_blocksize, 21, Npairs), # X_sum_addY::Array{T,3}
-            zeros(ComputeType, 3, 3, NUnique),            # spropX::Array{T,3}
-            zeros(ComputeType, 3, 3, NUnique, NUnique),   # spropY::Array{T,4}
-            zeros(ComputeType, 3, 3),                     # Ptm::Matrix{T}
-            zeros(ComputeType, 21),                       # V13_addY::Vector{T}
-            zeros(ComputeType, 21),                       # V24_addY::Vector{T}
-            zeros(ComputeType, 21),                       # V31_addY::Vector{T}
-            zeros(ComputeType, 21),                       # V42_addY::Vector{T}
+            zeros(ComputeType, 3, 3, NUnique),             # spropX::Array{T,3}
+            zeros(ComputeType, 3, 3, NUnique, NUnique),    # spropY::Array{T,4}
+            zeros(ComputeType, 3, 3),                      # Ptm::Matrix{T}
+            zeros(ComputeType, 21),                        # V13_addY::Vector{T}
+            zeros(ComputeType, 21),                        # V24_addY::Vector{T}
+            zeros(ComputeType, 21),                        # V31_addY::Vector{T}
+            zeros(ComputeType, 21),                        # V42_addY::Vector{T}
         ) for _ = 1:nbuffers
     ]
 end
 
-# The main bottleneck seems to me to be located in the creation of large
-# arrays of size 42 and 21 and the continued calling fo the V_ function.
 function addX!(
     X_sum_addX::Array{T,3},
     Gamma::Array{T,5},
@@ -718,7 +560,7 @@ function addY!(
         swap31 = flavTransf31[1]
         swap42 = flavTransf42[1]
 
-        # Xtilde only defined for nonlocal pairs Rij != Rii
+        # Y only defined for nonlocal pairs Rij != Rii
         @inbounds @muladd for Rij = 1:Npairs
             Rij in OnsitePairs && continue
             # loop over all left hand side inequivalent pairs Rij
@@ -741,7 +583,6 @@ function addY!(
             PT = @SMatrix [Props[j, i, xj, xi] for i = 1:3, j = 1:3]
 
             ### Yaa = Vaa Vaa + Vab2 Vab2 + Vac2 Vac2 + (w -- -w + t)
-
             X_sum_addY[iuh_local, fd.xx, Rij] =
                 X_sum_addY[iuh_local, fd.xx, Rij] + (
                     (
@@ -782,7 +623,6 @@ function addY!(
                 )
 
             ### Yab1 = Vab3 Vab3 + Vab1 Vab1 + (w -- -w + t)
-
             X_sum_addY[iuh_local, fd.xy1, Rij] =
                 X_sum_addY[iuh_local, fd.xy1, Rij] + (
                     (
@@ -850,7 +690,6 @@ function addY!(
                 )
 
             ### Yab2 = Vaa Vba2 + Vab2 Vbb + Vac2 Vbc2 + (w -- -w + t)
-
             X_sum_addY[iuh_local, fd.xy2, Rij] =
                 X_sum_addY[iuh_local, fd.xy2, Rij] + (
                     (
@@ -930,7 +769,6 @@ function addY!(
                 )
 
             ### Yab3 = Vab3 Vba1 + Vab1 Vba3 + (w -- -w + t)
-
             X_sum_addY[iuh_local, fd.xy3, Rij] =
                 X_sum_addY[iuh_local, fd.xy3, Rij] + (
                     (
@@ -1222,7 +1060,7 @@ function getDFint!(Workspace, T::Real)
     for x = 1:NUnique
         sumres = 0.0
         for nw = -lenIntw_acc:lenIntw_acc-1
-            w = get_w(nw, T)
+            w = get_w(nw)
             sumres += iSx(x, nw) / iGx(x, nw) * iSigmax(x, nw) / w
             sumres += iSy(x, nw) / iGy(x, nw) * iSigmay(x, nw) / w
             sumres += iSz(x, nw) / iGz(x, nw) * iSigmaz(x, nw) / w
@@ -1294,14 +1132,14 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+function getDeriv!(Deriv, State, setup, T)
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
-    getDFint!(Workspace, Lam)
-    get_Self_Energy!(Workspace, Lam)
-    getXBubble!(Workspace, Lam)
+    getDFint!(Workspace, T)
+    get_Self_Energy!(Workspace, T)
+    getXBubble!(Workspace, T)
     symmetrizeBubble!(Workspace.X, Par)
     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
@@ -1353,10 +1191,19 @@ function gettMesh(T_min, T_max, npoints)
     return LinRange(t_min, t_max, npoints)
 end
 
+function save_static_chis(State, t, integrator, Par)
+    chi_x = getChi_x(State, t_to_Lam(t), Par)
+    chi_y = getChi_y(State, t_to_Lam(t), Par)
+    chi_z = getChi_z(State, t_to_Lam(t), Par)
+    return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
+end
+
 function launchPMFRG!(
     State,
     setup,
-    Deriv!::Function;
+    Deriv!::Function,
+    saved_values::SavedValues,
+    save_func::Function;
     method = DP5(),
     npoints = 600,
     save_steps = false,
@@ -1369,16 +1216,6 @@ function launchPMFRG!(
     t0 = Lam_to_t(temp_max)
     tend = get_t_min(temp_min)
     Deriv_subst! = generateSubstituteDeriv(Deriv!)
-
-    saved_values = SavedValues(eltype(State), Observables{eltype(State)})
-
-    function save_func(State, t, integrator)
-        chi_x = getChi_x(State, t_to_Lam(t), Par)
-        chi_y = getChi_y(State, t_to_Lam(t), Par)
-        chi_z = getChi_z(State, t_to_Lam(t), Par)
-
-        return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
-    end
 
     ObsSaveat = gettMesh(temp_min, temp_max, npoints)
     saveCB = SavingCallback(
@@ -1403,24 +1240,12 @@ function launchPMFRG!(
     return sol, saved_values
 end
 
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
-    Par = setup[end]
-    (; temp_max, temp_min, accuracy) = Par.NumericalParams
-
-    t0 = Lam_to_t(temp_max)
-    tend = get_t_min(temp_min)
-    Deriv_subst! = generateSubstituteDeriv(Deriv!)
-
-    der = copy(State)
-    setZero!(der)
-
-    Deriv_subst!(der, State, setup, t0, s = false)
-end
-
 SolveFRG(Par, isotropy; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-TestFRG(Par, isotropy; kwargs...) =
-    testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!,
+    SavedValues(_getFloatType(Par), Observables{_getFloatType(Par)}),
+    (State, t, integrator) -> save_static_chis(State, t, integrator, Par); kwargs...)
+SolveFRG(Par, isotropy, saved_values, save_func; kwargs...) =
+    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!, saved_values, save_func; kwargs...)
 
 function get_t_min(Lam)
     Lam < exp(-30) && @warn "temp_min too small! Set to exp(-30) instead."
@@ -1429,9 +1254,9 @@ end
 
 function generateSubstituteDeriv(getDeriv!::Function)
 
-    function DerivSubs!(Deriv, State, setup, t; s = true)
+    function DerivSubs!(Deriv, State, setup, t)
         Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, setup, Lam, saveArgs = s)
+        a = getDeriv!(Deriv, State, setup, Lam)
         Deriv .*= Lam
         a
     end
@@ -1466,12 +1291,54 @@ end
 ######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
 #############################################################
 
+getChi_z(State::ArrayPartition, T::Real, Par, Numax::Real) =
+    getChi_z(State.x[2], State.x[3], State.x[5], T, Par, Numax)
+getChi_x(State::ArrayPartition, T::Real, Par, Numax::Real) =
+    getChi_x(State.x[3], State.x[4], State.x[5], T, Par, Numax)
+getChi_y(State::ArrayPartition, T::Real, Par, Numax::Real) =
+    getChi_y(State.x[4], State.x[2], State.x[5], T, Par, Numax)
+
 getChi_z(State::ArrayPartition, T::Real, Par) =
     getChi_z(State.x[2], State.x[3], State.x[5], T, Par)
 getChi_x(State::ArrayPartition, T::Real, Par) =
     getChi_x(State.x[3], State.x[4], State.x[5], T, Par)
 getChi_y(State::ArrayPartition, T::Real, Par) =
     getChi_y(State.x[4], State.x[2], State.x[5], T, Par)
+    
+function getChi_z(
+        iSigmaX::AbstractArray,
+        iSigmaY::AbstractArray,
+        Gamma::AbstractArray,
+        T::Real,
+        Par,
+    )
+        (; N, lenIntw_acc) = Par.NumericalParams
+        (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+    
+        iGx(x, w) = iG_(iSigmaX, x, w, T)
+        iGy(x, w) = iG_(iSigmaY, x, w, T)
+        Vxy2(Rij, s, t, u, isFlavorTransform) =
+            V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+    
+        Chi = zeros(_getFloatType(Par), Npairs)
+    
+        for Rij = 1:Npairs
+            (; xi, xj) = PairTypes[Rij]
+            for nK = -lenIntw_acc:lenIntw_acc-1
+                if Rij in OnsitePairs
+                    Chi[Rij, 1] += iGx(xi, nK) * iGy(xi, nK)
+                end
+                for nK2 = -lenIntw_acc:lenIntw_acc-1
+                    npwpw2 = nK + nK2 + 1
+                    w2mw = nK2 - nK
+                    GGGG = iGx(xi, nK)^2 * iGy(xj, nK2)^2
+                    flavTransform = (npwpw2 * w2mw > 0, false, false)
+                    Chi[Rij] += GGGG * Vxy2(Rij, 0, npwpw2, -w2mw, flavTransform)
+            end
+        end
+    end
+    return (Chi)
+end
 
 function getChi_z(
     iSigmaX::AbstractArray,
@@ -1479,6 +1346,7 @@ function getChi_z(
     Gamma::AbstractArray,
     T::Real,
     Par,
+    Numax::Real
 )
     (; N, lenIntw_acc) = Par.NumericalParams
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
@@ -1488,21 +1356,24 @@ function getChi_z(
     Vxy2(Rij, s, t, u, isFlavorTransform) =
         V_(Gamma, fd.xy2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
-    Chi = zeros(_getFloatType(Par), Npairs)
+    Chi = zeros(_getFloatType(Par), Npairs, N)
 
     for Rij = 1:Npairs
-        (; xi, xj) = PairTypes[Rij]
-        for nK = -lenIntw_acc:lenIntw_acc-1
-            if Rij in OnsitePairs
-                Chi[Rij, 1] += iGx(xi, nK) * iGy(xi, nK)
-            end
-            for nK2 = -lenIntw_acc:lenIntw_acc-1
-                npwpw2 = nK + nK2 + 1
-                w2mw = nK2 - nK
-                #use that Vc_0 is calculated from Vb
-                GGGG = iGx(xi, nK)^2 * iGy(xj, nK2)^2
-                flavTransform = (npwpw2 * w2mw > 0, false, false)
-                Chi[Rij] += GGGG * Vxy2(Rij, 0, npwpw2, -w2mw, flavTransform)
+        for i_nu = 1:Numax
+            n_nu = i_nu - 1
+        
+            (; xi, xj) = PairTypes[Rij]
+            for nK = -lenIntw_acc:lenIntw_acc-1
+                if Rij in OnsitePairs
+                    Chi[Rij, i_nu] += iGx(xi, nK) * iGy(xi, nK + n_nu)
+                end
+                for nK2 = -lenIntw_acc:lenIntw_acc-1
+                    npwpw2 = n_nu + nK + nK2 + 1
+                    w2mw = nK2 - nK
+                    GGGG = iGx(xi, nK) * iGx(xi, nK + n_nu) * iGy(xj, nK2) * iGy(xj, nK2 + n_nu)
+                    flavTransform = (npwpw2 * w2mw > 0, false, false)
+                    Chi[Rij, i_nu] += GGGG * Vxy2(Rij, n_nu, npwpw2, -w2mw, flavTransform) ####### hier denken
+                end
             end
         end
     end
@@ -1535,10 +1406,49 @@ function getChi_x(
             for nK2 = -lenIntw_acc:lenIntw_acc-1
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
-                #use that Vc_0 is calculated from Vb
                 GGGG = iGy(xi, nK)^2 * iGz(xj, nK2)^2
                 flavTransform = (npwpw2 * w2mw > 0, false, false)
                 Chi[Rij] += GGGG * Vyz2(Rij, 0, npwpw2, -w2mw, flavTransform)
+            end
+        end
+    end
+    return (Chi)
+end
+
+function getChi_x(
+    iSigmaY::AbstractArray,
+    iSigmaZ::AbstractArray,
+    Gamma::AbstractArray,
+    T::Real,
+    Par,
+    Numax::Real
+)
+    (; N, lenIntw_acc) = Par.NumericalParams
+    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+
+    iGy(x, w) = iG_(iSigmaY, x, w, T)
+    iGz(x, w) = iG_(iSigmaZ, x, w, T)
+    Vyz2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.yz2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
+    Chi = zeros(_getFloatType(Par), Npairs, N)
+
+    for Rij = 1:Npairs
+        for i_nu = 1:Numax
+            n_nu = i_nu - 1
+        
+            (; xi, xj) = PairTypes[Rij]
+            for nK = -lenIntw_acc:lenIntw_acc-1
+                if Rij in OnsitePairs
+                    Chi[Rij, i_nu] += iGy(xi, nK) * iGz(xi, nK + n_nu)
+                end
+                for nK2 = -lenIntw_acc:lenIntw_acc-1
+                    npwpw2 = n_nu + nK + nK2 + 1
+                    w2mw = nK2 - nK
+                    GGGG = iGy(xi, nK) * iGy(xi, nK + n_nu) * iGz(xj, nK2) * iGz(xj, nK2 + n_nu)
+                    flavTransform = (npwpw2 * w2mw > 0, false, false)
+                    Chi[Rij, i_nu] += GGGG * Vyz2(Rij, n_nu, npwpw2, -w2mw, flavTransform) ####### hier denken
+                end
             end
         end
     end
@@ -1571,7 +1481,6 @@ function getChi_y(
             for nK2 = -lenIntw_acc:lenIntw_acc-1
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
-                #use that Vc_0 is calculated from Vb
                 GGGG = iGz(xi, nK)^2 * iGx(xj, nK2)^2
                 flavTransform = (npwpw2 * w2mw > 0, false, false)
                 Chi[Rij] += GGGG * Vzx2(Rij, 0, npwpw2, -w2mw, flavTransform)
@@ -1581,6 +1490,46 @@ function getChi_y(
     return (Chi)
 end
 
-export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z
+function getChi_y(
+    iSigmaZ::AbstractArray,
+    iSigmaX::AbstractArray,
+    Gamma::AbstractArray,
+    T::Real,
+    Par,
+    Numax::Real
+)
+    (; N, lenIntw_acc) = Par.NumericalParams
+    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+
+    iGz(x, w) = iG_(iSigmaZ, x, w, T)
+    iGx(x, w) = iG_(iSigmaX, x, w, T)
+    Vzx2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd.zx2, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
+    Chi = zeros(_getFloatType(Par), Npairs, N)
+
+    for Rij = 1:Npairs
+        for i_nu = 1:Numax
+            n_nu = i_nu - 1
+        
+            (; xi, xj) = PairTypes[Rij]
+            for nK = -lenIntw_acc:lenIntw_acc-1
+                if Rij in OnsitePairs
+                    Chi[Rij, i_nu] += iGz(xi, nK) * iGx(xi, nK + n_nu)
+                end
+                for nK2 = -lenIntw_acc:lenIntw_acc-1
+                    npwpw2 = n_nu + nK + nK2 + 1
+                    w2mw = nK2 - nK
+                    GGGG = iGz(xi, nK) * iGz(xi, nK + n_nu) * iGx(xj, nK2) * iGx(xj, nK2 + n_nu)
+                    flavTransform = (npwpw2 * w2mw > 0, false, false)
+                    Chi[Rij, i_nu] += GGGG * Vzx2(Rij, n_nu, npwpw2, -w2mw, flavTransform) ####### hier denken
+                end
+            end
+        end
+    end
+    return (Chi)
+end
+
+export Params, SolveFRG, getChi_x, getChi_y, getChi_z
 
 end
