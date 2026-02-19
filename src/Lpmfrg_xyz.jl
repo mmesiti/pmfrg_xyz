@@ -451,48 +451,52 @@ function addY!(
     end
 end
 
-function getXBubble!(Workspace, Lam)
+function getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw1, nw2)
+    iGx(x, nw) = iG_(iSigma.x, x, Lam, nw, T)
+    iGy(x, nw) = iG_(iSigma.y, x, Lam, nw, T)
+    iGz(x, nw) = iG_(iSigma.z, x, Lam, nw, T)
+
+    iSKatx(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, Lam, nw, T)
+    iSKaty(x, nw) = iSKat_(iSigma.y, DiSigma.y, x, Lam, nw, T)
+    iSKatz(x, nw) = iSKat_(iSigma.z, DiSigma.z, x, Lam, nw, T)
+
+    for i = 1:NUnique, j = 1:NUnique
+        BubbleProp[i, j, 1, 1] = iSKatx(i, nw1) * iGx(j, nw2) * T
+        BubbleProp[i, j, 1, 2] = iSKatx(i, nw1) * iGy(j, nw2) * T
+        BubbleProp[i, j, 1, 3] = iSKatx(i, nw1) * iGz(j, nw2) * T
+        BubbleProp[i, j, 2, 1] = iSKaty(i, nw1) * iGx(j, nw2) * T
+        BubbleProp[i, j, 2, 2] = iSKaty(i, nw1) * iGy(j, nw2) * T
+        BubbleProp[i, j, 2, 3] = iSKaty(i, nw1) * iGz(j, nw2) * T
+        BubbleProp[i, j, 3, 1] = iSKatz(i, nw1) * iGx(j, nw2) * T
+        BubbleProp[i, j, 3, 2] = iSKatz(i, nw1) * iGy(j, nw2) * T
+        BubbleProp[i, j, 3, 3] = iSKatz(i, nw1) * iGz(j, nw2) * T
+    end
+
+    ### Relative minus sign between paper & Nils' thesis
+    return -BubbleProp
+    # return SMatrix{NUnique, NUnique, 3, 3}(BubbleProp)
+    ### SMatrix can only create 2d array (according to ChatGPT). Use SArray instead
+end
+
+
+function getXBubble!(Workspace, FlowParameter)
+    Lam = FlowParameter
     Par = Workspace.Par
     (; T, N, lenIntw) = Par.NumericalParams
     (; NUnique) = Par.System
-
-    iGx(x, nw) = iG_(Workspace.State.iSigma.x, x, Lam, nw, T)
-    iGy(x, nw) = iG_(Workspace.State.iSigma.y, x, Lam, nw, T)
-    iGz(x, nw) = iG_(Workspace.State.iSigma.z, x, Lam, nw, T)
-
-    iSKatx(x, nw) =
-        iSKat_(Workspace.State.iSigma.x, Workspace.Deriv.iSigma.x, x, Lam, nw, T)
-    iSKaty(x, nw) =
-        iSKat_(Workspace.State.iSigma.y, Workspace.Deriv.iSigma.y, x, Lam, nw, T)
-    iSKatz(x, nw) =
-        iSKat_(Workspace.State.iSigma.z, Workspace.Deriv.iSigma.z, x, Lam, nw, T)
-
-    function getKataninProp!(BubbleProp, nw1, nw2)
-        for i = 1:Par.System.NUnique, j = 1:Par.System.NUnique
-            BubbleProp[i, j, 1, 1] = iSKatx(i, nw1) * iGx(j, nw2) * T
-            BubbleProp[i, j, 1, 2] = iSKatx(i, nw1) * iGy(j, nw2) * T
-            BubbleProp[i, j, 1, 3] = iSKatx(i, nw1) * iGz(j, nw2) * T
-            BubbleProp[i, j, 2, 1] = iSKaty(i, nw1) * iGx(j, nw2) * T
-            BubbleProp[i, j, 2, 2] = iSKaty(i, nw1) * iGy(j, nw2) * T
-            BubbleProp[i, j, 2, 3] = iSKaty(i, nw1) * iGz(j, nw2) * T
-            BubbleProp[i, j, 3, 1] = iSKatz(i, nw1) * iGx(j, nw2) * T
-            BubbleProp[i, j, 3, 2] = iSKatz(i, nw1) * iGy(j, nw2) * T
-            BubbleProp[i, j, 3, 3] = iSKatz(i, nw1) * iGz(j, nw2) * T
-        end
-
-        ### Relative minus sign between paper & Nils' thesis
-        return -BubbleProp
-        # return SMatrix{NUnique, NUnique, 3, 3}(BubbleProp)
-        ### SMatrix can only create 2d array (according to ChatGPT). Use SArray instead
-    end
+    iSigma = Workspace.State.iSigma
+    DiSigma = Workspace.Deriv.iSigma
 
     for is = 1:N, it = 1:N
         BubbleProp = zeros(NUnique, NUnique, 3, 3)
         ns = is - 1
         nt = it - 1
         for nw = -lenIntw:lenIntw-1 # Matsubara sum
-            spropX = getKataninProp!(BubbleProp, nw, nw + ns)
-            spropY = getKataninProp!(BubbleProp, nw, nw - nt)
+
+            spropX =
+                getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw, nw + ns)
+            spropY =
+                getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw, nw - nt)
             for iu = 1:N
                 nu = iu - 1
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
@@ -516,7 +520,8 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function getDFint!(Workspace, Lam::Real)
+function getDFint!(Workspace, FlowParam::Real)
+    Lam = FlowParam
     (; State, Deriv, Par) = Workspace
     (; T, lenIntw_acc) = Par.NumericalParams
     NUnique = Par.System.NUnique
@@ -547,7 +552,8 @@ function getDFint!(Workspace, Lam::Real)
     end
 end
 
-function get_Self_Energy!(Workspace, Lam)
+function get_Self_Energy!(Workspace, FlowParam)
+    Lam = FlowParam
     Par = Workspace.Par
     @inline iSx(x, nw) =
         iS_(Workspace.State.iSigma.x, x, Lam, nw, Par.NumericalParams.T) / 2
@@ -573,24 +579,27 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
                 flavTransform = (wmw1 * wpw1 < 0, false, false)
                 for k_spl = 1:Nsum[Rx]
                     (; m, ki, xk) = siteSum[k_spl, Rx]
-                    gam(n) = Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform)
+                    gam = @SVector [
+                        Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform) for n = 1:21
+                    ]
+
                     jsum[fd.xx] +=
                         (
-                            gam(fd.xx) * Props[1](xk, nw) +
-                            gam(fd.yx1) * Props[2](xk, nw) +
-                            gam(fd.zx1) * Props[3](xk, nw)
+                            gam[fd.xx] * Props[1](xk, nw) +
+                            gam[fd.yx1] * Props[2](xk, nw) +
+                            gam[fd.zx1] * Props[3](xk, nw)
                         ) * m
                     jsum[fd.yy] +=
                         (
-                            gam(fd.xy1) * Props[1](xk, nw) +
-                            gam(fd.yy) * Props[2](xk, nw) +
-                            gam(fd.zy1) * Props[3](xk, nw)
+                            gam[fd.xy1] * Props[1](xk, nw) +
+                            gam[fd.yy] * Props[2](xk, nw) +
+                            gam[fd.zy1] * Props[3](xk, nw)
                         ) * m
                     jsum[fd.zz] +=
                         (
-                            gam(fd.xz1) * Props[1](xk, nw) +
-                            gam(fd.yz1) * Props[2](xk, nw) +
-                            gam(fd.zz) * Props[3](xk, nw)
+                            gam[fd.xz1] * Props[1](xk, nw) +
+                            gam[fd.yz1] * Props[2](xk, nw) +
+                            gam[fd.zz] * Props[3](xk, nw)
                         ) * m
                 end
                 Dgamma.x[x, iw1] += -T * jsum[1]
@@ -616,15 +625,16 @@ function OneLoopWorkspace(State, Deriv, X, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
 
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
-    getDFint!(Workspace, Lam)
-    get_Self_Energy!(Workspace, Lam)
-    getXBubble!(Workspace, Lam)
+    getDFint!(Workspace, FlowParameter)
+    get_Self_Energy!(Workspace, FlowParameter)
+    getXBubble!(Workspace, FlowParameter)
+
     symmetrizeBubble!(Workspace.X, Par)
     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)

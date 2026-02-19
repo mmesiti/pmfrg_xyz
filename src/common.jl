@@ -387,3 +387,17 @@ function AllocateSetup(Par::OneLoopParams)
     floattype = _getFloatType(Par)
     return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
 end
+
+struct OneLoopWorkspace{T,ParType}
+    State::StateType{T}
+    Deriv::StateType{T}
+    X::Array{T,5}
+    Par::ParType
+end
+
+function OneLoopWorkspace(State, Deriv, X, Par)
+    setZero!(Deriv)
+    setZero!(X)
+
+    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
+end

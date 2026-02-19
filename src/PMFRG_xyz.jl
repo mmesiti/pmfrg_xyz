@@ -28,13 +28,6 @@ end
 
 # Similar to Gamma I give X an extra dimension as opposed to create
 # A BubbleType struct for it
-struct OneLoopWorkspace{T,ParType}
-    State::StateType{T}
-    Deriv::StateType{T}
-    X::Array{T,5}
-    Par::ParType
-end
-
 # For a general Vertex there can be 3^4 = 81 flavor combinations
 # In the XYZ model the SO(3) symmetry breaks down to a residual Klein-4 Symmetry
 # This means that the Vertex function can only depend on two distinct flavors at most
@@ -55,13 +48,6 @@ function NumericalParams(;
 )
 
     return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
-end
-
-function OneLoopWorkspace(State, Deriv, X, Par)
-    setZero!(Deriv)
-    setZero!(X)
-
-    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
 end
 
 
@@ -805,13 +791,7 @@ function addY!(
 end
 
 
-function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = Float64)
-    Par = Workspace.Par
-    (; N, lenIntw) = Par.NumericalParams
-    (; NUnique, Npairs) = Par.System
-
-    iSigma = Workspace.State.iSigma
-    DiSigma = Workspace.Deriv.iSigma
+function set_spropX!(spropX, NUnique, iSigma, DiSigma, T, nw1, nw2, ComputeType)
 
     iG = SVector{3}([
         (x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)
@@ -820,6 +800,49 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
         (x, nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T) for (iSigma_i, DiSigma_i) in
         zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
     ])
+
+    for Rij = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iG[j](Rij, nw2))
+        end
+    end
+
+end
+
+function set_spropY!(spropY, NUnique, iSigma, DiSigma, T, nw1, nw2, ComputeType)
+
+    iG = SVector{3}([
+        (x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)
+    ])
+    iSKat = SVector{3}([
+        (x, nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T) for (iSigma_i, DiSigma_i) in
+        zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
+    ])
+
+
+    for Rij1 = 1:NUnique, Rij2 = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropY[i, j, Rij1, Rij2] = ComputeType(-iSKat[i](Rij1, nw1) * iG[j](Rij2, nw2))
+        end
+    end
+
+
+end
+
+
+
+function getXBubble!(
+    Workspace::OneLoopWorkspace,
+    FlowParameter::Real;
+    ComputeType::Type = Float64,
+)
+    T = FlowParameter
+    Par = Workspace.Par
+    (; N, lenIntw) = Par.NumericalParams
+    (; NUnique, Npairs) = Par.System
+
+    iSigma = Workspace.State.iSigma
+    DiSigma = Workspace.Deriv.iSigma
 
     # Convert Gamma to ComputeType if needed
     Gamma =
@@ -843,30 +866,34 @@ function getXBubble!(Workspace::OneLoopWorkspace, T::Real; ComputeType::Type = F
             ns = is - 1
             nt = it - 1
 
-            # Precompute Katanin propagators (convert to ComputeType)
-            for Rij = 1:NUnique
-                for j = 1:3, i = 1:3
-                    Buffs.spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, 0) * iG[j](Rij, 0))  # nw will be updated later
-                end
-            end
-
             for nw = -lenIntw:lenIntw-1 # Matsubara sum
-                nw_ns = nw + ns
-                nw_nt = nw - nt
                 # Update Katanin propagators for current nw (convert to ComputeType)
-                for Rij = 1:NUnique
-                    for j = 1:3, i = 1:3
-                        Buffs.spropX[i, j, Rij] =
-                            ComputeType(-iSKat[i](Rij, nw) * iG[j](Rij, nw_ns))
-                    end
-                end
-
-                for Rij1 = 1:NUnique, Rij2 = 1:NUnique
-                    for j = 1:3, i = 1:3
-                        Buffs.spropY[i, j, Rij1, Rij2] =
-                            ComputeType(-iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt))
-                    end
-                end
+                set_spropX!(
+                    Buffs.spropX,
+                    NUnique,
+                    iSigma,
+                    DiSigma,
+                    T,
+                    nw,
+                    nw + ns,
+                    ComputeType,
+                )
+                set_spropY!(
+                    Buffs.spropY,
+                    NUnique,
+                    iSigma,
+                    DiSigma,
+                    T,
+                    nw,
+                    nw - nt,
+                    ComputeType,
+                )
+                #for Rij1 = 1:NUnique, Rij2 = 1:NUnique
+                #    for j = 1:3, i = 1:3
+                #        Buffs.spropY[i, j, Rij1, Rij2] =
+                #            ComputeType(-iSKat[i](Rij1, nw) * iG[j](Rij2, nw_nt))
+                #    end
+                #end
 
                 # Calculate number of blocks (ceiling division)
                 iuhalf_max = div(N, 2)
@@ -939,7 +966,8 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function getDFint!(Workspace, T::Real)
+function getDFint!(Workspace, FlowParam::Real)
+    T = FlowParam
     (; State, Deriv, Par) = Workspace
     (; lenIntw_acc) = Par.NumericalParams
     NUnique = Par.System.NUnique
@@ -968,7 +996,8 @@ function getDFint!(Workspace, T::Real)
     end
 end
 
-function get_Self_Energy!(Workspace, T::Real)
+function get_Self_Energy!(Workspace, FlowParam::Real)
+    T = FlowParam
     Par = Workspace.Par
     @inline iSx(x, nw) = iS_(Workspace.State.iSigma.x, x, nw, T) / 2
     @inline iSy(x, nw) = iS_(Workspace.State.iSigma.y, x, nw, T) / 2
@@ -1022,14 +1051,15 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 end
 
 using JLD2
-function getDeriv!(Deriv, State, setup, Lam; saveArgs = true)
+function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
 
     (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
-    getDFint!(Workspace, Lam)
-    get_Self_Energy!(Workspace, Lam)
-    getXBubble!(Workspace, Lam)
+    getDFint!(Workspace, FlowParameter)
+    get_Self_Energy!(Workspace, FlowParameter)
+    getXBubble!(Workspace, FlowParameter)
+
     symmetrizeBubble!(Workspace.X, Par)
     addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
     symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
