@@ -569,47 +569,10 @@ end
 ####################################################
 
 
+function flow_parameter_max_min(NumParams::NumericalParams)
 
-function launchPMFRG!(State, setup, Deriv!::Function; method = DP5(), npoints = 600)
-
-    Par = setup[end]
-    (; lambda_max, lambda_min, accuracy) = Par.NumericalParams
-
-    t0 = Lam_to_t(lambda_max)
-    tend = get_t_min(lambda_min)
-    Deriv_subst! = generateSubstituteDeriv(Deriv!)
-
-    saved_values = SavedValues(eltype(State), Observables{eltype(State)})
-
-    function save_func(State, t, integrator)
-        chi_x = getChi_x(State, t_to_Lam(t), Par)
-        chi_y = getChi_y(State, t_to_Lam(t), Par)
-        chi_z = getChi_z(State, t_to_Lam(t), Par)
-
-        return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
-    end
-
-    ObsSaveat = gettMesh(lambda_min, lambda_max, npoints)
-    saveCB = SavingCallback(
-        save_func,
-        saved_values,
-        save_everystep = false,
-        saveat = ObsSaveat,
-        tdir = -1,
-    )
-
-    problem = ODEProblem(Deriv_subst!, State, (t0, tend), setup) # function, initial state, timespan, ??
-    sol = solve(
-        problem,
-        method,
-        reltol = accuracy,
-        abstol = accuracy,
-        save_everystep = false,
-        callback = saveCB,
-        dt = Lam_to_t(0.2 * lambda_max),
-    )
-
-    return sol, saved_values
+    (; lambda_max, lambda_min) = NumParams
+    return lambda_max, lambda_min
 end
 
 function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)

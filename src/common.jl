@@ -507,3 +507,54 @@ function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
 
     return
 end
+
+function launchPMFRG!(
+    State,
+    setup,
+    Deriv!::Function;
+    method = DP5(),
+    npoints = 600,
+    save_steps = false,
+)
+    println("Solving FRG")
+
+    Par = setup[end]
+    (; accuracy) = Par.NumericalParams
+    flow_parameter_max, flow_parameter_min = flow_parameter_max_min(Par.NumericalParams)
+
+    t0 = Lam_to_t(flow_parameter_max)
+    tend = get_t_min(flow_parameter_min)
+    Deriv_subst! = generateSubstituteDeriv(Deriv!)
+
+    saved_values = SavedValues(eltype(State), Observables{eltype(State)})
+
+    function save_func(State, t, integrator)
+        chi_x = getChi_x(State, t_to_Lam(t), Par)
+        chi_y = getChi_y(State, t_to_Lam(t), Par)
+        chi_z = getChi_z(State, t_to_Lam(t), Par)
+
+        return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
+    end
+
+    ObsSaveat = gettMesh(flow_parameter_min, flow_parameter_max, npoints)
+    saveCB = SavingCallback(
+        save_func,
+        saved_values,
+        save_everystep = false,
+        saveat = ObsSaveat,
+        tdir = -1,
+    )
+
+    problem = ODEProblem(Deriv_subst!, State, (t0, tend), setup) # function, initial state, timespan, ??
+    sol = solve(
+        problem,
+        method,
+        reltol = accuracy,
+        abstol = accuracy,
+        save_everystep = save_steps,
+        callback = saveCB,
+        dt = Lam_to_t(0.2 * flow_parameter_max),
+    )
+
+    return sol, saved_values
+end
