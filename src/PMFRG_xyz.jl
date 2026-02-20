@@ -1017,25 +1017,6 @@ function flow_parameter_max_min(NumParams::NumericalParams)
 end
 
 
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
-    Par = setup[end]
-    (; temp_max, temp_min, accuracy) = Par.NumericalParams
-
-    t0 = Lam_to_t(temp_max)
-    tend = get_t_min(temp_min)
-    Deriv_subst! = generateSubstituteDeriv(Deriv!)
-
-    der = copy(State)
-    setZero!(der)
-
-    Deriv_subst!(der, State, setup, t0, s = false)
-end
-
-SolveFRG(Par, isotropy; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-TestFRG(Par, isotropy; kwargs...) =
-    testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-
 
 
 #############################################################
