@@ -552,16 +552,20 @@ function getDFint!(Workspace, FlowParam::Real)
     end
 end
 
-function get_Self_Energy!(Workspace, FlowParam)
+
+@inline function get_propagators_for_self_energy(
+    FlowParam::Real,
+    iSigma::SigmaType,
+    NumParams::NumericalParams,
+)
     Lam = FlowParam
-    Par = Workspace.Par
-    @inline iSx(x, nw) =
-        iS_(Workspace.State.iSigma.x, x, Lam, nw, Par.NumericalParams.T) / 2
-    @inline iSy(x, nw) =
-        iS_(Workspace.State.iSigma.y, x, Lam, nw, Par.NumericalParams.T) / 2
-    @inline iSz(x, nw) =
-        iS_(Workspace.State.iSigma.z, x, Lam, nw, Par.NumericalParams.T) / 2
-    compute1PartBubble!(Workspace.Deriv.iSigma, Workspace.State.Gamma, [iSx, iSy, iSz], Par)
+
+    iSx(x, nw) = iS_(iSigma.x, x, Lam, nw, NumParams.T) / 2
+    iSy(x, nw) = iS_(iSigma.y, x, Lam, nw, NumParams.T) / 2
+    iSz(x, nw) = iS_(iSigma.z, x, Lam, nw, NumParams.T) / 2
+
+    return [iSx, iSy, iSz]
+
 end
 
 function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)

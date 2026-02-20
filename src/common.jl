@@ -401,3 +401,13 @@ function OneLoopWorkspace(State, Deriv, X, Par)
 
     return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
 end
+
+function get_Self_Energy!(Workspace, FlowParam::Real)
+    Par = Workspace.Par
+    (; iSigma, Gamma) = Workspace.State
+    DiSigma = Workspace.Deriv.iSigma
+
+    props = get_propagators_for_self_energy(FlowParam, iSigma, Par.NumericalParams)
+    compute1PartBubble!(DiSigma, Gamma, props, Par)
+
+end
