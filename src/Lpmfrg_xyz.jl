@@ -564,38 +564,6 @@ function get_Dgamma_factor(NumParams::NumericalParams)
 end
 
 
-struct OneLoopWorkspace{T,ParType}
-    State::StateType{T}
-    Deriv::StateType{T}
-    X::Array{T,5}
-    Par::ParType
-end
-
-function OneLoopWorkspace(State, Deriv, X, Par)
-    setZero!(Deriv)
-    setZero!(X)
-
-    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
-end
-
-using JLD2
-function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
-
-    (; X, Par) = setup # use pre-allocated X and XTilde to reduce garbage collector time
-
-    Workspace = OneLoopWorkspace(State, Deriv, X, Par)
-
-    getDFint!(Workspace, FlowParameter)
-    get_Self_Energy!(Workspace, FlowParameter)
-    getXBubble!(Workspace, FlowParameter)
-
-    symmetrizeBubble!(Workspace.X, Par)
-    addToVertexFromBubble!(Workspace.Deriv.Gamma, Workspace.X)
-    symmetrizeVertex!(Workspace.Deriv.Gamma, Par)
-
-    return
-end
-
 ####################################################
 ######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
 ####################################################
