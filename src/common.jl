@@ -411,3 +411,35 @@ function get_Self_Energy!(Workspace, FlowParam::Real)
     compute1PartBubble!(DiSigma, Gamma, props, Par)
 
 end
+
+function getDFint!(Workspace, FlowParam::Real)
+    (; State, Deriv, Par) = Workspace
+    (; lenIntw_acc) = Par.NumericalParams
+    NUnique = Par.System.NUnique
+
+    iSigmax(x, nw) = iSigma_(State.iSigma.x, x, nw)
+    iSigmay(x, nw) = iSigma_(State.iSigma.y, x, nw)
+    iSigmaz(x, nw) = iSigma_(State.iSigma.z, x, nw)
+
+    iGx, iGy, iGz = get_iG(FlowParam, State.iSigma, Par.NumericalParams)
+
+    iSx, iSy, iSz = get_iS(FlowParam, State.iSigma, Par.NumericalParams)
+
+    Theta = get_Theta(FlowParam, Par.NumericalParams)
+
+    f = get_f_int_factor(Par.NumericalParams)
+
+    _get_w = get_get_w(Par.NumericalParams)
+
+    for x = 1:NUnique
+        sumres = 0.0
+        for nw = -lenIntw_acc:lenIntw_acc-1
+            w = _get_w(nw)
+
+            sumres += iSx(x, nw) / iGx(x, nw) * Theta(w) * iSigmax(x, nw) / w
+            sumres += iSy(x, nw) / iGy(x, nw) * Theta(w) * iSigmay(x, nw) / w
+            sumres += iSz(x, nw) / iGz(x, nw) * Theta(w) * iSigmaz(x, nw) / w
+        end
+        Deriv.f_int[x] = -f * sumres
+    end
+end
