@@ -520,53 +520,80 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function getDFint!(Workspace, FlowParam::Real)
+function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
     Lam = FlowParam
+    T = NumParams.T
+
+    @inline iSx(x, nw) = iS_(iSigma.x, x, Lam, nw, T) / 2
+    @inline iSy(x, nw) = iS_(iSigma.y, x, Lam, nw, T) / 2
+    @inline iSz(x, nw) = iS_(iSigma.z, x, Lam, nw, T) / 2
+
+    return iSx, iSy, iSz
+
+end
+
+function get_iG(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
+    Lam = FlowParam
+    T = NumParams.T
+
+    @inline iGx(x, nw) = iG_(iSigma.x, x, Lam, nw, T)
+    @inline iGy(x, nw) = iG_(iSigma.y, x, Lam, nw, T)
+    @inline iGz(x, nw) = iG_(iSigma.z, x, Lam, nw, T)
+
+    return iGx, iGy, iGz
+
+end
+
+
+function get_Theta(FlowParam::Real, _::NumericalParams)
+    Lam = FlowParam
+    Theta(w) = w^2 / (w^2 + Lam^2)
+    return Theta
+end
+
+function get_f_int_factor(NumParams::NumericalParams)
+    return NumParams.T
+end
+
+function get_get_w(NumParams::NumericalParams)
+    return nw -> get_w(nw, NumParams.T)
+end
+
+
+function getDFint!(Workspace, FlowParam::Real)
     (; State, Deriv, Par) = Workspace
-    (; T, lenIntw_acc) = Par.NumericalParams
+    (; lenIntw_acc) = Par.NumericalParams
     NUnique = Par.System.NUnique
 
     iSigmax(x, nw) = iSigma_(State.iSigma.x, x, nw)
     iSigmay(x, nw) = iSigma_(State.iSigma.y, x, nw)
     iSigmaz(x, nw) = iSigma_(State.iSigma.z, x, nw)
 
-    iGx(x, nw) = iG_(State.iSigma.x, x, Lam, nw, T)
-    iGy(x, nw) = iG_(State.iSigma.y, x, Lam, nw, T)
-    iGz(x, nw) = iG_(State.iSigma.z, x, Lam, nw, T)
+    iGx, iGy, iGz = get_iG(FlowParam, State.iSigma, Par.NumericalParams)
 
-    iSx(x, nw) = iS_(State.iSigma.x, x, Lam, nw, T)
-    iSy(x, nw) = iS_(State.iSigma.y, x, Lam, nw, T)
-    iSz(x, nw) = iS_(State.iSigma.z, x, Lam, nw, T)
 
-    Theta(Lam, w) = w^2 / (w^2 + Lam^2)
+    iSx, iSy, iSz = get_iS(FlowParam, State.iSigma, Par.NumericalParams)
+
+
+    Theta = get_Theta(FlowParam, Par.NumericalParams)
+
+    f = get_f_int_factor(Par.NumericalParams)
+
+    _get_w = get_get_w(Par.NumericalParams)
 
     for x = 1:NUnique
         sumres = 0.0
         for nw = -lenIntw_acc:lenIntw_acc-1
-            w = get_w(nw, T)
-            sumres += iSx(x, nw) / iGy(x, nw) * Theta(Lam, w) * iSigmax(x, nw) / w
-            sumres += iSy(x, nw) / iGy(x, nw) * Theta(Lam, w) * iSigmay(x, nw) / w
-            sumres += iSz(x, nw) / iGz(x, nw) * Theta(Lam, w) * iSigmaz(x, nw) / w
+            w = _get_w(nw)
+            # I think this is a bug
+            sumres += iSx(x, nw) / iGy(x, nw) * Theta(w) * iSigmax(x, nw) / w
+            sumres += iSy(x, nw) / iGy(x, nw) * Theta(w) * iSigmay(x, nw) / w
+            sumres += iSz(x, nw) / iGz(x, nw) * Theta(w) * iSigmaz(x, nw) / w
         end
-        Deriv.f_int[x] = -0.5 * T * sumres
+        Deriv.f_int[x] = -f * sumres
     end
 end
 
-
-@inline function get_propagators_for_self_energy(
-    FlowParam::Real,
-    iSigma::SigmaType,
-    NumParams::NumericalParams,
-)
-    Lam = FlowParam
-
-    iSx(x, nw) = iS_(iSigma.x, x, Lam, nw, NumParams.T) / 2
-    iSy(x, nw) = iS_(iSigma.y, x, Lam, nw, NumParams.T) / 2
-    iSz(x, nw) = iS_(iSigma.z, x, Lam, nw, NumParams.T) / 2
-
-    return [iSx, iSy, iSz]
-
-end
 
 function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
 

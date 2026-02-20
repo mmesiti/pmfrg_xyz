@@ -407,7 +407,7 @@ function get_Self_Energy!(Workspace, FlowParam::Real)
     (; iSigma, Gamma) = Workspace.State
     DiSigma = Workspace.Deriv.iSigma
 
-    props = get_propagators_for_self_energy(FlowParam, iSigma, Par.NumericalParams)
+    props = get_iS(FlowParam, iSigma, Par.NumericalParams)
     compute1PartBubble!(DiSigma, Gamma, props, Par)
 
 end
