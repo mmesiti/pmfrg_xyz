@@ -443,3 +443,50 @@ function getDFint!(Workspace, FlowParam::Real)
         Deriv.f_int[x] = -f * sumres
     end
 end
+function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
+
+    (; N, lenIntw_acc) = Par.NumericalParams
+    (; siteSum, Nsum, OnsitePairs) = Par.System
+
+    f = get_Dgamma_factor(Par.NumericalParams)
+
+    Threads.@threads for iw1 = 1:N
+        nw1 = iw1 - 1
+        for (x, Rx) in enumerate(OnsitePairs)
+            for nw = -lenIntw_acc:lenIntw_acc-1
+                jsum = zeros(3)
+                wpw1 = nw1 + nw + 1
+                wmw1 = nw - nw1
+                flavTransform = (wmw1 * wpw1 < 0, false, false)
+                for k_spl = 1:Nsum[Rx]
+                    (; m, ki, xk) = siteSum[k_spl, Rx]
+                    gam = @SVector [
+                        Gamma_(n, ki, 0, -wmw1, -wpw1, flavTransform) for n = 1:21
+                    ]
+
+                    jsum[fd.xx] +=
+                        (
+                            gam[fd.xx] * Props[1](xk, nw) +
+                            gam[fd.yx1] * Props[2](xk, nw) +
+                            gam[fd.zx1] * Props[3](xk, nw)
+                        ) * m
+                    jsum[fd.yy] +=
+                        (
+                            gam[fd.xy1] * Props[1](xk, nw) +
+                            gam[fd.yy] * Props[2](xk, nw) +
+                            gam[fd.zy1] * Props[3](xk, nw)
+                        ) * m
+                    jsum[fd.zz] +=
+                        (
+                            gam[fd.xz1] * Props[1](xk, nw) +
+                            gam[fd.yz1] * Props[2](xk, nw) +
+                            gam[fd.zz] * Props[3](xk, nw)
+                        ) * m
+                end
+                Dgamma.x[x, iw1] += -f * jsum[1]
+                Dgamma.y[x, iw1] += -f * jsum[2]
+                Dgamma.z[x, iw1] += -f * jsum[3]
+            end
+        end
+    end
+end
