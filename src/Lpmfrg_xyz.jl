@@ -696,6 +696,27 @@ function getChi_y(
     return (Chi)
 end
 
+##  Refactored versions
+getChi_z_refactored(State::ArrayPartition, Lam::Real, Par) =
+    getChi_3(State.x[2], State.x[3], State.x[5], Lam, fd.xy2, Par)
+getChi_x_refactored(State::ArrayPartition, Lam::Real, Par) =
+    getChi_3(State.x[3], State.x[4], State.x[5], Lam, fd.yz2, Par)
+getChi_y_refactored(State::ArrayPartition, Lam::Real, Par) =
+    getChi_3(State.x[4], State.x[2], State.x[5], Lam, fd.zx2, Par)
+
+function getChi_3(
+    iSigma1::AbstractArray,
+    iSigma2::AbstractArray,
+    Gamma::AbstractArray,
+    Lam::Real,
+    fd_idx,
+    Par,
+)
+    # STUB: returns zeros to make acceptance tests fail (commit 1)
+    return zeros(_getFloatType(Par), Par.System.Npairs)
+end
+
+
 export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z
 
 end
