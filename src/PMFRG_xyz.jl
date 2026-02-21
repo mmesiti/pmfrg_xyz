@@ -1155,8 +1155,33 @@ function getChi_3(
     fd_idx,
     Par,
 )
-    # STUB: returns zeros to make acceptance tests fail (commit 1)
-    return zeros(_getFloatType(Par), Par.System.Npairs)
+    (; N, lenIntw_acc) = Par.NumericalParams
+    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+
+    iG1(x, w) = iG_(iSigma1, x, w, T)
+    iG2(x, w) = iG_(iSigma2, x, w, T)
+    V12_2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd_idx, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
+    Chi = zeros(_getFloatType(Par), Npairs)
+
+    for Rij = 1:Npairs
+        (; xi, xj) = PairTypes[Rij]
+        for nK = -lenIntw_acc:lenIntw_acc-1
+            if Rij in OnsitePairs
+                Chi[Rij, 1] += iG1(xi, nK) * iG2(xi, nK)
+            end
+            for nK2 = -lenIntw_acc:lenIntw_acc-1
+                npwpw2 = nK + nK2 + 1
+                w2mw = nK2 - nK
+                #use that Vc_0 is calculated from Vb
+                GGGG = iG1(xi, nK)^2 * iG2(xj, nK2)^2
+                flavTransform = (npwpw2 * w2mw > 0, false, false)
+                Chi[Rij] += GGGG * V12_2(Rij, 0, npwpw2, -w2mw, flavTransform)
+            end
+        end
+    end
+    return (Chi)
 end
 
 
