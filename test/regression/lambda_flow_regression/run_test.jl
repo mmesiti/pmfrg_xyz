@@ -5,6 +5,9 @@ using SpinFRGLattices
 # Include the Lambda Flow module
 include("../../../src/Lpmfrg_xyz.jl")
 
+# include chi regression tests
+include("./chi-dimer.jl")
+
 # Include generic regression test utilities
 include("../regression_test_utils_generic.jl")
 
@@ -31,6 +34,9 @@ function run_lambda_flow_SolveFRG_regression_tests(data_path::String)
                 )
             end
         end
+        @testset verbose = true "chi" begin
+            test_chi_Lflow()
+        end
     end
 end
 
@@ -38,4 +44,5 @@ end
 data_file = joinpath(@__DIR__, "regression_tests_lambda_flow.data")
 println("Loading regression test data from: $data_file")
 run_lambda_flow_SolveFRG_regression_tests(data_file)
+
 println("\nRegression tests complete!")

@@ -977,15 +977,23 @@ function get_iS(FlowParam::Real, iSigma::SigmaType, _::NumericalParams)
 end
 
 
-function get_iG(FlowParam::Real, iSigma::SigmaType, _::NumericalParams)
+function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, ::NumericalParams)
     T = FlowParam
+    @inline iG_i(x, nw) = iG_(iSigma_i, x, nw, T)
+    return iG_i
+end
 
-    @inline iGx(x, nw) = iG_(iSigma.x, x, nw, T)
-    @inline iGy(x, nw) = iG_(iSigma.y, x, nw, T)
-    @inline iGz(x, nw) = iG_(iSigma.z, x, nw, T)
+
+function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar::NumericalParams)
+
+    iGx = get_iG_i(FlowParam, iSigma.x, NumPar)
+    iGy = get_iG_i(FlowParam, iSigma.y, NumPar)
+    iGz = get_iG_i(FlowParam, iSigma.z, NumPar)
 
     return iGx, iGy, iGz
+
 end
+
 
 function get_Theta(_::Real, _::NumericalParams)
 
@@ -1003,6 +1011,11 @@ end
 function get_Dgamma_factor(_::NumericalParams)
     return 1
 end
+
+function get_chi_factor(_::NumericalParams)
+    return 1
+end
+
 
 
 ####################################################
@@ -1022,50 +1035,6 @@ end
 #############################################################
 ######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
 #############################################################
-
-getChi_z(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[2], State.x[3], State.x[5], T, fd.xy2, Par)
-getChi_x(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[3], State.x[4], State.x[5], T, fd.yz2, Par)
-getChi_y(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[4], State.x[2], State.x[5], T, fd.zx2, Par)
-
-function getChi_3(
-    iSigma1::AbstractArray,
-    iSigma2::AbstractArray,
-    Gamma::AbstractArray,
-    T::Real,
-    fd_idx,
-    Par,
-)
-    (; N, lenIntw_acc) = Par.NumericalParams
-    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
-
-    iG1(x, w) = iG_(iSigma1, x, w, T)
-    iG2(x, w) = iG_(iSigma2, x, w, T)
-    V12_2(Rij, s, t, u, isFlavorTransform) =
-        V_(Gamma, fd_idx, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
-
-    Chi = zeros(_getFloatType(Par), Npairs)
-
-    for Rij = 1:Npairs
-        (; xi, xj) = PairTypes[Rij]
-        for nK = -lenIntw_acc:lenIntw_acc-1
-            if Rij in OnsitePairs
-                Chi[Rij, 1] += iG1(xi, nK) * iG2(xi, nK)
-            end
-            for nK2 = -lenIntw_acc:lenIntw_acc-1
-                npwpw2 = nK + nK2 + 1
-                w2mw = nK2 - nK
-                #use that Vc_0 is calculated from Vb
-                GGGG = iG1(xi, nK)^2 * iG2(xj, nK2)^2
-                flavTransform = (npwpw2 * w2mw > 0, false, false)
-                Chi[Rij] += GGGG * V12_2(Rij, 0, npwpw2, -w2mw, flavTransform)
-            end
-        end
-    end
-    return (Chi)
-end
 
 
 export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z

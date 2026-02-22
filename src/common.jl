@@ -421,7 +421,7 @@ function getDFint!(Workspace, FlowParam::Real)
     iSigmay(x, nw) = iSigma_(State.iSigma.y, x, nw)
     iSigmaz(x, nw) = iSigma_(State.iSigma.z, x, nw)
 
-    iGx, iGy, iGz = get_iG(FlowParam, State.iSigma, Par.NumericalParams)
+    iGx, iGy, iGz = get_iGs(FlowParam, State.iSigma, Par.NumericalParams)
 
     iSx, iSy, iSz = get_iS(FlowParam, State.iSigma, Par.NumericalParams)
 
@@ -576,3 +576,47 @@ SolveFRG(Par, isotropy; kwargs...) =
     launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
 TestFRG(Par, isotropy; kwargs...) =
     testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+
+getChi_z(State::ArrayPartition, T::Real, Par) =
+    getChi_3(State.x[2], State.x[3], State.x[5], T, fd.xy2, Par)
+getChi_x(State::ArrayPartition, T::Real, Par) =
+    getChi_3(State.x[3], State.x[4], State.x[5], T, fd.yz2, Par)
+getChi_y(State::ArrayPartition, T::Real, Par) =
+    getChi_3(State.x[4], State.x[2], State.x[5], T, fd.zx2, Par)
+
+function getChi_3(
+    iSigma1::AbstractArray,
+    iSigma2::AbstractArray,
+    Gamma::AbstractArray,
+    FlowParam::Real,
+    fd_idx,
+    Par,
+)
+    (; N, lenIntw_acc) = Par.NumericalParams
+    (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
+
+    iG1 = get_iG_i(FlowParam, iSigma1, Par.NumericalParams)
+    iG2 = get_iG_i(FlowParam, iSigma2, Par.NumericalParams)
+    V12_2(Rij, s, t, u, isFlavorTransform) =
+        V_(Gamma, fd_idx, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
+
+    Chi = zeros(_getFloatType(Par), Npairs)
+    f = get_chi_factor(Par.NumericalParams)
+    for Rij = 1:Npairs
+        (; xi, xj) = PairTypes[Rij]
+        for nK = -lenIntw_acc:lenIntw_acc-1
+            if Rij in OnsitePairs
+                Chi[Rij, 1] += f * iG1(xi, nK) * iG2(xi, nK)
+            end
+            for nK2 = -lenIntw_acc:lenIntw_acc-1
+                npwpw2 = nK + nK2 + 1
+                w2mw = nK2 - nK
+                #use that Vc_0 is calculated from Vb
+                GGGG = iG1(xi, nK)^2 * iG2(xj, nK2)^2
+                flavTransform = (npwpw2 * w2mw > 0, false, false)
+                Chi[Rij] += f^2 * GGGG * V12_2(Rij, 0, npwpw2, -w2mw, flavTransform)
+            end
+        end
+    end
+    return (Chi)
+end

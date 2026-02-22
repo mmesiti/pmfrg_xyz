@@ -2,6 +2,7 @@ using Test
 using PMFRG_xyz
 
 include("regression/regression_test_utils.jl")
+include("regression/chi/dimer.jl")
 include("performance/allocations.jl")
 include("unit/vertex_functions.jl")
 
@@ -9,6 +10,10 @@ const DIMER_DIR = joinpath(@__DIR__, "regression", "dimer_anisotropy")
 const SQUARE_LATTICE_DIR = joinpath(@__DIR__, "regression", "square_lattice_anisotropy")
 
 function run_regression_tests()
+    @testset verbose = true "getChi" begin
+        test_chi_Tflow()
+    end
+
     @testset verbose = true "Regression Tests for PMFRG_xyz, dimer + anisotropy" begin
         run_getXbubble_regression_tests(
             joinpath(DIMER_DIR, "regression_tests_dimer-PMFRG_xyz.getXBubble!.data"),
