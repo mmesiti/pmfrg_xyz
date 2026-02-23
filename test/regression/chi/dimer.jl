@@ -11,9 +11,7 @@ end
 function test_chi_Tflow()
     (; State, FlowParam, Par, chi_x, chi_y, chi_z) = get_data()
 
-    @testset "T-Flow" begin
-        @test getChi_z(State, FlowParam, Par) ≈ chi_z
-        @test getChi_x(State, FlowParam, Par) ≈ chi_x
-        @test getChi_y(State, FlowParam, Par) ≈ chi_y
-    end
+    @test getChi_z(State, FlowParam, Par) ≈ chi_z
+    @test getChi_x(State, FlowParam, Par) ≈ chi_x
+    @test getChi_y(State, FlowParam, Par) ≈ chi_y
 end

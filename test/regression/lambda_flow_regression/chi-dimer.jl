@@ -1,11 +1,6 @@
 using JLD2
 using SpinFRGLattices
 using Test
-# Include the Lambda Flow module
-include("../../../src/PMFRG_xyz.jl")
-
-
-using .PMFRG_xyz
 using RecursiveArrayTools
 
 """
@@ -40,7 +35,7 @@ function make_random_state_and_par()
 end
 
 
-function get_data()
+function get_lambda_chi_data()
     (; State, FlowParam, Par) =
         load_object(joinpath(@__DIR__, "get_Chi_dimer_random_input.jld2"))
     (; chi_x, chi_y, chi_z) = load_object(joinpath(@__DIR__, "get_Chi_dimer_output.jld2"))
@@ -49,11 +44,9 @@ end
 
 
 function test_chi_Lflow()
-    (; State, FlowParam, Par, chi_x, chi_y, chi_z) = get_data()
+    (; State, FlowParam, Par, chi_x, chi_y, chi_z) = get_lambda_chi_data()
 
-    @testset "L-Flow" begin
-        @test PMFRG_xyz.getChi_z(State, FlowParam, Par) ≈ chi_z
-        @test PMFRG_xyz.getChi_x(State, FlowParam, Par) ≈ chi_x
-        @test PMFRG_xyz.getChi_y(State, FlowParam, Par) ≈ chi_y
-    end
+    @test PMFRG_xyz.getChi_z(State, FlowParam, Par) ≈ chi_z
+    @test PMFRG_xyz.getChi_x(State, FlowParam, Par) ≈ chi_x
+    @test PMFRG_xyz.getChi_y(State, FlowParam, Par) ≈ chi_y
 end
