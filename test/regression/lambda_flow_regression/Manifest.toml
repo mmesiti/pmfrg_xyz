@@ -2,7 +2,7 @@
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "92b0842e101a36054472e0969740d8d057978f0a"
+project_hash = "a75a04e8b6dc1206c155ac9226d0604360381048"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -1073,6 +1073,11 @@ uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[deps.Unroll]]
+git-tree-sha1 = "ffb72124bbdab5f11b66e56b119224c151b3b3eb"
+uuid = "36e64239-2ab9-4580-84fb-56737a503d36"
+version = "0.1.0"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
