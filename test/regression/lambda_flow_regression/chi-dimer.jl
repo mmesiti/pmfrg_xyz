@@ -2,7 +2,7 @@ using JLD2
 using SpinFRGLattices
 using Test
 # Include the Lambda Flow module
-include("../../../src/Lpmfrg_xyz.jl")
+include("../../../src/PMFRG_xyz.jl")
 
 
 using .PMFRG_xyz

@@ -3,7 +3,7 @@
 using SpinFRGLattices
 
 # Include the Lambda Flow module
-include("../../../src/Lpmfrg_xyz.jl")
+include("../../../src/PMFRG_xyz.jl")
 
 # include chi regression tests
 include("./chi-dimer.jl")
