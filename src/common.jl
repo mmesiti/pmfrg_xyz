@@ -645,8 +645,7 @@ function getChi_3(
     return (Chi)
 end
 
-# TODO: NumPar will be <: AbstractNumericalParams
-function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar)
+function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar::AbstractNumericalParams)
 
     iGx = get_iG_i(FlowParam, iSigma.x, NumPar)
     iGy = get_iG_i(FlowParam, iSigma.y, NumPar)
@@ -1367,7 +1366,7 @@ function set_spropX!(
     nw1,
     nw2,
     ComputeType,
-    NumPar,
+    NumPar::AbstractNumericalParams,
 )
 
     iGs = get_iGs(FlowParam, iSigma, NumPar)
@@ -1392,7 +1391,7 @@ function set_spropY!(
     nw1,
     nw2,
     ComputeType,
-    NumPar,
+    NumPar::AbstractNumericalParams,
 )
 
     iGs = get_iGs(FlowParam, iSigma, NumPar)

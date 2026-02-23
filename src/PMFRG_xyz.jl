@@ -15,7 +15,7 @@ include("common.jl")
 # np_vec is removed because
 # ns = np_vec[is] is the same
 # as simply ns = is - 1
-struct NumericalParams{T<:Real} <: AbstractNumericalParams
+struct TFlowNumericalParams{T<:Real} <: AbstractNumericalParams
     N::Int
 
     accuracy::T
@@ -25,6 +25,18 @@ struct NumericalParams{T<:Real} <: AbstractNumericalParams
     lenIntw::Int
     lenIntw_acc::Int
 end
+
+struct NumericalParams{T<:Real}
+    N::Int
+
+    accuracy::T
+    temp_min::T
+    temp_max::T
+
+    lenIntw::Int
+    lenIntw_acc::Int
+end
+
 
 # Similar to Gamma I give X an extra dimension as opposed to create
 # A BubbleType struct for it
@@ -37,7 +49,7 @@ end
 
 # The constructor of this is just blind-copied. To this day I dont really understand
 # the purpose of lenIntw and lenIntw_acc
-function NumericalParams(;
+function TFlowNumericalParams(;
     N::Integer = 24,
     accuracy = 1e-6,
     temp_min = exp(-10.0),
@@ -46,7 +58,7 @@ function NumericalParams(;
     lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
 )
 
-    return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
+    return TFlowNumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
 end
 
 
@@ -91,7 +103,7 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function get_iS(FlowParam::Real, iSigma::SigmaType, _::NumericalParams)
+function get_iS(FlowParam::Real, iSigma::SigmaType, _::TFlowNumericalParams)
     T = FlowParam
 
     @inline iSx(x, nw) = iS_(iSigma.x, x, nw, T) / 2
@@ -102,13 +114,13 @@ function get_iS(FlowParam::Real, iSigma::SigmaType, _::NumericalParams)
 end
 
 
-function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, ::NumericalParams)
+function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, ::TFlowNumericalParams)
     T = FlowParam
     @inline iG_i(x, nw) = iG_(iSigma_i, x, nw, T)
     return iG_i
 end
 
-function get_iSKat(iSigma, DiSigma, FlowParam::Real, _::NumericalParams)
+function get_iSKat(iSigma, DiSigma, FlowParam::Real, _::TFlowNumericalParams)
 
     iSKat_x(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, nw, FlowParam)
     iSKat_y(x, nw) = iSKat_(iSigma.y, DiSigma.y, x, nw, FlowParam)
@@ -120,27 +132,27 @@ end
 
 
 
-function get_Theta(_::Real, ::NumericalParams)
+function get_Theta(_::Real, ::TFlowNumericalParams)
     return _ -> 1
 end
 
-function get_f_int_factor(::NumericalParams)
+function get_f_int_factor(::TFlowNumericalParams)
     return 1
 end
 
-function get_get_w(::NumericalParams)
+function get_get_w(::TFlowNumericalParams)
     return nw -> get_w(nw)
 end
 
-function get_Dgamma_factor(::NumericalParams)
+function get_Dgamma_factor(::TFlowNumericalParams)
     return 1
 end
 
-function get_chi_factor(::NumericalParams)
+function get_chi_factor(::TFlowNumericalParams)
     return 1
 end
 
-function get_props_factor(::NumericalParams)
+function get_props_factor(::TFlowNumericalParams)
     return 1
 end
 
@@ -151,7 +163,7 @@ end
 ####################################################
 
 
-function flow_parameter_max_min(NumParams::NumericalParams)
+function flow_parameter_max_min(NumParams::TFlowNumericalParams)
 
     (; temp_max, temp_min) = NumParams
     return temp_max, temp_min

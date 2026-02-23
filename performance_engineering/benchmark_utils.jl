@@ -3,6 +3,7 @@ using SpinFRGLattices
 using SpinFRGLattices.SquareLattice
 import PMFRG_xyz:
     Params,
+    TFlowNumericalParams,
     AllocateSetup,
     InitializeState,
     OneLoopWorkspace,
@@ -146,7 +147,8 @@ function create_synthetic_workspace_square(; N::Int = 8, lattice_size::Int = 4)
     J2 = 0.5
 
     System = getSquareLattice(lattice_size, [J1, J2])
-    par = Params(System, N = N, temp_max = 10.0, temp_min = 1.0)
+    par = Params(System, TFlowNumericalParams(N = N, temp_max = 10.0, temp_min = 1.0))
+
     isotropy = zeros(System.Npairs, 3)
 
     for n = 1:System.Npairs
