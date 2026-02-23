@@ -13,6 +13,7 @@ using Unroll
 using MuladdMacro
 using FastBroadcast
 
+abstract type AbstractNumericalParams end
 
 _getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
 
@@ -101,8 +102,13 @@ StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 
 OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
+
 Params(System; kwargs...) =
     OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+
+Params(System, NumParams::AbstractNumericalParams; kwargs...) =
+    OneLoopParams(System, NumParams, OptionParams(; kwargs...))
+
 
 #################################################
 ######### PROPAGATOR HELPERS ####################
@@ -440,7 +446,7 @@ function getDFint!(Workspace, FlowParam::Real)
 
     for x = 1:NUnique
         sumres = 0.0
-        for nw = -lenIntw_acc:lenIntw_acc-1
+        for nw = (-lenIntw_acc):(lenIntw_acc-1)
             w = _get_w(nw)
 
             sumres += iSx(x, nw) / iGx(x, nw) * Theta(w) * iSigmax(x, nw) / w
@@ -460,7 +466,7 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
     Threads.@threads for iw1 = 1:N
         nw1 = iw1 - 1
         for (x, Rx) in enumerate(OnsitePairs)
-            for nw = -lenIntw_acc:lenIntw_acc-1
+            for nw = (-lenIntw_acc):(lenIntw_acc-1)
                 jsum = zeros(3)
                 wpw1 = nw1 + nw + 1
                 wmw1 = nw - nw1
@@ -622,11 +628,11 @@ function getChi_3(
     f = get_chi_factor(Par.NumericalParams)
     for Rij = 1:Npairs
         (; xi, xj) = PairTypes[Rij]
-        for nK = -lenIntw_acc:lenIntw_acc-1
+        for nK = (-lenIntw_acc):(lenIntw_acc-1)
             if Rij in OnsitePairs
                 Chi[Rij, 1] += f * iG1(xi, nK) * iG2(xi, nK)
             end
-            for nK2 = -lenIntw_acc:lenIntw_acc-1
+            for nK2 = (-lenIntw_acc):(lenIntw_acc-1)
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
                 #use that Vc_0 is calculated from Vb
@@ -1427,7 +1433,7 @@ function getXBubble!(
     ThreadLocalBuffers =
         get_ThreadLocalBuffers(N, Par.System, optimal_iuh_blocksize, ComputeType)
 
-    Threads.@threads :static for is_it = 1:N*N
+    Threads.@threads :static for is_it = 1:(N*N)
         @inbounds begin
             is = (is_it - 1) ÷ N + 1
             it = (is_it - 1) % N + 1
@@ -1437,7 +1443,7 @@ function getXBubble!(
             ns = is - 1
             nt = it - 1
 
-            for nw = -lenIntw:lenIntw-1 # Matsubara sum
+            for nw = (-lenIntw):(lenIntw-1) # Matsubara sum
                 # Update Katanin propagators for current nw (convert to ComputeType)
                 set_spropX!(
                     Buffs.spropX,

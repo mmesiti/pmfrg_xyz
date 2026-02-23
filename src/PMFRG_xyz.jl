@@ -15,7 +15,7 @@ include("common.jl")
 # np_vec is removed because
 # ns = np_vec[is] is the same
 # as simply ns = is - 1
-struct NumericalParams{T<:Real}
+struct NumericalParams{T<:Real} <: AbstractNumericalParams
     N::Int
 
     accuracy::T
@@ -156,11 +156,6 @@ function flow_parameter_max_min(NumParams::NumericalParams)
     (; temp_max, temp_min) = NumParams
     return temp_max, temp_min
 end
-
-
-#############################################################
-######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
-#############################################################
 
 
 export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z

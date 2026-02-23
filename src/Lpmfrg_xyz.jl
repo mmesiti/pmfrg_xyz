@@ -1,4 +1,4 @@
-module pmfrg_xyz
+module PMFRG_xyz
 
 #################################################
 ######### STRUCTS ## STRUCTS ## STRUCTS #########
@@ -7,7 +7,8 @@ module pmfrg_xyz
 # Include common code shared with PMFRG_xyz
 include("common.jl")
 
-struct NumericalParams{T<:Real}
+
+struct LFlowNumericalParams{T<:Real} <: AbstractNumericalParams
     T::T
     N::Int
 
@@ -19,8 +20,7 @@ struct NumericalParams{T<:Real}
     lenIntw_acc::Int
 end
 
-
-function NumericalParams(;
+function LFlowNumericalParams(;
     T::Real = 0.5,
     N::Integer = 24,
     accuracy = 1e-6,
@@ -30,7 +30,15 @@ function NumericalParams(;
     lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
 )
 
-    return NumericalParams(T, N, accuracy, lambda_min, lambda_max, lenIntw, lenIntw_acc)
+    return LFlowNumericalParams(
+        T,
+        N,
+        accuracy,
+        lambda_min,
+        lambda_max,
+        lenIntw,
+        lenIntw_acc,
+    )
 end
 
 
@@ -81,7 +89,7 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
+function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::LFlowNumericalParams)
     Lam = FlowParam
     T = NumParams.T
 
@@ -94,14 +102,14 @@ function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
 end
 
 
-function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, NumParams::NumericalParams)
+function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, NumParams::LFlowNumericalParams)
     Lam = FlowParam
     T = NumParams.T
     @inline iG_i(x, nw) = iG_(iSigma_i, x, Lam, nw, T)
     return iG_i
 end
 
-function get_iSKat(iSigma, DiSigma, FlowParam::Real, NumParams::NumericalParams)
+function get_iSKat(iSigma, DiSigma, FlowParam::Real, NumParams::LFlowNumericalParams)
 
     T = NumParams.T
     iSKat_x(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, FlowParam, nw, T)
@@ -112,33 +120,33 @@ function get_iSKat(iSigma, DiSigma, FlowParam::Real, NumParams::NumericalParams)
 
 end
 
-function get_Theta(FlowParam::Real, _::NumericalParams)
+function get_Theta(FlowParam::Real, _::LFlowNumericalParams)
     Lam = FlowParam
     Theta(w) = w^2 / (w^2 + Lam^2)
     return Theta
 end
 
-function get_f_int_factor(NumParams::NumericalParams)
+function get_f_int_factor(NumParams::LFlowNumericalParams)
     return NumParams.T
 end
 
-function get_get_w(NumParams::NumericalParams)
+function get_get_w(NumParams::LFlowNumericalParams)
     return nw -> get_w(nw, NumParams.T)
 end
 
-function get_Dgamma_factor(NumParams::NumericalParams)
+function get_Dgamma_factor(NumParams::LFlowNumericalParams)
     return NumParams.T
 end
-function get_chi_factor(NumParams::NumericalParams)
-    return NumParams.T
-end
-
-function get_props_factor(NumParams::NumericalParams)
+function get_chi_factor(NumParams::LFlowNumericalParams)
     return NumParams.T
 end
 
+function get_props_factor(NumParams::LFlowNumericalParams)
+    return NumParams.T
+end
 
-function flow_parameter_max_min(NumParams::NumericalParams)
+
+function flow_parameter_max_min(NumParams::LFlowNumericalParams)
 
     (; lambda_max, lambda_min) = NumParams
     return lambda_max, lambda_min

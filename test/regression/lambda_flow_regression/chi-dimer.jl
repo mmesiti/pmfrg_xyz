@@ -5,7 +5,7 @@ using Test
 include("../../../src/Lpmfrg_xyz.jl")
 
 
-using .pmfrg_xyz
+using .PMFRG_xyz
 using RecursiveArrayTools
 
 """
@@ -13,19 +13,22 @@ Function that can be used to generate a random state object for testing.
 """
 function make_random_state_and_par()
     System = SpinFRGLattices.getPolymer(2)
-    Par = pmfrg_xyz.Params(
+    Par = PMFRG_xyz.Params(
         System,
-        N = 4,
-        accuracy = 1e-6,
-        T = 0.4,
-        lambda_min = 0.5,
-        lambda_max = 2.0,
+        PMFRG_xyz.LFlowNumericalParams(
+            N = 4,
+            accuracy = 1e-6,
+            T = 0.4,
+            lambda_min = 0.5,
+            lambda_max = 2.0,
+        ),
     )
+
 
     NUnique = Par.System.NUnique
     N = Par.NumericalParams.N
-    VDims = pmfrg_xyz.getVDims(Par)
-    FT = pmfrg_xyz._getFloatType(Par)
+    VDims = PMFRG_xyz.getVDims(Par)
+    FT = PMFRG_xyz._getFloatType(Par)
     return ArrayPartition(
         randn(FT, NUnique),
         randn(FT, NUnique, N),
@@ -49,8 +52,8 @@ function test_chi_Lflow()
     (; State, FlowParam, Par, chi_x, chi_y, chi_z) = get_data()
 
     @testset "L-Flow" begin
-        @test pmfrg_xyz.getChi_z(State, FlowParam, Par) ≈ chi_z
-        @test pmfrg_xyz.getChi_x(State, FlowParam, Par) ≈ chi_x
-        @test pmfrg_xyz.getChi_y(State, FlowParam, Par) ≈ chi_y
+        @test PMFRG_xyz.getChi_z(State, FlowParam, Par) ≈ chi_z
+        @test PMFRG_xyz.getChi_x(State, FlowParam, Par) ≈ chi_x
+        @test PMFRG_xyz.getChi_y(State, FlowParam, Par) ≈ chi_y
     end
 end

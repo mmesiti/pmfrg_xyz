@@ -1,4 +1,4 @@
-# Lambda Flow (pmfrg_xyz) regression test runner
+# Lambda Flow (PMFRG_xyz) regression test runner
 
 using SpinFRGLattices
 
@@ -13,7 +13,7 @@ include("../regression_test_utils_generic.jl")
 
 # Run Lambda Flow SolveFRG regression tests
 function run_lambda_flow_SolveFRG_regression_tests(data_path::String)
-    @testset verbose = true "Tests for pmfrg_xyz.SolveFRG (Lambda Flow)" begin
+    @testset verbose = true "Tests for PMFRG_xyz.SolveFRG (Lambda Flow)" begin
         data = load_object(data_path)
         @testset verbose = true for i = 1:length(data["return_value"])
             return_value = (data["return_value"])[i]
@@ -21,7 +21,7 @@ function run_lambda_flow_SolveFRG_regression_tests(data_path::String)
             arguments_post = (data["arguments_post"])[i]
             recursive_value_test(
                 return_value,
-                pmfrg_xyz.SolveFRG(arguments...),
+                PMFRG_xyz.SolveFRG(arguments...),
                 "return values - case $i",
                 true,
             )
