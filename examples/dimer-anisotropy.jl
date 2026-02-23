@@ -1,6 +1,6 @@
 using SpinFRGLattices
 using JLD2
-import PMFRG_xyz: Params, SolveFRG
+import PMFRG_xyz: Params, SolveFRG, TFlowNumericalParams
 
 System = SpinFRGLattices.getPolymer(2)
 
@@ -11,7 +11,10 @@ for n = 1:System.Npairs
 end
 
 
-Par = Params(System, N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
+Par = Params(
+    System,
+    TFlowNumericalParams(N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0),
+)
 
 @time sol, saved_values = SolveFRG(Par, isotropy)
 
