@@ -620,3 +620,69 @@ function getChi_3(
     end
     return (Chi)
 end
+
+# TODO: NumPar will be <: AbstractNumericalParams
+function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar)
+
+    iGx = get_iG_i(FlowParam, iSigma.x, NumPar)
+    iGy = get_iG_i(FlowParam, iSigma.y, NumPar)
+    iGz = get_iG_i(FlowParam, iSigma.z, NumPar)
+
+    return iGx, iGy, iGz
+
+end
+
+function set_spropX!(
+    spropX,
+    NUnique,
+    iSigma,
+    DiSigma,
+    FlowParam,
+    nw1,
+    nw2,
+    ComputeType,
+    NumPar,
+)
+
+    iGs = get_iGs(FlowParam, iSigma, NumPar)
+    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
+
+    f = get_props_factor(NumPar)
+    for Rij = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iGs[j](Rij, nw2) * f)
+        end
+    end
+
+end
+
+
+function set_spropY!(
+    spropY,
+    NUnique,
+    iSigma,
+    DiSigma,
+    FlowParam,
+    nw1,
+    nw2,
+    ComputeType,
+    NumPar,
+)
+
+    iGs = get_iGs(FlowParam, iSigma, NumPar)
+    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
+
+    f = get_props_factor(NumPar)
+    for Rij1 = 1:NUnique, Rij2 = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropY[i, j, Rij1, Rij2] =
+                ComputeType(-iSKat[i](Rij1, nw1) * iGs[j](Rij2, nw2) * f)
+        end
+    end
+
+
+end
+
+
+using LinearAlgebra
+using SparseArrays

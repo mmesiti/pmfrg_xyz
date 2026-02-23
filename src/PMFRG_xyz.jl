@@ -790,44 +790,7 @@ function addY!(
     end
 end
 
-
-function set_spropX!(spropX, NUnique, iSigma, DiSigma, T, nw1, nw2, ComputeType)
-
-    iG = SVector{3}([
-        (x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)
-    ])
-    iSKat = SVector{3}([
-        (x, nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T) for (iSigma_i, DiSigma_i) in
-        zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
-    ])
-
-    for Rij = 1:NUnique
-        for j = 1:3, i = 1:3
-            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iG[j](Rij, nw2))
-        end
-    end
-
-end
-
-function set_spropY!(spropY, NUnique, iSigma, DiSigma, T, nw1, nw2, ComputeType)
-
-    iG = SVector{3}([
-        (x, nw) -> iG_(iSigma_i, x, nw, T) for iSigma_i in (iSigma.x, iSigma.y, iSigma.z)
-    ])
-    iSKat = SVector{3}([
-        (x, nw) -> iSKat_(iSigma_i, DiSigma_i, x, nw, T) for (iSigma_i, DiSigma_i) in
-        zip((iSigma.x, iSigma.y, iSigma.z), (DiSigma.x, DiSigma.y, DiSigma.z))
-    ])
-
-
-    for Rij1 = 1:NUnique, Rij2 = 1:NUnique
-        for j = 1:3, i = 1:3
-            spropY[i, j, Rij1, Rij2] = ComputeType(-iSKat[i](Rij1, nw1) * iG[j](Rij2, nw2))
-        end
-    end
-
-
-end
+get_sprop_factor(::NumericalParams) = 1
 
 
 
@@ -877,6 +840,7 @@ function getXBubble!(
                     nw,
                     nw + ns,
                     ComputeType,
+                    Par.NumericalParams,
                 )
                 set_spropY!(
                     Buffs.spropY,
@@ -887,6 +851,7 @@ function getXBubble!(
                     nw,
                     nw - nt,
                     ComputeType,
+                    Par.NumericalParams,
                 )
                 #for Rij1 = 1:NUnique, Rij2 = 1:NUnique
                 #    for j = 1:3, i = 1:3
@@ -983,36 +948,39 @@ function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, ::NumericalParams)
     return iG_i
 end
 
+function get_iSKat(iSigma, DiSigma, FlowParam::Real, _::NumericalParams)
 
-function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar::NumericalParams)
+    iSKat_x(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, nw, FlowParam)
+    iSKat_y(x, nw) = iSKat_(iSigma.y, DiSigma.y, x, nw, FlowParam)
+    iSKat_z(x, nw) = iSKat_(iSigma.z, DiSigma.z, x, nw, FlowParam)
 
-    iGx = get_iG_i(FlowParam, iSigma.x, NumPar)
-    iGy = get_iG_i(FlowParam, iSigma.y, NumPar)
-    iGz = get_iG_i(FlowParam, iSigma.z, NumPar)
-
-    return iGx, iGy, iGz
+    return iSKat_x, iSKat_y, iSKat_z
 
 end
 
 
-function get_Theta(_::Real, _::NumericalParams)
 
+function get_Theta(_::Real, ::NumericalParams)
     return _ -> 1
 end
 
-function get_f_int_factor(_::NumericalParams)
+function get_f_int_factor(::NumericalParams)
     return 1
 end
 
-function get_get_w(_::NumericalParams)
+function get_get_w(::NumericalParams)
     return nw -> get_w(nw)
 end
 
-function get_Dgamma_factor(_::NumericalParams)
+function get_Dgamma_factor(::NumericalParams)
     return 1
 end
 
-function get_chi_factor(_::NumericalParams)
+function get_chi_factor(::NumericalParams)
+    return 1
+end
+
+function get_props_factor(::NumericalParams)
     return 1
 end
 

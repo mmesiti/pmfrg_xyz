@@ -77,10 +77,8 @@ end
 ###     s <--> -s
 ###     t <--> -t, i <--> j
 ###     u <--> -u, i <--> j
-using LinearAlgebra
-using SparseArrays
 
-function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, Props)
+function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, spropX)
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, Nsum, siteSum, invpairs) = Par.System
@@ -110,9 +108,9 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
             ki, kj, m, xk =
                 S_ki[k_spl, Rij], S_kj[k_spl, Rij], S_m[k_spl, Rij], S_xk[k_spl, Rij]
             Ptm = @SMatrix [
-                Props[xk, xk, 1, 1] Props[xk, xk, 1, 2] Props[xk, xk, 1, 3]
-                Props[xk, xk, 2, 1] Props[xk, xk, 2, 2] Props[xk, xk, 2, 3]
-                Props[xk, xk, 3, 1] Props[xk, xk, 3, 2] Props[xk, xk, 3, 3]
+                spropX[1, 1, xk] spropX[1, 2, xk] spropX[1, 3, xk]
+                spropX[2, 1, xk] spropX[2, 2, xk] spropX[2, 3, xk]
+                spropX[3, 1, xk] spropX[3, 2, xk] spropX[3, 3, xk]
             ]
             Ptm = Ptm * m ### Props now contains two flavor indices
 
@@ -198,15 +196,7 @@ function addX!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, 
     return
 end
 
-function addY!(
-    Workspace,
-    is::Integer,
-    it::Integer,
-    iu::Integer,
-    nwpr::Integer,
-    Props;
-    _l = 1.0,
-)
+function addY!(Workspace, is::Integer, it::Integer, iu::Integer, nwpr::Integer, spropY)
     (; State, X, Par) = Workspace
     N = Par.NumericalParams.N
     (; Npairs, invpairs, PairTypes, OnsitePairs) = Par.System
@@ -232,11 +222,11 @@ function addY!(
         (; xi, xj) = PairTypes[Rij]
 
         function P_(n::Int, m::Int)
-            return Props[xi, xj, n, m]
+            return spropY[n, m, xi, xj]
         end
 
         function PT_(n::Int, m::Int)
-            return Props[xj, xi, m, n]
+            return spropY[m, n, xj, xi]
         end
 
         V13(n) = Vert(n, Rij, -wmw1, nt, wmw3, flavTransf13)
@@ -451,58 +441,54 @@ function addY!(
     end
 end
 
-function getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw1, nw2)
-    iGx(x, nw) = iG_(iSigma.x, x, Lam, nw, T)
-    iGy(x, nw) = iG_(iSigma.y, x, Lam, nw, T)
-    iGz(x, nw) = iG_(iSigma.z, x, Lam, nw, T)
-
-    iSKatx(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, Lam, nw, T)
-    iSKaty(x, nw) = iSKat_(iSigma.y, DiSigma.y, x, Lam, nw, T)
-    iSKatz(x, nw) = iSKat_(iSigma.z, DiSigma.z, x, Lam, nw, T)
-
-    for i = 1:NUnique, j = 1:NUnique
-        BubbleProp[i, j, 1, 1] = iSKatx(i, nw1) * iGx(j, nw2) * T
-        BubbleProp[i, j, 1, 2] = iSKatx(i, nw1) * iGy(j, nw2) * T
-        BubbleProp[i, j, 1, 3] = iSKatx(i, nw1) * iGz(j, nw2) * T
-        BubbleProp[i, j, 2, 1] = iSKaty(i, nw1) * iGx(j, nw2) * T
-        BubbleProp[i, j, 2, 2] = iSKaty(i, nw1) * iGy(j, nw2) * T
-        BubbleProp[i, j, 2, 3] = iSKaty(i, nw1) * iGz(j, nw2) * T
-        BubbleProp[i, j, 3, 1] = iSKatz(i, nw1) * iGx(j, nw2) * T
-        BubbleProp[i, j, 3, 2] = iSKatz(i, nw1) * iGy(j, nw2) * T
-        BubbleProp[i, j, 3, 3] = iSKatz(i, nw1) * iGz(j, nw2) * T
-    end
-
-    ### Relative minus sign between paper & Nils' thesis
-    return -BubbleProp
-    # return SMatrix{NUnique, NUnique, 3, 3}(BubbleProp)
-    ### SMatrix can only create 2d array (according to ChatGPT). Use SArray instead
-end
-
-
-function getXBubble!(Workspace, FlowParameter)
+function getXBubble!(
+    Workspace::OneLoopWorkspace,
+    FlowParameter::Real,
+    ComputeType::Type = Float64,
+)
     Lam = FlowParameter
     Par = Workspace.Par
-    (; T, N, lenIntw) = Par.NumericalParams
+    (; N, lenIntw) = Par.NumericalParams
     (; NUnique) = Par.System
     iSigma = Workspace.State.iSigma
     DiSigma = Workspace.Deriv.iSigma
 
     for is = 1:N, it = 1:N
-        BubbleProp = zeros(NUnique, NUnique, 3, 3)
+        spropX = zeros(3, 3, NUnique)
+        spropY = zeros(3, 3, NUnique, NUnique)
         ns = is - 1
         nt = it - 1
         for nw = -lenIntw:lenIntw-1 # Matsubara sum
 
-            spropX =
-                getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw, nw + ns)
-            spropY =
-                getKataninProp!(BubbleProp, NUnique, iSigma, DiSigma, T, Lam, nw, nw - nt)
+            set_spropX!(
+                spropX,
+                NUnique,
+                iSigma,
+                DiSigma,
+                Lam,
+                nw,
+                nw + ns,
+                ComputeType,
+                Par.NumericalParams,
+            )
+
+            set_spropY!(
+                spropY,
+                NUnique,
+                iSigma,
+                DiSigma,
+                Lam,
+                nw,
+                nw - nt,
+                ComputeType,
+                Par.NumericalParams,
+            )
             for iu = 1:N
                 nu = iu - 1
                 if (ns + nt + nu) % 2 == 0# skip unphysical bosonic frequency combinations
                     continue
                 end
-                addY!(Workspace, is, it, iu, nw, spropY, _l = Lam) # add to XTilde-type bubble functions
+                addY!(Workspace, is, it, iu, nw, spropY) # add to XTilde-type bubble functions
 
                 ### If no u--t symmetry, then add all the bubbles
                 ### If use u--t symmetry, then only add for nu smaller then nt (all other obtained by symmetry)
@@ -532,21 +518,23 @@ function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
 
 end
 
-function get_iGs(FlowParam::Real, iSigma::SigmaType, NumParams::NumericalParams)
-
-    iGx = get_iG_i(FlowParam, iSigma.x, NumParams)
-    iGy = get_iG_i(FlowParam, iSigma.y, NumParams)
-    iGz = get_iG_i(FlowParam, iSigma.z, NumParams)
-
-    return iGx, iGy, iGz
-
-end
 
 function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, NumParams::NumericalParams)
     Lam = FlowParam
     T = NumParams.T
     @inline iG_i(x, nw) = iG_(iSigma_i, x, Lam, nw, T)
     return iG_i
+end
+
+function get_iSKat(iSigma, DiSigma, FlowParam::Real, NumParams::NumericalParams)
+
+    T = NumParams.T
+    iSKat_x(x, nw) = iSKat_(iSigma.x, DiSigma.x, x, FlowParam, nw, T)
+    iSKat_y(x, nw) = iSKat_(iSigma.y, DiSigma.y, x, FlowParam, nw, T)
+    iSKat_z(x, nw) = iSKat_(iSigma.z, DiSigma.z, x, FlowParam, nw, T)
+
+    return iSKat_x, iSKat_y, iSKat_z
+
 end
 
 function get_Theta(FlowParam::Real, _::NumericalParams)
@@ -570,6 +558,9 @@ function get_chi_factor(NumParams::NumericalParams)
     return NumParams.T
 end
 
+function get_props_factor(NumParams::NumericalParams)
+    return NumParams.T
+end
 
 
 ####################################################
