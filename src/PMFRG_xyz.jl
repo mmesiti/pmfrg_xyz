@@ -442,7 +442,7 @@ function getDFint!(Workspace, FlowParam::Real)
 
     Theta = get_Theta(FlowParam, Par.NumericalParams)
 
-    f = get_f_int_factor(Par.NumericalParams)
+    f = get_DFint_factor(Par.NumericalParams)
 
     _get_w = get_get_w(Par.NumericalParams)
 
@@ -1630,7 +1630,7 @@ function get_Theta(_::Real, ::TFlowNumericalParams)
     return _ -> 1
 end
 
-function get_f_int_factor(::TFlowNumericalParams)
+function get_DFint_factor(::TFlowNumericalParams)
     return 1
 end
 
@@ -1782,7 +1782,7 @@ function get_Theta(FlowParam::Real, _::LFlowNumericalParams)
     return Theta
 end
 
-function get_f_int_factor(NumParams::LFlowNumericalParams)
+function get_DFint_factor(NumParams::LFlowNumericalParams)
     return NumParams.T
 end
 
