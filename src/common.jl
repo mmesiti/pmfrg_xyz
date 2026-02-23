@@ -14,6 +14,8 @@ using MuladdMacro
 using FastBroadcast
 
 
+_getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
+
 setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
 
 function setZero!(PartArr::ArrayPartition)
@@ -513,6 +515,12 @@ function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
     return
 end
 
+####################################################
+######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
+####################################################
+
+
+
 function launchPMFRG!(
     State,
     setup,
@@ -582,6 +590,11 @@ SolveFRG(Par, isotropy; kwargs...) =
 TestFRG(Par, isotropy; kwargs...) =
     testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
 
+#############################################################
+######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
+#############################################################
+
+
 getChi_z(State::ArrayPartition, T::Real, Par) =
     getChi_3(State.x[2], State.x[3], State.x[5], T, fd.xy2, Par)
 getChi_x(State::ArrayPartition, T::Real, Par) =
@@ -636,61 +649,21 @@ function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar)
     return iGx, iGy, iGz
 
 end
-
-function set_spropX!(
-    spropX,
-    NUnique,
-    iSigma,
-    DiSigma,
-    FlowParam,
-    nw1,
-    nw2,
-    ComputeType,
-    NumPar,
-)
-
-    iGs = get_iGs(FlowParam, iSigma, NumPar)
-    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
-
-    f = get_props_factor(NumPar)
-    for Rij = 1:NUnique
-        for j = 1:3, i = 1:3
-            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iGs[j](Rij, nw2) * f)
-        end
-    end
-
-end
-
-
-function set_spropY!(
-    spropY,
-    NUnique,
-    iSigma,
-    DiSigma,
-    FlowParam,
-    nw1,
-    nw2,
-    ComputeType,
-    NumPar,
-)
-
-    iGs = get_iGs(FlowParam, iSigma, NumPar)
-    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
-
-    f = get_props_factor(NumPar)
-    for Rij1 = 1:NUnique, Rij2 = 1:NUnique
-        for j = 1:3, i = 1:3
-            spropY[i, j, Rij1, Rij2] =
-                ComputeType(-iSKat[i](Rij1, nw1) * iGs[j](Rij2, nw2) * f)
-        end
-    end
-
-
-end
-
-
 using LinearAlgebra
 using SparseArrays
+####################################################
+######### VERTICES ## VERTICES ## VERTICES #########
+####################################################
+
+# In the Heisenberg case these are the Vertex' Symmetries 
+#     s <--> -s
+#     t <--> -t, i <--> j
+#     u <--> -u, i <--> j
+# In the XYZ model a change of frequency sign also means a change
+# of flavor type. I separate the Vertex flavors into four blocks.
+# Transformations of flavors only transform within those blocks.
+
+
 "Optimized, in-place version of V_ to be used in addX! and addY!"
 @inline function FillVBuffer!(
     V::AbstractVector,
@@ -783,18 +756,6 @@ function get_ThreadLocalBuffers(
         ) for _ = 1:nbuffers
     ]
 end
-
-####################################################
-######### VERTICES ## VERTICES ## VERTICES #########
-####################################################
-
-# In the Heisenberg case these are the Vertex' Symmetries 
-#     s <--> -s
-#     t <--> -t, i <--> j
-#     u <--> -u, i <--> j
-# In the XYZ model a change of frequency sign also means a change
-# of flavor type. I separate the Vertex flavors into four blocks.
-# Transformations of flavors only transform within those blocks.
 
 
 function addX!(
@@ -1391,7 +1352,56 @@ function addY!(
 end
 
 
+function set_spropX!(
+    spropX,
+    NUnique,
+    iSigma,
+    DiSigma,
+    FlowParam,
+    nw1,
+    nw2,
+    ComputeType,
+    NumPar,
+)
 
+    iGs = get_iGs(FlowParam, iSigma, NumPar)
+    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
+
+    f = get_props_factor(NumPar)
+    for Rij = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iGs[j](Rij, nw2) * f)
+        end
+    end
+
+end
+
+
+function set_spropY!(
+    spropY,
+    NUnique,
+    iSigma,
+    DiSigma,
+    FlowParam,
+    nw1,
+    nw2,
+    ComputeType,
+    NumPar,
+)
+
+    iGs = get_iGs(FlowParam, iSigma, NumPar)
+    iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
+
+    f = get_props_factor(NumPar)
+    for Rij1 = 1:NUnique, Rij2 = 1:NUnique
+        for j = 1:3, i = 1:3
+            spropY[i, j, Rij1, Rij2] =
+                ComputeType(-iSKat[i](Rij1, nw1) * iGs[j](Rij2, nw2) * f)
+        end
+    end
+
+
+end
 
 function getXBubble!(
     Workspace::OneLoopWorkspace,

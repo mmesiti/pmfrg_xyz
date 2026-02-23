@@ -19,7 +19,6 @@ struct NumericalParams{T<:Real}
     lenIntw_acc::Int
 end
 
-_getFloatType(Par) = typeof(Par.NumericalParams.T)
 
 function NumericalParams(;
     T::Real = 0.5,
@@ -139,11 +138,6 @@ function get_props_factor(NumParams::NumericalParams)
 end
 
 
-####################################################
-######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
-####################################################
-
-
 function flow_parameter_max_min(NumParams::NumericalParams)
 
     (; lambda_max, lambda_min) = NumParams
@@ -151,10 +145,6 @@ function flow_parameter_max_min(NumParams::NumericalParams)
 end
 
 
-
-#############################################################
-######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
-#############################################################
 
 
 export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z

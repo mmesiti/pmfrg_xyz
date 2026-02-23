@@ -34,7 +34,6 @@ end
 # This gives 21 different Vertex functions.
 # In my convention I dont use X and ̃X but just one big array called X.
 # If I need to acces the ̃X part (which in my convention I name Y) I just go X[21 + flavor]
-_getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
 
 # The constructor of this is just blind-copied. To this day I dont really understand
 # the purpose of lenIntw and lenIntw_acc
@@ -86,18 +85,6 @@ function iSKat_(
     w = get_w(nw)
     return -iG_(iSigma, x, nw, T)^2 * (w / (2.0 * sqrt(T)) + iSigma_(DSigma, x, nw))
 end
-
-####################################################
-######### VERTICES ## VERTICES ## VERTICES #########
-####################################################
-
-# In the Heisenberg case these are the Vertex' Symmetries 
-#     s <--> -s
-#     t <--> -t, i <--> j
-#     u <--> -u, i <--> j
-# In the XYZ model a change of frequency sign also means a change
-# of flavor type. I separate the Vertex flavors into four blocks.
-# Transformations of flavors only transform within those blocks.
 
 
 ######################################################################
