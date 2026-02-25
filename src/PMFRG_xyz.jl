@@ -442,7 +442,7 @@ function getDFint!(Workspace, FlowParam::Real)
 
     Theta = get_Theta(FlowParam, Par.NumericalParams)
 
-    f = get_DFint_factor(Par.NumericalParams)
+    f = T_Dimension(Par.NumericalParams)
 
     _get_w = get_get_w(Par.NumericalParams)
 
@@ -463,7 +463,7 @@ function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
     (; N, lenIntw_acc) = Par.NumericalParams
     (; siteSum, Nsum, OnsitePairs) = Par.System
 
-    f = get_Dgamma_factor(Par.NumericalParams)
+    f = T_Dimension(Par.NumericalParams)
 
     Threads.@threads for iw1 = 1:N
         nw1 = iw1 - 1
@@ -603,12 +603,30 @@ TestFRG(Par, isotropy; kwargs...) =
 #############################################################
 
 
-getChi_z(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[2], State.x[3], State.x[5], T, fd.xy2, Par)
-getChi_x(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[3], State.x[4], State.x[5], T, fd.yz2, Par)
-getChi_y(State::ArrayPartition, T::Real, Par) =
-    getChi_3(State.x[4], State.x[2], State.x[5], T, fd.zx2, Par)
+getChi_z(State::ArrayPartition, T::Real, Par) = getChi_3(
+    State.x[2], # Sigma x
+    State.x[3], # Sitma y
+    State.x[5],
+    T,
+    fd.xy2,
+    Par,
+)
+getChi_x(State::ArrayPartition, T::Real, Par) = getChi_3(
+    State.x[3], # Sigma y
+    State.x[4], # Sigma z
+    State.x[5],
+    T,
+    fd.yz2,
+    Par,
+)
+getChi_y(State::ArrayPartition, T::Real, Par) = getChi_3(
+    State.x[4], # Sigma z
+    State.x[2], # Sigma x
+    State.x[5],
+    T,
+    fd.zx2,
+    Par,
+)
 
 function getChi_3(
     iSigma1::AbstractArray,
@@ -627,7 +645,7 @@ function getChi_3(
         V_(Gamma, fd_idx, s, t, u, isFlavorTransform, Rij, invpairs[Rij], N)
 
     Chi = zeros(_getFloatType(Par), Npairs)
-    f = get_chi_factor(Par.NumericalParams)
+    f = T_Dimension(Par.NumericalParams)
     for Rij = 1:Npairs
         (; xi, xj) = PairTypes[Rij]
         for nK = (-lenIntw_acc):(lenIntw_acc-1)
@@ -1374,7 +1392,7 @@ function set_spropX!(
     iGs = get_iGs(FlowParam, iSigma, NumPar)
     iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
 
-    f = get_props_factor(NumPar)
+    f = T_Dimension(NumPar)
     for Rij = 1:NUnique
         for j = 1:3, i = 1:3
             spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iGs[j](Rij, nw2) * f)
@@ -1399,7 +1417,7 @@ function set_spropY!(
     iGs = get_iGs(FlowParam, iSigma, NumPar)
     iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
 
-    f = get_props_factor(NumPar)
+    f = T_Dimension(NumPar)
     for Rij1 = 1:NUnique, Rij2 = 1:NUnique
         for j = 1:3, i = 1:3
             spropY[i, j, Rij1, Rij2] =
@@ -1629,25 +1647,20 @@ end
 function get_Theta(_::Real, ::TFlowNumericalParams)
     return _ -> 1
 end
+"""
+The factor of T that is there in the Lambda-flow version
+disappears in the T-flow version on dimensional grounds, See:
 
-function get_DFint_factor(::TFlowNumericalParams)
+https://journals.aps.org/prb/pdf/10.1103/PhysRevB.109.195109
+
+Sec II, after Eq. 3.
+"""
+function T_Dimension(::TFlowNumericalParams)
     return 1
 end
 
 function get_get_w(::TFlowNumericalParams)
     return nw -> get_w(nw)
-end
-
-function get_Dgamma_factor(::TFlowNumericalParams)
-    return 1
-end
-
-function get_chi_factor(::TFlowNumericalParams)
-    return 1
-end
-
-function get_props_factor(::TFlowNumericalParams)
-    return 1
 end
 
 function flow_parameter_max_min(NumParams::TFlowNumericalParams)
@@ -1782,7 +1795,7 @@ function get_Theta(FlowParam::Real, _::LFlowNumericalParams)
     return Theta
 end
 
-function get_DFint_factor(NumParams::LFlowNumericalParams)
+function T_Dimension(NumParams::LFlowNumericalParams)
     return NumParams.T
 end
 
@@ -1790,16 +1803,6 @@ function get_get_w(NumParams::LFlowNumericalParams)
     return nw -> get_w(nw, NumParams.T)
 end
 
-function get_Dgamma_factor(NumParams::LFlowNumericalParams)
-    return NumParams.T
-end
-function get_chi_factor(NumParams::LFlowNumericalParams)
-    return NumParams.T
-end
-
-function get_props_factor(NumParams::LFlowNumericalParams)
-    return NumParams.T
-end
 
 
 function flow_parameter_max_min(NumParams::LFlowNumericalParams)
