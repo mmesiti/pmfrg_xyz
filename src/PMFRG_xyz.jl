@@ -8,7 +8,135 @@ using Unroll
 using MuladdMacro
 using FastBroadcast
 
-include("Structs.jl")
+#################################################
+######### STRUCTS ## STRUCTS ## STRUCTS #########
+#################################################
+
+setZero!(a::AbstractArray{T,N}) where {T,N} = fill!(a, zero(T))
+
+function setZero!(PartArr::ArrayPartition)
+    for arr in PartArr.x
+        fill!(arr, 0.0)
+    end
+end
+
+"""Recursively sets structure to zero"""
+function setZero!(a::T) where {T}
+    for f in fieldnames(T)
+        setZero!(getfield(a, f))
+    end
+    return a
+end
+
+struct SigmaType{T}
+    x::Array{T,2}
+    y::Array{T,2}
+    z::Array{T,2}
+end
+
+struct StateType{T}
+    f_int::Vector{T}
+    iSigma::SigmaType{T}
+    Gamma::Array{T,5}
+end
+
+struct Observables{T}
+    Chi_x::Vector{T}
+    Chi_y::Vector{T}
+    Chi_z::Vector{T}
+end
+
+struct NumericalParams{T<:Real}
+    N::Int
+
+    accuracy::T
+    temp_min::T
+    temp_max::T
+
+    lenIntw::Int
+    lenIntw_acc::Int
+end
+
+struct OptionParams
+    use_symmetry::Bool
+    minimal_output::Bool
+end
+
+struct OneLoopParams{T,SType}
+    System::SType
+    NumericalParams::NumericalParams{T}
+    Options::OptionParams
+end
+
+struct OneLoopWorkspace{T,ParType}
+    State::StateType{T}
+    Deriv::StateType{T}
+    X::Array{T,5}
+    Par::ParType
+end
+
+# A general vertex can have 3^4 = 81 flavor combinations
+# The XYZ model possesses Klein-4 Symmetry reducing the amount to 21.
+# The two distinct bubbles X and Y are stored in one 42-dimensional array.
+getVDims(Par) = (
+    21,
+    Par.System.Npairs,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+)
+getBubbleVDims(Par) = (
+    42,
+    Par.System.Npairs,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+    Par.NumericalParams.N,
+)
+_getFloatType(Par) = typeof(Par.NumericalParams.accuracy)
+
+function SigmaType(NUnique::Int, N::Int, type = Float64)
+    return SigmaType(
+        zeros(type, NUnique, N),
+        zeros(type, NUnique, N),
+        zeros(type, NUnique, N),
+    )
+end
+SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
+
+function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
+    return StateType(zeros(type, NUnique), SigmaType(tpye, NUnique, N), zeros(type, VDims))
+end
+StateType(Par) =
+    StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
+StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
+    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), Gamma)
+RecursiveArrayTools.ArrayPartition(x) =
+    ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma)
+StateType(Arr::ArrayPartition) = StateType(Arr.x...)
+
+function NumericalParams(;
+    N::Integer = 24,
+    accuracy = 1e-6,
+    temp_min = exp(-10.0),
+    temp_max = exp(10.0),
+    lenIntw::Int = N,
+    lenIntw_acc::Int = 2 * maximum((N, lenIntw)),
+)
+
+    return NumericalParams(N, accuracy, temp_min, temp_max, lenIntw, lenIntw_acc)
+end
+
+function OneLoopWorkspace(State, Deriv, X, Par)
+    setZero!(Deriv)
+    setZero!(X)
+
+    return OneLoopWorkspace(StateType(State.x...), StateType(Deriv.x...), X, Par)
+end
+
+OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
+    OptionParams(use_symmetry, MinimalOutput)
+Params(System; kwargs...) =
+    OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
 
 #############################################################
 ######### PROPAGATORS ## PROPAGATORS ## PROPAGATORS #########
@@ -1161,7 +1289,7 @@ function AllocateSetup(Par::OneLoopParams)
     return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
 end
 
-function InitializeState(Par, isotropy)
+function InitializeState(Par, anisotropy)
 
     N = Par.NumericalParams.N
     (; couplings, NUnique) = Par.System
@@ -1179,7 +1307,7 @@ function InitializeState(Par, isotropy)
 
     Gamma = State.x[5]
 
-    setToBareVertex!(Gamma, couplings, isotropy)
+    setToBareVertex!(Gamma, couplings, anisotropy)
 
     return State
 
@@ -1191,7 +1319,7 @@ function gettMesh(T_min, T_max, npoints)
     return LinRange(t_min, t_max, npoints)
 end
 
-function save_static_chis(State, t, integrator, Par)
+function save_static_chis(State, t, Par)
     chi_x = getChi_x(State, t_to_Lam(t), Par)
     chi_y = getChi_y(State, t_to_Lam(t), Par)
     chi_z = getChi_z(State, t_to_Lam(t), Par)
@@ -1240,12 +1368,20 @@ function launchPMFRG!(
     return sol, saved_values
 end
 
-SolveFRG(Par, isotropy; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!,
+SolveFRG(Par, anisotropy; kwargs...) =
+    launchPMFRG!(InitializeState(Par, anisotropy),
+    AllocateSetup(Par),
+    getDeriv!,
     SavedValues(_getFloatType(Par), Observables{_getFloatType(Par)}),
-    (State, t, integrator) -> save_static_chis(State, t, integrator, Par); kwargs...)
-SolveFRG(Par, isotropy, saved_values, save_func; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!, saved_values, save_func; kwargs...)
+    (State, t, _) -> save_static_chis(State, t, Par); kwargs...)
+
+SolveFRG(Par, anisotropy, saved_values, save_func; kwargs...) =
+    launchPMFRG!(InitializeState(Par, anisotropy),
+    AllocateSetup(Par),
+    getDeriv!,
+    saved_values,
+    save_func;
+    kwargs...)
 
 function get_t_min(Lam)
     Lam < exp(-30) && @warn "temp_min too small! Set to exp(-30) instead."
@@ -1266,22 +1402,22 @@ end
 function setToBareVertex!(
     Gamma::AbstractArray{T,5},
     couplings::AbstractVector,
-    isotropy::Array{T,2},
+    anisotropy::Array{T,2},
 ) where {T}
     for Rj in axes(Gamma, 2)
-        Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
+        Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zx2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xz2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xy2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 3]
+        Gamma[fd.yx2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 3]
 
-        Gamma[fd.yz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
+        Gamma[fd.yz3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zy3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zx3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xz3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xy3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 3]
+        Gamma[fd.yx3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 3]
     end
 
     return Gamma

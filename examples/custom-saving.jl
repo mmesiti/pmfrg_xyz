@@ -3,9 +3,18 @@ Pkg.activate("./")
 
 include("../src/PMFRG_xyz.jl")
 using .PMFRG_xyz
-include("../src/Structs.jl")
+
+using SpinFRGLattices
+using SpinFRGLattices.SquareLattice
+using DiffEqCallbacks
 
 using JLD2
+
+struct ObservablesDynamic{T}
+    Chi_x::Array{T,2}
+    Chi_y::Array{T,2}
+    Chi_z::Array{T,2}
+end
 
 struct ChiAndSigma{T}
     Chi_x::Array{T,2}
@@ -16,14 +25,14 @@ struct ChiAndSigma{T}
     Sigma_z::Array{T,2}
 end
 
-function save_dynamic_chis(State, t, interator, Par)
+function save_dynamic_chis(State, t, Par)
     chi_x = PMFRG_xyz.getChi_x(State, exp(t), Par, Par.NumericalParams.N)
     chi_y = PMFRG_xyz.getChi_y(State, exp(t), Par, Par.NumericalParams.N)
     chi_z = PMFRG_xyz.getChi_z(State, exp(t), Par, Par.NumericalParams.N)
     return ObservablesDynamic(copy(chi_x), copy(chi_y), copy(chi_z))
 end
 
-function save_chi_and_sigma(State, t, integrator, Par)
+function save_chi_and_sigma(State, t, Par)
     chi_x = PMFRG_xyz.getChi_x(State, exp(t), Par, Par.NumericalParams.N)
     chi_y = PMFRG_xyz.getChi_y(State, exp(t), Par, Par.NumericalParams.N)
     chi_z = PMFRG_xyz.getChi_z(State, exp(t), Par, Par.NumericalParams.N)
@@ -50,8 +59,8 @@ end
 let
     sol, saved_values = PMFRG_xyz.SolveFRG(
         Par, isotropy,
-        SavedValues(_getFloatType(Par), ObservablesDynamic{_getFloatType(Par)}), 
-        (State, t, integrator) -> save_dynamic_chis(State, t, integrator, Par)
+        SavedValues(PMFRG_xyz._getFloatType(Par), ObservablesDynamic{PMFRG_xyz._getFloatType(Par)}), 
+        (State, t, integrator) -> save_dynamic_chis(State, t, Par)
     )
     save_object("dynamic_chi.jld2", [(saved_values.saveval[n], exp(saved_values.t[n])) for n in eachindex(saved_values.t)])
 end
@@ -59,8 +68,8 @@ end
 let
     sol, saved_values = PMFRG_xyz.SolveFRG(
         Par, isotropy,
-        SavedValues(_getFloatType(Par), ChiAndSigma{_getFloatType(Par)}),
-        (State, t, integrator) -> save_chi_and_sigma(State, t, integrator, Par)
+        SavedValues(PMFRG_xyz._getFloatType(Par), ChiAndSigma{PMFRG_xyz._getFloatType(Par)}),
+        (State, t, integrator) -> save_chi_and_sigma(State, t, Par)
     )
     save_object("chi_and_sigma.jld2", [(saved_values.saveval[n], exp(saved_values.t[n])) for n in eachindex(saved_values.t)])
 end
