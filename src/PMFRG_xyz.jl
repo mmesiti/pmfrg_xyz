@@ -8,6 +8,8 @@ using SpinFRGLattices.StaticArrays
 using Unroll
 using MuladdMacro
 using FastBroadcast
+using LinearAlgebra
+using SparseArrays
 
 #################################################
 ######### UTILITIES #############################
@@ -31,12 +33,6 @@ function setZero!(a::T) where {T}
     end
     return a
 end
-
-#################################################
-######### STRUCTS ###############################
-#################################################
-
-
 
 struct SigmaType{T}
     x::Array{T,2}
@@ -66,6 +62,9 @@ abstract type AbstractNumericalParams end
 ######### DIMENSIONS AND CONSTRUCTORS ###########
 #################################################
 
+# A general vertex can have 3^4 = 81 flavor combinations
+# The XYZ model possesses Klein-4 Symmetry reducing the amount to 21.
+# The two distinct bubbles X and Y are stored in one 42-dimensional array.
 getVDims(Par) = (
     21,
     Par.System.Npairs,
@@ -117,7 +116,6 @@ Params(System, NumParams::AbstractNumericalParams; kwargs...) =
 #################################################
 
 function get_sign_iw(nw::Integer, N::Integer)
-    # s = sign(nw)
     nw_bounds = min(nw, N - 1)
     return nw_bounds + 1
 end
@@ -137,7 +135,7 @@ end
 function ConvertFreqArgs(ns, nt, nu, Nw)
     ns, nt, nu = abs.((ns, nt, nu))
 
-    ns = min(ns, Nw - 1 - (ns + Nw - 1) % 2) ### weird cutoff, idk why
+    ns = min(ns, Nw - 1 - (ns + Nw - 1) % 2)
     nt = min(nt, Nw - 1 - (nt + Nw - 1) % 2)
     nu = min(nu, Nw - 1 - (nu + Nw - 1) % 2)
 
@@ -327,22 +325,11 @@ function get_t_min(Lam)
     max(Lam_to_t(Lam), -30.0)
 end
 
-function generateSubstituteDeriv(getDeriv!::Function)
-
-    function DerivSubs!(Deriv, State, par, t; s = true)
-        Lam = t_to_Lam(t)
-        a = getDeriv!(Deriv, State, par, Lam, saveArgs = s)
-        Deriv .*= Lam
-        a
-    end
-
-end
-
 #################################################
 ######### INITIALIZATION FUNCTIONS ##############
 #################################################
 
-function InitializeState(Par, isotropy)
+function InitializeState(Par, anisotropy)
 
     N = Par.NumericalParams.N
     (; couplings, NUnique) = Par.System
@@ -359,7 +346,7 @@ function InitializeState(Par, isotropy)
     )
 
     Gamma = State.x[5]
-    setToBareVertex!(Gamma, couplings, isotropy)
+    setToBareVertex!(Gamma, couplings, anisotropy)
     return State
 
 end
@@ -367,22 +354,22 @@ end
 function setToBareVertex!(
     Gamma::AbstractArray{T,5},
     couplings::AbstractVector,
-    isotropy::Array{T,2},
+    anisotropy::Array{T,2},
 ) where {T}
     for Rj in axes(Gamma, 2)
-        Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx2, Rj, :, :, :] .= -couplings[Rj] * isotropy[Rj, 3]
+        Gamma[fd.yz2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zy2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zx2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xz2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xy2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 3]
+        Gamma[fd.yx2, Rj, :, :, :] .= -couplings[Rj] * anisotropy[Rj, 3]
 
-        Gamma[fd.yz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 1]
-        Gamma[fd.zx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xz3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 2]
-        Gamma[fd.xy3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
-        Gamma[fd.yx3, Rj, :, :, :] .= couplings[Rj] * isotropy[Rj, 3]
+        Gamma[fd.yz3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zy3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 1]
+        Gamma[fd.zx3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xz3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 2]
+        Gamma[fd.xy3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 3]
+        Gamma[fd.yx3, Rj, :, :, :] .= couplings[Rj] * anisotropy[Rj, 3]
     end
 
     return Gamma
@@ -527,16 +514,24 @@ end
 ######### SOLVE ## SOLVE ## SOLVE ## SOLVE #########
 ####################################################
 
-
+function save_static_chis(State, t, Par)
+    chi_x = getChi_x(State, t_to_Lam(t), Par)
+    chi_y = getChi_y(State, t_to_Lam(t), Par)
+    chi_z = getChi_z(State, t_to_Lam(t), Par)
+    return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
+end
 
 function launchPMFRG!(
     State,
     setup,
-    Deriv!::Function;
+    Deriv!::Function,
+    saved_values::SavedValues,
+    save_func::Function;
     method = DP5(),
     npoints = 600,
     save_steps = false,
 )
+
     println("Solving FRG")
 
     Par = setup[end]
@@ -546,16 +541,6 @@ function launchPMFRG!(
     t0 = Lam_to_t(flow_parameter_max)
     tend = get_t_min(flow_parameter_min)
     Deriv_subst! = generateSubstituteDeriv(Deriv!)
-
-    saved_values = SavedValues(eltype(State), Observables{eltype(State)})
-
-    function save_func(State, t, integrator)
-        chi_x = getChi_x(State, t_to_Lam(t), Par)
-        chi_y = getChi_y(State, t_to_Lam(t), Par)
-        chi_z = getChi_z(State, t_to_Lam(t), Par)
-
-        return Observables(copy(chi_x), copy(chi_y), copy(chi_z))
-    end
 
     ObsSaveat = gettMesh(flow_parameter_min, flow_parameter_max, npoints)
     saveCB = SavingCallback(
@@ -579,24 +564,37 @@ function launchPMFRG!(
 
     return sol, saved_values
 end
-function testPMFRG!(State, setup, Deriv!::Function; loadArgs = false)
-    Par = setup[end]
-    (; lambda_max, lambda_min, accuracy) = Par.NumericalParams
 
-    t0 = Lam_to_t(lambda_max)
-    tend = get_t_min(lambda_min)
-    Deriv_subst! = generateSubstituteDeriv(Deriv!)
+SolveFRG(Par, anisotropy; kwargs...) = launchPMFRG!(
+    InitializeState(Par, anisotropy),
+    AllocateSetup(Par),
+    getDeriv!,
+    SavedValues(_getFloatType(Par), Observables{_getFloatType(Par)}),
+    (State, t, _) -> save_static_chis(State, t, Par);
+    kwargs...,
+)
 
-    der = copy(State)
-    setZero!(der)
+SolveFRG(Par, anisotropy, saved_values, save_func; kwargs...) = launchPMFRG!(
+    InitializeState(Par, anisotropy),
+    AllocateSetup(Par),
+    getDeriv!,
+    saved_values,
+    save_func;
+    kwargs...,
+)
 
-    Deriv_subst!(der, State, setup, t0, s = false)
+function generateSubstituteDeriv(getDeriv!::Function)
+
+    function derivsubs!(Deriv, State, par, t)
+        Lam = t_to_Lam(t)
+        a = getDeriv!(Deriv, State, par, Lam)
+        Deriv .*= Lam
+        a
+    end
+
 end
 
-SolveFRG(Par, isotropy; kwargs...) =
-    launchPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
-TestFRG(Par, isotropy; kwargs...) =
-    testPMFRG!(InitializeState(Par, isotropy), AllocateSetup(Par), getDeriv!; kwargs...)
+
 
 #############################################################
 ######### OBSERVABLES ## OBSERVABLES ## OBSERVABLES #########
@@ -655,7 +653,6 @@ function getChi_3(
             for nK2 = (-lenIntw_acc):(lenIntw_acc-1)
                 npwpw2 = nK + nK2 + 1
                 w2mw = nK2 - nK
-                #use that Vc_0 is calculated from Vb
                 GGGG = iG1(xi, nK)^2 * iG2(xj, nK2)^2
                 flavTransform = (npwpw2 * w2mw > 0, false, false)
                 Chi[Rij] += f^2 * GGGG * V12_2(Rij, 0, npwpw2, -w2mw, flavTransform)
@@ -674,21 +671,6 @@ function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar::AbstractNumericalPa
     return iGx, iGy, iGz
 
 end
-using LinearAlgebra
-using SparseArrays
-####################################################
-######### VERTICES ## VERTICES ## VERTICES #########
-####################################################
-
-# In the Heisenberg case these are the Vertex' Symmetries 
-#     s <--> -s
-#     t <--> -t, i <--> j
-#     u <--> -u, i <--> j
-# In the XYZ model a change of frequency sign also means a change
-# of flavor type. I separate the Vertex flavors into four blocks.
-# Transformations of flavors only transform within those blocks.
-
-
 "Optimized, in-place version of V_ to be used in addX! and addY!"
 @inline function FillVBuffer!(
     V::AbstractVector,
@@ -1093,7 +1075,7 @@ function addY!(
         swap31 = flavTransf31[1]
         swap42 = flavTransf42[1]
 
-        # Xtilde only defined for nonlocal pairs Rij != Rii
+        # Y only defined for nonlocal pairs Rij != Rii
         @inbounds @muladd for Rij = 1:Npairs
             Rij in OnsitePairs && continue
             # loop over all left hand side inequivalent pairs Rij
@@ -1458,7 +1440,7 @@ function getXBubble!(
             it = (is_it - 1) % N + 1
             # WARNING:
             # This works only with :static
-            Buffs = ThreadLocalBuffers[Threads.threadid()]
+            Buffs = ThreadLocalBuffers[Threads.threadid()-Threads.nthreads(:interactive)]
             ns = is - 1
             nt = it - 1
 
