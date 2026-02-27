@@ -7,7 +7,7 @@ index 964ac3a..e69de29 100644
 -index b1dafd1..b19963b 100644
 ---- a/src/PMFRG_xyz.jl
 -+++ b/src/PMFRG_xyz.jl
--@@ -9,6 +9,7 @@ using SpinFRGLattices, OrdinaryDiffEq, DiffEqCallbacks, RecursiveArrayTools, Str
+-@@ -9,6 +9,7 @@ using SpinFRGLattices, OrdinaryDiffEqLowOrderRK, DiffEqCallbacks, RecursiveArrayTools, Str
 - using SpinFRGLattices.StaticArrays
 - using Unroll
 - using MuladdMacro

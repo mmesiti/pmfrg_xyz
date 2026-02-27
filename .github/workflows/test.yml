@@ -41,6 +41,7 @@ jobs:
                                 Pkg.instantiate()'
           julia --project=. dimer-anisotropy.jl
           julia --project=. square-lattice-anisotropy.jl
+          julia --project=. custom-saving.jl 
       - name: Formatting Check
         run: |
           julia -e 'using Pkg

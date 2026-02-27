@@ -1,4 +1,4 @@
-import PMFRG_xyz: Params, SolveFRG, TFlowNumericalParams
+import PMFRG_xyz: Params, SolveFRG, TFlow
 using JLD2
 using SpinFRGLattices.SquareLattice
 
@@ -12,10 +12,7 @@ for n = 1:System.Npairs
     isotropy[n, :] = [1.0, 0.5, 0.2]
 end
 
-Par = Params(
-    System,
-    TFlowNumericalParams(N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0),
-)
+Par = Params(System, TFlow(), N = 8, accuracy = 1e-10, temp_max = 10.0, temp_min = 1.0)
 
 @time sol, saved_values = SolveFRG(Par, isotropy)
 

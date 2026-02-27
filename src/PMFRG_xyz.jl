@@ -104,8 +104,16 @@ StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
     OptionParams(use_symmetry, MinimalOutput)
 
-Params(System; kwargs...) =
-    OneLoopParams(System, NumericalParams(; kwargs...), OptionParams(; kwargs...))
+abstract type FlowType end
+struct TFlow end
+struct LFlow end
+
+Params(System, ::TFlow; kwargs...) =
+    OneLoopParams(System, TFlowNumericalParams(; kwargs...), OptionParams(; kwargs...))
+
+Params(System, ::LFlow; kwargs...) =
+    OneLoopParams(System, LFlowNumericalParams(; kwargs...), OptionParams(; kwargs...))
+
 
 Params(System, NumParams::AbstractNumericalParams; kwargs...) =
     OneLoopParams(System, NumParams, OptionParams(; kwargs...))
@@ -1813,6 +1821,6 @@ end
 
 
 
-export Params, SolveFRG, TestFRG, getChi_x, getChi_y, getChi_z
+export Params, SolveFRG, getChi_x, getChi_y, getChi_z, LFlow, TFlow
 
 end

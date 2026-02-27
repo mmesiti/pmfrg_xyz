@@ -15,7 +15,7 @@ that define an environment
 that can be used to run these examples.
 Refer to the documentation of [Pkg](https://docs.julialang.org/en/v1/stdlib/Pkg/) 
 (the Julia Package manager)
-for futther information.
+for further information.
 
 ## Example scripts
 
@@ -23,8 +23,9 @@ These minimal examples launch the `SolveFRG` function,
 time it,
 and save the results using the JLD2 library:
 
-- `dimer-anisotropy.jl`
-- `square-lattice-anisotropy.jl`
+- `dimer-anisotropy.jl`: Minimal example using a dimer as system
+- `square-lattice-anisotropy.jl`: example using a square lattice as a system
+- `custom-saving.jl`: example showing how to save data during the integration of the flow.
 
 The examples here can be run from the terminal using the command
 
@@ -32,6 +33,7 @@ The examples here can be run from the terminal using the command
 cd examples
 julia --project=. dimer-anisotropy.jl  # shorter example
 julia --project=. square-lattice-anisotropy.jl  # more complex, but still quick
+julia --project=. custom-saving.jl  # still quick
 ```
 
 Notice that `--project=.` activates the 
@@ -58,6 +60,8 @@ cd examples
 sbatch <sbatch options> ./slurm-example-paderborn.sh dimer-anisotropy.jl 
 # Or
 sbatch <sbatch options> ./slurm-example-paderborn.sh square-lattice-anisotropy.jl
+# Or
+sbatch <sbatch options> ./slurm-example-paderborn.sh custom-saving.jl 
 ```
 
 > [!IMPORTANT]
