@@ -17,6 +17,24 @@ Refer to the documentation of [Pkg](https://docs.julialang.org/en/v1/stdlib/Pkg/
 (the Julia Package manager)
 for further information.
 
+### Instantiating the example environment
+
+To make sure that the examples can run,
+one might have to instantiate the environment.
+This needs to be done only once:
+
+``` bash
+cd examples
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+or, interactively, open julia using the local project/environment
+and use the `instantiate` command in "Package" mode.
+
+Please see the [Pkg](https://docs.julialang.org/en/v1/stdlib/Pkg/) docs
+for more information.
+
+
 ## Example scripts
 
 These minimal examples launch the `SolveFRG` function,
