@@ -36,6 +36,7 @@ end
 
 abstract type AbstractVertex{T} end
 abstract type AbstractBubble{T} end
+abstract type AbstractSigma{T} end
 
 struct XYZVertex{T} <: AbstractVertex{T}
     data::Array{T,5}
@@ -65,7 +66,7 @@ Base.fill!(b::XYZBubble, x) = (fill!(b.data, x); b)
 Base.copy(b::XYZBubble) = XYZBubble(Base.copy(b.data))
 Base.length(b::XYZBubble) = Base.length(b.data)
 
-struct SigmaType{T}
+struct XYZSigma{T} <: AbstractSigma{T}
     x::Array{T,2}
     y::Array{T,2}
     z::Array{T,2}
@@ -73,7 +74,7 @@ end
 
 struct StateType{T}
     f_int::Vector{T}
-    iSigma::SigmaType{T}
+    iSigma::XYZSigma{T}
     Gamma::XYZVertex{T}
 end
 
@@ -112,26 +113,26 @@ getBubbleVDims(Par) = (
     Par.NumericalParams.N,
 )
 
-function SigmaType(NUnique::Int, N::Int, type = Float64)
-    return SigmaType(
+function XYZSigma(NUnique::Int, N::Int, type = Float64)
+    return XYZSigma(
         zeros(type, NUnique, N),
         zeros(type, NUnique, N),
         zeros(type, NUnique, N),
     )
 end
-SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
+XYZSigma(Par) = XYZSigma(Par.System.Npairs, Par.NumericalParams.N)
 
 function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
     return StateType(
         zeros(type, NUnique),
-        SigmaType(type, NUnique, N),
+        XYZSigma(type, NUnique, N),
         XYZVertex(zeros(type, VDims)),
     )
 end
 StateType(Par) =
     StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
 StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
-    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), XYZVertex(Gamma))
+    StateType(f_int, XYZSigma(iSigma_x, iSigma_y, iSigma_z), XYZVertex(Gamma))
 RecursiveArrayTools.ArrayPartition(x::StateType) =
     ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma.data)
 StateType(Arr::ArrayPartition) = StateType(Arr.x...)
@@ -341,7 +342,7 @@ end
 ######### 1-PARTICLE BUBBLE #####################
 #################################################
 
-function compute1PartBubble!(Dgamma::SigmaType, Gamma::XYZVertex{T}, Props, Par) where {T}
+function compute1PartBubble!(Dgamma::XYZSigma, Gamma::XYZVertex{T}, Props, Par) where {T}
     invpairs = Par.System.invpairs
 
     setZero!(Dgamma)
@@ -488,7 +489,7 @@ function getDFint!(Workspace, FlowParam::Real)
         Deriv.f_int[x] = -f * sumres
     end
 end
-function addTo1PartBubble!(Dgamma::SigmaType, Gamma_::Function, Props, Par)
+function addTo1PartBubble!(Dgamma::XYZSigma, Gamma_::Function, Props, Par)
 
     (; N, lenIntw_acc) = Par.NumericalParams
     (; siteSum, Nsum, OnsitePairs) = Par.System
@@ -721,7 +722,7 @@ end
 
 
 
-function get_iGs(FlowParam::Real, iSigma::SigmaType, NumPar::AbstractNumericalParams)
+function get_iGs(FlowParam::Real, iSigma::XYZSigma, NumPar::AbstractNumericalParams)
 
     iGx = get_iG_i(FlowParam, iSigma.x, NumPar)
     iGy = get_iG_i(FlowParam, iSigma.y, NumPar)
@@ -1660,7 +1661,7 @@ function iSKat_(
 end
 
 
-function get_iS(FlowParam::Real, iSigma::SigmaType, _::TFlowNumericalParams)
+function get_iS(FlowParam::Real, iSigma::XYZSigma, _::TFlowNumericalParams)
     T = FlowParam
 
     @inline iSx(x, nw) = iS_(iSigma.x, x, nw, T) / 2
@@ -1803,7 +1804,7 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function get_iS(FlowParam::Real, iSigma::SigmaType, NumParams::LFlowNumericalParams)
+function get_iS(FlowParam::Real, iSigma::XYZSigma, NumParams::LFlowNumericalParams)
     Lam = FlowParam
     T = NumParams.T
 
