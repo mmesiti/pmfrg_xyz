@@ -34,6 +34,31 @@ function setZero!(a::T) where {T}
     return a
 end
 
+abstract type AbstractVertex{T} <: AbstractArray{T,5} end   # <: AbstractArray is temporary, until the Heisenberg merge
+abstract type AbstractBubble{T} <: AbstractArray{T,5} end
+
+struct XYZVertex{T} <: AbstractVertex{T}
+    data::Array{T,5}
+end
+XYZVertex(v::XYZVertex) = v   # idempotent
+XYZVertex{T}(v::XYZVertex) where {T} = XYZVertex(T.(v.data))
+Base.convert(::Type{XYZVertex{T}}, a::Array{T,5}) where {T} = XYZVertex(a)
+Base.size(v::XYZVertex) = size(v.data)
+Base.IndexStyle(::Type{<:XYZVertex}) = IndexLinear()
+Base.getindex(v::XYZVertex, i) = Base.getindex(v.data, i)
+Base.setindex!(v::XYZVertex, val, i) = Base.setindex!(v.data, val, i)
+Base.fill!(v::XYZVertex, x) = (fill!(v.data, x); v)
+
+struct XYZBubble{T} <: AbstractBubble{T}
+    data::Array{T,5}
+end
+Base.convert(::Type{XYZBubble{T}}, a::Array{T,5}) where {T} = XYZBubble(a)
+Base.size(b::XYZBubble) = size(b.data)
+Base.IndexStyle(::Type{<:XYZBubble}) = IndexLinear()
+Base.getindex(b::XYZBubble, i) = Base.getindex(b.data, i)
+Base.setindex!(b::XYZBubble, val, i) = Base.setindex!(b.data, val, i)
+Base.fill!(b::XYZBubble, x) = (fill!(b.data, x); b)
+
 struct SigmaType{T}
     x::Array{T,2}
     y::Array{T,2}
@@ -43,7 +68,7 @@ end
 struct StateType{T}
     f_int::Vector{T}
     iSigma::SigmaType{T}
-    Gamma::Array{T,5}
+    Gamma::XYZVertex{T}
 end
 
 struct Observables{T}
@@ -91,14 +116,18 @@ end
 SigmaType(Par) = SigmaType(Par.System.Npairs, Par.NumericalParams.N)
 
 function StateType(NUnique::Int, N::Int, VDims::Tuple, type = Float64)
-    return StateType(zeros(type, NUnique), SigmaType(type, NUnique, N), zeros(type, VDims))
+    return StateType(
+        zeros(type, NUnique),
+        SigmaType(type, NUnique, N),
+        XYZVertex(zeros(type, VDims)),
+    )
 end
 StateType(Par) =
     StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
 StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
-    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), Gamma)
+    StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), XYZVertex(Gamma))
 RecursiveArrayTools.ArrayPartition(x) =
-    ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma)
+    ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma.data)
 StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 
 OptionParams(; use_symmetry::Bool = true, MinimalOutput::Bool = false, kwargs...) =
@@ -235,7 +264,7 @@ end
 ######### SYMMETRY FUNCTIONS ####################
 #################################################
 
-function symmetrizeBubble!(X::Array{T,5}, Par) where {T}
+function symmetrizeBubble!(X::XYZBubble{T}, Par) where {T}
     N = Par.NumericalParams.N
     (; Npairs, OnsitePairs) = Par.System
     use_symmetry = Par.Options.use_symmetry
@@ -267,7 +296,7 @@ function symmetrizeBubble!(X::Array{T,5}, Par) where {T}
     end
 end
 
-function addToVertexFromBubble!(Gamma::Array{T,5}, X::Array{T,5}) where {T}
+function addToVertexFromBubble!(Gamma::XYZVertex{T}, X::XYZBubble{T}) where {T}
     for iu in axes(Gamma, 5)
         for it in axes(Gamma, 4), is in axes(Gamma, 3), Rij in axes(Gamma, 2)
             for n = 1:9 ### Zaa(s,t,u) = -Yaa(s,u,t) ; Zab1(s,t,u) = -Yab1(s,u,t)
@@ -291,7 +320,7 @@ function addToVertexFromBubble!(Gamma::Array{T,5}, X::Array{T,5}) where {T}
     return Gamma
 end
 
-function symmetrizeVertex!(Gamma::Array{T,5}, Par) where {T}
+function symmetrizeVertex!(Gamma::XYZVertex{T}, Par) where {T}
     N = Par.NumericalParams.N
     for iu = 1:N
         for it = 1:N, is = 1:N, R in Par.System.OnsitePairs
@@ -306,7 +335,7 @@ end
 ######### 1-PARTICLE BUBBLE #####################
 #################################################
 
-function compute1PartBubble!(Dgamma::SigmaType, Gamma::Array{T,5}, Props, Par) where {T}
+function compute1PartBubble!(Dgamma::SigmaType, Gamma::XYZVertex{T}, Props, Par) where {T}
     invpairs = Par.System.invpairs
 
     setZero!(Dgamma)
@@ -337,7 +366,7 @@ end
 ######### INITIALIZATION FUNCTIONS ##############
 #################################################
 
-function InitializeState(Par, anisotropy)
+function InitializeState(Par, anisotropy::Array{T,2}) where {T}
 
     N = Par.NumericalParams.N
     (; couplings, NUnique) = Par.System
@@ -395,13 +424,13 @@ function AllocateSetup(Par::OneLoopParams)
     println("Allocate Setup")
     ## Allocate Memory:
     floattype = _getFloatType(Par)
-    return (X = zeros(floattype, getBubbleVDims(Par)), Par = Par)
+    return (X = XYZBubble(zeros(floattype, getBubbleVDims(Par))), Par = Par)
 end
 
 struct OneLoopWorkspace{T,ParType}
     State::StateType{T}
     Deriv::StateType{T}
-    X::Array{T,5}
+    X::XYZBubble{T}
     Par::ParType
 end
 
@@ -791,7 +820,7 @@ end
 
 function addX!(
     X_sum_addX::Array{T,3},
-    Gamma::Array{T,5},
+    Gamma::XYZVertex{T},
     System::Geometry,
     N::Integer,
     is::Integer,
@@ -1053,7 +1082,7 @@ end
 
 function addY!(
     X_sum_addY::Array{T,3},
-    Gamma::Array{T,5},
+    Gamma::XYZVertex{T},
     System::Geometry,
     N::Int64,
     is::Integer,
@@ -1383,17 +1412,18 @@ function addY!(
 end
 
 
-function set_spropX!(
-    spropX,
+function set_KataninPropX!(
+    spropX::AbstractArray{T,3},
     NUnique,
     iSigma,
     DiSigma,
     FlowParam,
-    nw1,
-    nw2,
+    nw,
+    ns,
+    _,
     ComputeType,
     NumPar::AbstractNumericalParams,
-)
+) where {T}
 
     iGs = get_iGs(FlowParam, iSigma, NumPar)
     iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
@@ -1401,24 +1431,25 @@ function set_spropX!(
     f = T_Dimension(NumPar)
     for Rij = 1:NUnique
         for j = 1:3, i = 1:3
-            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw1) * iGs[j](Rij, nw2) * f)
+            spropX[i, j, Rij] = ComputeType(-iSKat[i](Rij, nw) * iGs[j](Rij, nw + ns) * f)
         end
     end
 
 end
 
 
-function set_spropY!(
-    spropY,
+function set_KataninPropY!(
+    spropY::AbstractArray{T,4},
     NUnique,
     iSigma,
     DiSigma,
     FlowParam,
-    nw1,
-    nw2,
+    nw,
+    _,
+    nt,
     ComputeType,
     NumPar::AbstractNumericalParams,
-)
+) where {T}
 
     iGs = get_iGs(FlowParam, iSigma, NumPar)
     iSKat = get_iSKat(iSigma, DiSigma, FlowParam, NumPar)
@@ -1427,7 +1458,7 @@ function set_spropY!(
     for Rij1 = 1:NUnique, Rij2 = 1:NUnique
         for j = 1:3, i = 1:3
             spropY[i, j, Rij1, Rij2] =
-                ComputeType(-iSKat[i](Rij1, nw1) * iGs[j](Rij2, nw2) * f)
+                ComputeType(-iSKat[i](Rij1, nw) * iGs[j](Rij2, nw - nt) * f)
         end
     end
 
@@ -1449,7 +1480,7 @@ function getXBubble!(
     # Convert Gamma to ComputeType if needed
     Gamma =
         eltype(Workspace.State.Gamma) == ComputeType ? Workspace.State.Gamma :
-        ComputeType.(Workspace.State.Gamma)
+        XYZVertex{ComputeType}(Workspace.State.Gamma)
 
     # Determine block size based on precision
     # iuh_blocksize = ComputeType == Float64 ? 4 : 8 # 256b - based, avx2
@@ -1470,25 +1501,27 @@ function getXBubble!(
 
             for nw = (-lenIntw):(lenIntw-1) # Matsubara sum
                 # Update Katanin propagators for current nw (convert to ComputeType)
-                set_spropX!(
+                set_KataninPropX!(
                     Buffs.spropX,
                     NUnique,
                     iSigma,
                     DiSigma,
                     FlowParameter,
                     nw,
-                    nw + ns,
+                    ns,
+                    nt,
                     ComputeType,
                     Par.NumericalParams,
                 )
-                set_spropY!(
+                set_KataninPropY!(
                     Buffs.spropY,
                     NUnique,
                     iSigma,
                     DiSigma,
                     FlowParameter,
                     nw,
-                    nw - nt,
+                    ns,
+                    nt,
                     ComputeType,
                     Par.NumericalParams,
                 )

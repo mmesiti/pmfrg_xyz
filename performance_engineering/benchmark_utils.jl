@@ -7,6 +7,7 @@ import PMFRG_xyz:
     AllocateSetup,
     InitializeState,
     OneLoopWorkspace,
+    XYZVertex,
     addX!,
     addY!,
     get_ThreadLocalBuffers
@@ -22,7 +23,7 @@ function check_addXY_allocations(T)
     # Convert Gamma to ComputeType if needed
     Gamma =
         eltype(Workspace.State.Gamma) == T ? Workspace.State.Gamma :
-        T.(Workspace.State.Gamma)
+        XYZVertex{T}(Workspace.State.Gamma)
 
 
     iuh_blocksize = (T == Float64) ? 4 : 8
