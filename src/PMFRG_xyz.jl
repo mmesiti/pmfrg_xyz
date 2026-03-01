@@ -34,8 +34,8 @@ function setZero!(a::T) where {T}
     return a
 end
 
-abstract type AbstractVertex{T} <: AbstractArray{T,5} end   # <: AbstractArray is temporary, until the Heisenberg merge
-abstract type AbstractBubble{T} <: AbstractArray{T,5} end
+abstract type AbstractVertex{T} end
+abstract type AbstractBubble{T} end
 
 struct XYZVertex{T} <: AbstractVertex{T}
     data::Array{T,5}
@@ -45,9 +45,13 @@ XYZVertex{T}(v::XYZVertex) where {T} = XYZVertex(T.(v.data))
 Base.convert(::Type{XYZVertex{T}}, a::Array{T,5}) where {T} = XYZVertex(a)
 Base.size(v::XYZVertex) = size(v.data)
 Base.IndexStyle(::Type{<:XYZVertex}) = IndexLinear()
-Base.getindex(v::XYZVertex, i) = Base.getindex(v.data, i)
-Base.setindex!(v::XYZVertex, val, i) = Base.setindex!(v.data, val, i)
+Base.getindex(v::XYZVertex, i...) = Base.getindex(v.data, i...)
+Base.setindex!(v::XYZVertex, val, i...) = Base.setindex!(v.data, val, i...)
 Base.fill!(v::XYZVertex, x) = (fill!(v.data, x); v)
+Base.copy(v::XYZVertex) = XYZVertex(Base.copy(v.data))
+Base.axes(v::XYZVertex, i::Int64) = Base.axes(v.data, i)
+Base.length(v::XYZVertex) = Base.length(v.data)
+
 
 struct XYZBubble{T} <: AbstractBubble{T}
     data::Array{T,5}
@@ -55,9 +59,11 @@ end
 Base.convert(::Type{XYZBubble{T}}, a::Array{T,5}) where {T} = XYZBubble(a)
 Base.size(b::XYZBubble) = size(b.data)
 Base.IndexStyle(::Type{<:XYZBubble}) = IndexLinear()
-Base.getindex(b::XYZBubble, i) = Base.getindex(b.data, i)
-Base.setindex!(b::XYZBubble, val, i) = Base.setindex!(b.data, val, i)
+Base.getindex(b::XYZBubble, i...) = Base.getindex(b.data, i...)
+Base.setindex!(b::XYZBubble, val, i...) = Base.setindex!(b.data, val, i...)
 Base.fill!(b::XYZBubble, x) = (fill!(b.data, x); b)
+Base.copy(b::XYZBubble) = XYZBubble(Base.copy(b.data))
+Base.length(b::XYZBubble) = Base.length(b.data)
 
 struct SigmaType{T}
     x::Array{T,2}
@@ -126,7 +132,7 @@ StateType(Par) =
     StateType(Par.System.NUnique, Par.NumericalParams.N, getVDims(Par), _getFloatType(Par))
 StateType(f_int, iSigma_x, iSigma_y, iSigma_z, Gamma) =
     StateType(f_int, SigmaType(iSigma_x, iSigma_y, iSigma_z), XYZVertex(Gamma))
-RecursiveArrayTools.ArrayPartition(x) =
+RecursiveArrayTools.ArrayPartition(x::StateType) =
     ArrayPartition(x.f_int, x.iSigma.x, x.iSigma.y, x.iSigma.z, x.Gamma.data)
 StateType(Arr::ArrayPartition) = StateType(Arr.x...)
 
@@ -231,7 +237,7 @@ end
 #################################################
 
 function V_(
-    Vertex::AbstractArray,
+    Vertex::XYZVertex,
     n::Int,
     ns::Int,
     nt::Int,
@@ -641,7 +647,7 @@ end
 getChi_z(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
     State.x[2], # Sigma x
     State.x[3], # Sitma y
-    State.x[5],
+    XYZVertex(State.x[5]),
     T,
     fd.xy2,
     Par,
@@ -650,7 +656,7 @@ getChi_z(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
 getChi_x(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
     State.x[3], # Sigma y
     State.x[4], # Sigma z
-    State.x[5],
+    XYZVertex(State.x[5]),
     T,
     fd.yz2,
     Par,
@@ -659,7 +665,7 @@ getChi_x(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
 getChi_y(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
     State.x[4], # Sigma z
     State.x[2], # Sigma x
-    State.x[5],
+    XYZVertex(State.x[5]),
     T,
     fd.zx2,
     Par,
@@ -669,7 +675,7 @@ getChi_y(State::ArrayPartition, T::Real, Par, Numax::Real = 1) = getChi_3(
 function getChi_3(
     iSigma1::AbstractArray,
     iSigma2::AbstractArray,
-    Gamma::AbstractArray,
+    Gamma::XYZVertex,
     FlowParam::Real,
     fd_idx,
     Par,
@@ -869,12 +875,12 @@ function addX!(
             R34 = swap_R34 ? invpairs[ki] : ki
             FillVBuffer!(
                 (@view V12_addX[iuh_local, :, ki]),
-                (@view Gamma[:, R12, s1+1, t1+1, u1+1]),
+                (@view Gamma.data[:, R12, s1+1, t1+1, u1+1]),
                 flavTransf12,
             )
             FillVBuffer!(
                 (@view V34_addX[iuh_local, :, ki]),
-                (@view Gamma[:, R34, s2+1, t2+1, u2+1]),
+                (@view Gamma.data[:, R34, s2+1, t2+1, u2+1]),
                 flavTransf34,
             )
         end
@@ -1141,10 +1147,10 @@ function addY!(
             R31 = swap31 ? invpairs[Rij] : Rij
             R42 = swap42 ? invpairs[Rij] : Rij
 
-            FillVBuffer!(V13, (@view Gamma[:, R13, s13+1, t13+1, u13+1]), flavTransf13)
-            FillVBuffer!(V24, (@view Gamma[:, R24, s24+1, t24+1, u24+1]), flavTransf24)
-            FillVBuffer!(V31, (@view Gamma[:, R31, s31+1, t31+1, u31+1]), flavTransf31)
-            FillVBuffer!(V42, (@view Gamma[:, R42, s42+1, t42+1, u42+1]), flavTransf42)
+            FillVBuffer!(V13, (@view Gamma.data[:, R13, s13+1, t13+1, u13+1]), flavTransf13)
+            FillVBuffer!(V24, (@view Gamma.data[:, R24, s24+1, t24+1, u24+1]), flavTransf24)
+            FillVBuffer!(V31, (@view Gamma.data[:, R31, s31+1, t31+1, u31+1]), flavTransf31)
+            FillVBuffer!(V42, (@view Gamma.data[:, R42, s42+1, t42+1, u42+1]), flavTransf42)
 
 
             P = @SMatrix [Props[i, j, xi, xj] for i = 1:3, j = 1:3]
@@ -1578,7 +1584,7 @@ function getXBubble!(
                         iu_parity = (is + it) % 2
                         iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                         if iu <= N
-                            (@view Workspace.X[1:21, Rij, is, it, iu]) .+=
+                            (@view Workspace.X.data[1:21, Rij, is, it, iu]) .+=
                                 (@view Buffs.X_sum_addX[iuh_local, :, Rij])
                         end
                     end
@@ -1587,7 +1593,7 @@ function getXBubble!(
                         iu_parity = (is + it) % 2
                         iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
                         if iu <= N
-                            (@view Workspace.X[22:42, Rij, is, it, iu]) .+=
+                            (@view Workspace.X.data[22:42, Rij, is, it, iu]) .+=
                                 (@view Buffs.X_sum_addY[iuh_local, :, Rij])
                         end
                     end

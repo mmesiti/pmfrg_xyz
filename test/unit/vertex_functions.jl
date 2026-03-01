@@ -6,7 +6,7 @@ import PMFRG_xyz: V_, FillVBuffer!, ConvertFreqArgs, fd
 function test_fillvbuffer_v_equivalence()
     N = 8
     Npairs = 6
-    Gamma = randn(21, Npairs, N, N, N)
+    Gamma = XYZVertex(randn(21, Npairs, N, N, N))
     invpairs = [mod1(Npairs - i + 1, Npairs) for i = 1:Npairs]
 
     @testset for R = 1:Npairs,
@@ -22,7 +22,11 @@ function test_fillvbuffer_v_equivalence()
         R_swapped = flavTransf[1] ? invpairs[R] : R
 
         V_from_Vert = zeros(21)
-        FillVBuffer!(V_from_Vert, (@view Gamma[:, R_swapped, s+1, t+1, u+1]), flavTransf)
+        FillVBuffer!(
+            V_from_Vert,
+            (@view Gamma.data[:, R_swapped, s+1, t+1, u+1]),
+            flavTransf,
+        )
 
         for n = 1:21
             V_from_V_ = V_(Gamma, n, raw_s, raw_t, raw_u, flavTransf, R, invpairs[R], N)

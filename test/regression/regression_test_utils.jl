@@ -48,10 +48,10 @@ function run_getXbubble_regression_tests(data_path::String)
             @test_nowarn PMFRG_xyz.getXBubble!(Workspace, T; ComputeType = Float32)
             X_float32 = copy(Workspace.X)
 
-            @test X_float64 ≈ X_float64_explicit
-            @test X_float64 ≈ X_float32 rtol = 1e-6
+            @test X_float64.data ≈ X_float64_explicit.data
+            @test X_float64.data ≈ X_float32.data rtol = 1e-6
 
-            Workspace.X .= X_original
+            Workspace.X.data .= X_original.data
         end
     end
     nothing
