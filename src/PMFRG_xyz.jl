@@ -458,16 +458,12 @@ function get_Self_Energy!(Workspace, FlowParam::Real)
 
 end
 
-function getDFint!(f_int, iSigma, NumericalParams, FlowParam::Real)
+function getDFint!(f_int, iSigma_i::AbstractMatrix, NumericalParams, FlowParam::Real)
     (; lenIntw_acc) = NumericalParams
     NUnique = length(f_int)
 
-    iSigmax(x, nw) = iSigma_(iSigma.x, x, nw)
-    iSigmay(x, nw) = iSigma_(iSigma.y, x, nw)
-    iSigmaz(x, nw) = iSigma_(iSigma.z, x, nw)
-
-    iGx, iGy, iGz = get_iGs(FlowParam, iSigma, NumericalParams)
-    iSx, iSy, iSz = get_iS(FlowParam, iSigma, NumericalParams)
+    iG_i = get_iG_i(FlowParam, iSigma_i, NumericalParams)
+    iS_i = get_iS_i(FlowParam, iSigma_i, NumericalParams)
     Theta = get_Theta(FlowParam, NumericalParams)
     f = T_Dimension(NumericalParams)
     _get_w = get_get_w(NumericalParams)
@@ -476,13 +472,19 @@ function getDFint!(f_int, iSigma, NumericalParams, FlowParam::Real)
         sumres = 0.0
         for nw = (-lenIntw_acc):(lenIntw_acc-1)
             w = _get_w(nw)
-            sumres += iSx(x, nw) / iGx(x, nw) * Theta(w) * iSigmax(x, nw) / w
-            sumres += iSy(x, nw) / iGy(x, nw) * Theta(w) * iSigmay(x, nw) / w
-            sumres += iSz(x, nw) / iGz(x, nw) * Theta(w) * iSigmaz(x, nw) / w
+            sumres += iS_i(x, nw) / iG_i(x, nw) * Theta(w) * iSigma_(iSigma_i, x, nw) / w
         end
-        f_int[x] = -f * sumres
+        f_int[x] += -f * sumres
     end
 end
+
+function getDFint!(f_int, iSigma::XYZSigma, NumericalParams, FlowParam::Real)
+    fill!(f_int, 0)
+    getDFint!(f_int, iSigma.x, NumericalParams, FlowParam)
+    getDFint!(f_int, iSigma.y, NumericalParams, FlowParam)
+    getDFint!(f_int, iSigma.z, NumericalParams, FlowParam)
+end
+
 function addTo1PartBubble!(Dgamma::XYZSigma, Gamma_::Function, Props, Par)
 
     (; N, lenIntw_acc) = Par.NumericalParams
@@ -1656,14 +1658,16 @@ function iSKat_(
 end
 
 
-function get_iS(FlowParam::Real, iSigma::XYZSigma, _::TFlowNumericalParams)
+function get_iS_i(FlowParam::Real, iSigma_i::AbstractArray, ::TFlowNumericalParams)
     T = FlowParam
+    @inline iS_i(x, nw) = iS_(iSigma_i, x, nw, T) / 2
+    return iS_i
+end
 
-    @inline iSx(x, nw) = iS_(iSigma.x, x, nw, T) / 2
-    @inline iSy(x, nw) = iS_(iSigma.y, x, nw, T) / 2
-    @inline iSz(x, nw) = iS_(iSigma.z, x, nw, T) / 2
-
-    return iSx, iSy, iSz
+function get_iS(FlowParam::Real, iSigma::XYZSigma, NumPar::TFlowNumericalParams)
+    return get_iS_i(FlowParam, iSigma.x, NumPar),
+    get_iS_i(FlowParam, iSigma.y, NumPar),
+    get_iS_i(FlowParam, iSigma.z, NumPar)
 end
 
 
@@ -1799,17 +1803,21 @@ end
 ######### FLOW EQUATIONS ## FLOW EQUATIONS ## FLOW EQUATIONS #########
 ######################################################################
 
-function get_iS(FlowParam::Real, iSigma::XYZSigma, NumParams::LFlowNumericalParams)
+function get_iS_i(FlowParam::Real, iSigma_i::AbstractArray, NumParams::LFlowNumericalParams)
     Lam = FlowParam
     T = NumParams.T
 
-    @inline iSx(x, nw) = iS_(iSigma.x, x, Lam, nw, T) / 2
-    @inline iSy(x, nw) = iS_(iSigma.y, x, Lam, nw, T) / 2
-    @inline iSz(x, nw) = iS_(iSigma.z, x, Lam, nw, T) / 2
+    @inline iS_i(x, nw) = iS_(iSigma_i, x, Lam, nw, T) / 2
 
-    return iSx, iSy, iSz
+    return iS_i
 
 end
+function get_iS(FlowParam::Real, iSigma::XYZSigma, NumPar::LFlowNumericalParams)
+    return get_iS_i(FlowParam, iSigma.x, NumPar),
+    get_iS_i(FlowParam, iSigma.y, NumPar),
+    get_iS_i(FlowParam, iSigma.z, NumPar)
+end
+
 
 
 function get_iG_i(FlowParam::Real, iSigma_i::AbstractArray, NumParams::LFlowNumericalParams)

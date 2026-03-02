@@ -2,15 +2,14 @@
 
 # Load dependencies from dev paths
 import Pkg
-Pkg.develop(path = joinpath(@__DIR__, "..", "..", "..", "..", "Recorder.jl"))
+Pkg.develop(path = joinpath(@__DIR__, "..", "..", "..", "..", "..", "Recorder.jl"))
 Pkg.develop(path = joinpath(@__DIR__, "..", "..", "..", "..", "SpinFRGLattices.jl"))
+Pkg.develop(path = joinpath(@__DIR__, "..", "..", ".."))
 
+using PMFRG_xyz
 using JLD2
 using Recorder
 using SpinFRGLattices
-
-# Include the Lambda Flow module
-include("../../../src/Lpmfrg_xyz.jl")
 
 # Create dimer system
 System = SpinFRGLattices.getPolymer(2)
