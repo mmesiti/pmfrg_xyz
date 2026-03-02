@@ -824,7 +824,7 @@ end
 
 
 function addX!(
-    X_sum_addX::Array{T,3},
+    Workspace_X::XYZBubble,
     Gamma::XYZVertex{T},
     System::Geometry,
     N::Integer,
@@ -838,7 +838,7 @@ function addX!(
 ) where {T}
 
     (; Npairs, Nsum, siteSum, invpairs) = System
-    (; V12_addX, V34_addX) = Buffers
+    (; V12_addX, V34_addX, X_sum_addX) = Buffers
     ns = is - 1
     nt = it - 1
 
@@ -1082,11 +1082,20 @@ function addX!(
             end
         end
     end
+    for Rij = 1:Npairs, iuh_local = 1:iuh_block_size
+        iuh_global = iuh_start + iuh_local - 1
+        iu_parity = (is + it) % 2
+        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+        if iu <= N
+            (@view Workspace_X.data[1:21, Rij, is, it, iu]) .+=
+                (@view X_sum_addX[iuh_local, :, Rij])
+        end
+    end
     return
 end
 
 function addY!(
-    X_sum_addY::Array{T,3},
+    Workspace_X::XYZBubble,
     Gamma::XYZVertex{T},
     System::Geometry,
     N::Int64,
@@ -1102,7 +1111,7 @@ function addY!(
     ns = is - 1
     nt = it - 1
 
-    (; V13_addY, V24_addY, V31_addY, V42_addY) = Buffers
+    (; V13_addY, V24_addY, V31_addY, V42_addY, X_sum_addY) = Buffers
     fill!(X_sum_addY, zero(T))
     for iuh_local = 1:block_length
         iuh_global = iuh_start + iuh_local - 1
@@ -1414,6 +1423,15 @@ function addY!(
 
         end
     end
+    for Rij = 1:Npairs, iuh_local = 1:block_length
+        iuh_global = iuh_start + iuh_local - 1
+        iu_parity = (is + it) % 2
+        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
+        if iu <= N
+            (@view Workspace_X.data[22:42, Rij, is, it, iu]) .+=
+                (@view X_sum_addY[iuh_local, :, Rij])
+        end
+    end
 end
 
 
@@ -1549,7 +1567,7 @@ function getXBubble!(
                     iuh_block_size = iuh_end - iuh_start + 1
 
                     addY!(
-                        Buffs.X_sum_addY,
+                        Workspace.X,
                         Gamma,
                         Workspace.Par.System,
                         N,
@@ -1563,7 +1581,7 @@ function getXBubble!(
                     )
 
                     addX!(
-                        Buffs.X_sum_addX,
+                        Workspace.X,
                         Gamma,
                         Workspace.Par.System,
                         N,
@@ -1575,27 +1593,6 @@ function getXBubble!(
                         iuh_start,
                         iuh_block_size,
                     )
-
-
-                    # Copy results back to Workspace.X
-                    for Rij = 1:Npairs, iuh_local = 1:iuh_block_size
-                        iuh_global = iuh_start + iuh_local - 1
-                        iu_parity = (is + it) % 2
-                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
-                        if iu <= N
-                            (@view Workspace.X.data[1:21, Rij, is, it, iu]) .+=
-                                (@view Buffs.X_sum_addX[iuh_local, :, Rij])
-                        end
-                    end
-                    for Rij = 1:Npairs, iuh_local = 1:iuh_block_size
-                        iuh_global = iuh_start + iuh_local - 1
-                        iu_parity = (is + it) % 2
-                        iu = (iuh_global - 1) * 2 + 1 + (1 - iu_parity)
-                        if iu <= N
-                            (@view Workspace.X.data[22:42, Rij, is, it, iu]) .+=
-                                (@view Buffs.X_sum_addY[iuh_local, :, Rij])
-                        end
-                    end
 
                 end
             end

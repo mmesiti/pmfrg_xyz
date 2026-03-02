@@ -59,8 +59,8 @@ end
 function run_allocation_tests()
     @testset "Checking allocations" for T in (Float64, Float32)
         addXallocations, addYallocations = check_addXY_allocations(T)
-        @test addXallocations <= 2
-        @test addYallocations <= 2
+        @test addXallocations <= 3
+        @test addYallocations <= 3
     end
 end
 

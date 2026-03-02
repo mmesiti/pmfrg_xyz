@@ -36,7 +36,7 @@ function check_addXY_allocations(T)
     block_length = iuh_blocksize
 
     addX!(
-        Buffs.X_sum_addX,
+        Workspace.X,
         Gamma,
         Workspace.Par.System,
         N,
@@ -50,7 +50,7 @@ function check_addXY_allocations(T)
     )
 
     addY!(
-        Buffs.X_sum_addY,
+        Workspace.X,
         Gamma,
         Workspace.Par.System,
         N,
@@ -65,7 +65,7 @@ function check_addXY_allocations(T)
 
 
     addXallocations = @allocations addX!(
-        Buffs.X_sum_addX,
+        Workspace.X,
         Gamma,
         Workspace.Par.System,
         N,
@@ -79,7 +79,7 @@ function check_addXY_allocations(T)
     )
 
     addYallocations = @allocations addY!(
-        Buffs.X_sum_addY,
+        Workspace.X,
         Gamma,
         Workspace.Par.System,
         N,
