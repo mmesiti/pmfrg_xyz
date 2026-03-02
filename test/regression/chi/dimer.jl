@@ -4,6 +4,7 @@ function get_data()
     (; State, FlowParam, Par) =
         load_object(joinpath(@__DIR__, "get_Chi_dimer_random_input.jld2"))
     (; chi_x, chi_y, chi_z) = load_object(joinpath(@__DIR__, "get_Chi_dimer_output.jld2"))
+
     return (; State, FlowParam, Par, chi_x, chi_y, chi_z)
 end
 

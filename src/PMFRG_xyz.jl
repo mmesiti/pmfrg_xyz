@@ -458,35 +458,29 @@ function get_Self_Energy!(Workspace, FlowParam::Real)
 
 end
 
-function getDFint!(Workspace, FlowParam::Real)
-    (; State, Deriv, Par) = Workspace
-    (; lenIntw_acc) = Par.NumericalParams
-    NUnique = Par.System.NUnique
+function getDFint!(f_int, iSigma, NumericalParams, FlowParam::Real)
+    (; lenIntw_acc) = NumericalParams
+    NUnique = length(f_int)
 
-    iSigmax(x, nw) = iSigma_(State.iSigma.x, x, nw)
-    iSigmay(x, nw) = iSigma_(State.iSigma.y, x, nw)
-    iSigmaz(x, nw) = iSigma_(State.iSigma.z, x, nw)
+    iSigmax(x, nw) = iSigma_(iSigma.x, x, nw)
+    iSigmay(x, nw) = iSigma_(iSigma.y, x, nw)
+    iSigmaz(x, nw) = iSigma_(iSigma.z, x, nw)
 
-    iGx, iGy, iGz = get_iGs(FlowParam, State.iSigma, Par.NumericalParams)
-
-    iSx, iSy, iSz = get_iS(FlowParam, State.iSigma, Par.NumericalParams)
-
-    Theta = get_Theta(FlowParam, Par.NumericalParams)
-
-    f = T_Dimension(Par.NumericalParams)
-
-    _get_w = get_get_w(Par.NumericalParams)
+    iGx, iGy, iGz = get_iGs(FlowParam, iSigma, NumericalParams)
+    iSx, iSy, iSz = get_iS(FlowParam, iSigma, NumericalParams)
+    Theta = get_Theta(FlowParam, NumericalParams)
+    f = T_Dimension(NumericalParams)
+    _get_w = get_get_w(NumericalParams)
 
     for x = 1:NUnique
         sumres = 0.0
         for nw = (-lenIntw_acc):(lenIntw_acc-1)
             w = _get_w(nw)
-
             sumres += iSx(x, nw) / iGx(x, nw) * Theta(w) * iSigmax(x, nw) / w
             sumres += iSy(x, nw) / iGy(x, nw) * Theta(w) * iSigmay(x, nw) / w
             sumres += iSz(x, nw) / iGz(x, nw) * Theta(w) * iSigmaz(x, nw) / w
         end
-        Deriv.f_int[x] = -f * sumres
+        f_int[x] = -f * sumres
     end
 end
 function addTo1PartBubble!(Dgamma::XYZSigma, Gamma_::Function, Props, Par)
@@ -543,7 +537,12 @@ function getDeriv!(Deriv, State, setup, FlowParameter; saveArgs = true)
 
     Workspace = OneLoopWorkspace(State, Deriv, X, Par)
 
-    getDFint!(Workspace, FlowParameter)
+    getDFint!(
+        Workspace.Deriv.f_int,
+        Workspace.State.iSigma,
+        Par.NumericalParams,
+        FlowParameter,
+    )
     get_Self_Energy!(Workspace, FlowParameter)
     getXBubble!(Workspace, FlowParameter)
 
@@ -799,7 +798,6 @@ struct ThreadLocalBuffersT{T}
 end
 
 function get_ThreadLocalBuffers(
-    N,
     System,
     iuh_blocksize::Int,
     ComputeType::Type{<:AbstractFloat},
@@ -1494,7 +1492,7 @@ function getXBubble!(
     optimal_iuh_blocksize = ComputeType == Float64 ? 8 : 16 # 64B - based, cache line  
 
     ThreadLocalBuffers =
-        get_ThreadLocalBuffers(N, Par.System, optimal_iuh_blocksize, ComputeType)
+        get_ThreadLocalBuffers(Par.System, optimal_iuh_blocksize, ComputeType)
 
     Threads.@threads :static for is_it = 1:(N*N)
         @inbounds begin

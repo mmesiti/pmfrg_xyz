@@ -28,7 +28,7 @@ function check_addXY_allocations(T)
 
     iuh_blocksize = (T == Float64) ? 4 : 8
 
-    Buffs = first(get_ThreadLocalBuffers(N, Par.System, iuh_blocksize, T, 1))
+    Buffs = first(get_ThreadLocalBuffers(Par.System, iuh_blocksize, T, 1))
 
 
     is, it, nw = 1, 1, 1
